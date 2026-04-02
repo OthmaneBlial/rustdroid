@@ -6,6 +6,8 @@ use std::{
 };
 
 use anyhow::{bail, Result};
+use bollard::container::LogsOptions;
+use futures_util::StreamExt;
 use serde::Serialize;
 
 use crate::{
@@ -206,7 +208,9 @@ impl EmulatorOrchestrator {
         };
 
         if let Some(artifacts_dir) = args.artifacts_dir.as_ref() {
-            write_run_artifacts(artifacts_dir, &summary)?;
+            let process_logs = self.collect_process_logs().await?;
+            let logcat_dump = self.collect_logcat_dump().await?;
+            write_run_artifacts(artifacts_dir, &summary, process_logs.as_deref(), logcat_dump.as_deref())?;
         }
 
         print_run_summary(&summary);
@@ -417,6 +421,61 @@ impl EmulatorOrchestrator {
             "docker"
         }
     }
+
+    async fn collect_process_logs(&self) -> Result<Option<String>> {
+        match &self.runtime {
+            Runtime::Docker(docker) => {
+                let mut stream = docker.client().logs(
+                    &self.config.container_name,
+                    Some(LogsOptions::<String> {
+                        follow: false,
+                        stdout: true,
+                        stderr: true,
+                        since: 0,
+                        until: 0,
+                        timestamps: true,
+                        tail: "all".to_owned(),
+                    }),
+                );
+                let mut output = String::new();
+                while let Some(chunk) = stream.next().await {
+                    output.push_str(&chunk?.to_string());
+                }
+                Ok(Some(output))
+            }
+            Runtime::Host(host) => {
+                let log_path = host.log_path(&self.config);
+                if !log_path.exists() {
+                    return Ok(None);
+                }
+                Ok(Some(fs::read_to_string(log_path)?))
+            }
+        }
+    }
+
+    async fn collect_logcat_dump(&self) -> Result<Option<String>> {
+        let outcome = self
+            .runtime
+            .exec(
+                &self.config,
+                vec![
+                    "adb".to_owned(),
+                    "-s".to_owned(),
+                    self.config.adb_serial.clone(),
+                    "logcat".to_owned(),
+                    "-d".to_owned(),
+                    "-v".to_owned(),
+                    "time".to_owned(),
+                ],
+            )
+            .await?;
+
+        if outcome.exit_code != 0 {
+            return Ok(None);
+        }
+
+        Ok(Some(outcome.stdout))
+    }
 }
 
 fn print_bench_result(result: &BenchResult) {
@@ -498,10 +557,46 @@ fn parse_failure_summary(message: &str) -> (Option<String>, Option<String>) {
     (None, None)
 }
 
-fn write_run_artifacts(artifacts_dir: &Path, summary: &RunSummary) -> Result<()> {
+fn write_run_artifacts(
+    artifacts_dir: &Path,
+    summary: &RunSummary,
+    process_logs: Option<&str>,
+    logcat_dump: Option<&str>,
+) -> Result<()> {
     fs::create_dir_all(artifacts_dir)?;
     let summary_path = artifacts_dir.join("run-summary.json");
     let summary_json = serde_json::to_string_pretty(summary)?;
     fs::write(summary_path, summary_json)?;
+    fs::write(artifacts_dir.join("run-report.html"), build_html_report(summary))?;
+    if let Some(process_logs) = process_logs {
+        fs::write(artifacts_dir.join("emulator-process.log"), process_logs)?;
+    }
+    if let Some(logcat_dump) = logcat_dump {
+        fs::write(artifacts_dir.join("logcat.txt"), logcat_dump)?;
+    }
     Ok(())
+}
+
+fn build_html_report(summary: &RunSummary) -> String {
+    format!(
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>RustDroid Run Report</title><style>body{{font-family:system-ui,sans-serif;margin:2rem;background:#f4f1ea;color:#111}}main{{max-width:840px;margin:0 auto;background:#fff;padding:2rem;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.08)}}h1{{margin-top:0}}dl{{display:grid;grid-template-columns:220px 1fr;gap:.75rem 1rem}}dt{{font-weight:700}}dd{{margin:0}}.badge{{display:inline-block;padding:.3rem .6rem;border-radius:999px;background:#111;color:#fff;font-size:.85rem}}.warn{{background:#9b2c2c}}</style></head><body><main><h1>RustDroid Run Report</h1><p><span class=\"badge\">{backend}</span></p><dl><dt>Package</dt><dd>{package}</dd><dt>ADB Serial</dt><dd>{serial}</dd><dt>Boot</dt><dd>{boot} ms</dd><dt>Install</dt><dd>{install} ms</dd><dt>Launch</dt><dd>{launch} ms</dd><dt>Total</dt><dd>{total} ms</dd><dt>ABIs</dt><dd>{abis}</dd><dt>x86 Ready</dt><dd>{x86_ready}</dd><dt>ARM Translation</dt><dd>{arm_translation}</dd><dt>GPS Disabled</dt><dd>{gps_disabled}</dd><dt>Kept Alive</dt><dd>{kept_alive}</dd><dt>Crash</dt><dd>{crash}</dd><dt>ANR</dt><dd>{anr}</dd></dl></main></body></html>",
+        backend = summary.runtime_backend,
+        package = summary.package_name,
+        serial = summary.adb_serial,
+        boot = summary.boot_duration_ms,
+        install = summary.install_duration_ms,
+        launch = summary.launch_duration_ms,
+        total = summary.total_duration_ms,
+        abis = if summary.native_abis.is_empty() {
+            "<none>".to_owned()
+        } else {
+            summary.native_abis.join(", ")
+        },
+        x86_ready = summary.x86_ready,
+        arm_translation = summary.uses_arm_translation,
+        gps_disabled = summary.gps_disabled,
+        kept_alive = summary.kept_alive,
+        crash = summary.crash_summary.as_deref().unwrap_or("none"),
+        anr = summary.anr_summary.as_deref().unwrap_or("none"),
+    )
 }
