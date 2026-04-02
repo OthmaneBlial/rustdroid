@@ -199,8 +199,21 @@ fn write_config(path: &Path, config: &RuntimeConfig) -> Result<()> {
             .with_context(|| format!("failed to create {}", parent.display()))?;
     }
 
-    let contents = toml::to_string_pretty(config)
+    let body = toml::to_string_pretty(config)
         .with_context(|| format!("failed to serialize {}", path.display()))?;
+    let contents = format!(
+        "# RustDroid project config\n\
+# Optional profile inheritance:\n\
+# profile = \"host-fast\"\n\
+# Common env overrides:\n\
+# RUSTDROID_RUNTIME_BACKEND\n\
+# RUSTDROID_HOST_AVD_NAME\n\
+# RUSTDROID_EMULATOR_GPU_MODE\n\
+# RUSTDROID_LOGCAT_FILTERS\n\
+# RUSTDROID_ARTIFACTS_DIR\n\n\
+{body}"
+    );
+
     fs::write(path, contents).with_context(|| format!("failed to write {}", path.display()))
 }
 

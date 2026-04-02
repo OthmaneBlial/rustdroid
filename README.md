@@ -180,6 +180,15 @@ rustdroid --json clean --dry-run
 ./scripts/run-smoke-matrix.sh --list
 ```
 
+Config files can inherit from a built-in profile:
+
+```toml
+profile = "host-fast"
+host_avd_name = "team_avd"
+artifacts_dir = ".rustdroid/artifacts"
+logcat_filters = ["*:W", "MyApp:I"]
+```
+
 ### Daily APK Loop
 
 ```bash
@@ -271,6 +280,8 @@ RustDroid already supports per-project config files through `--config`, and now 
 - `RUSTDROID_HOST_EMULATOR_PORT`
 - `RUSTDROID_EMULATOR_GPU_MODE`
 - `RUSTDROID_UI_BACKEND`
+- `RUSTDROID_LOGCAT_FILTERS`
+- `RUSTDROID_ARTIFACTS_DIR`
 
 ## Helper Modes
 

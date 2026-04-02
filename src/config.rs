@@ -2,6 +2,7 @@ use std::{fs, path::Path, thread};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use toml::Value;
 
 use crate::cli::{BootMode, Cli, RuntimeBackend, UiBackend};
 use crate::profiles::apply_named_profile;
@@ -51,6 +52,7 @@ pub struct RuntimeConfig {
     pub remote_apk_dir: String,
     pub remote_apk_name: String,
     pub logcat_filters: Vec<String>,
+    pub artifacts_dir: Option<String>,
 }
 
 impl Default for RuntimeConfig {
@@ -102,6 +104,7 @@ impl Default for RuntimeConfig {
             remote_apk_dir: "/tmp/rustdroid".to_owned(),
             remote_apk_name: "app.apk".to_owned(),
             logcat_filters: vec!["*:I".to_owned()],
+            artifacts_dir: None,
         }
     }
 }
@@ -367,8 +370,35 @@ showDeviceFrame = no\n",
 
         let raw = fs::read_to_string(path)
             .with_context(|| format!("failed to read config file {}", path.display()))?;
-        toml::from_str(&raw)
-            .with_context(|| format!("failed to parse config file {}", path.display()))
+        let parsed: Value = toml::from_str(&raw)
+            .with_context(|| format!("failed to parse config file {}", path.display()))?;
+        let mut config = Self::default();
+
+        if let Some(table) = parsed.as_table() {
+            if let Some(profile) = table
+                .get("profile")
+                .or_else(|| table.get("extends"))
+                .and_then(Value::as_str)
+            {
+                apply_named_profile(&mut config, profile)?;
+            }
+        }
+
+        let mut merged = Value::try_from(config)
+            .with_context(|| format!("failed to merge {}", path.display()))?;
+
+        if let (Some(base_table), Some(file_table)) = (merged.as_table_mut(), parsed.as_table()) {
+            for (key, value) in file_table {
+                if matches!(key.as_str(), "profile" | "extends") {
+                    continue;
+                }
+                base_table.insert(key.clone(), value.clone());
+            }
+        }
+
+        merged
+            .try_into()
+            .with_context(|| format!("failed to build config from {}", path.display()))
     }
 }
 
@@ -453,6 +483,21 @@ fn apply_env_overrides(config: &mut RuntimeConfig) -> Result<()> {
     if let Ok(value) = std::env::var("RUSTDROID_UI_BACKEND") {
         config.ui_backend = parse_ui_backend(&value)?;
     }
+    if let Ok(value) = std::env::var("RUSTDROID_LOGCAT_FILTERS") {
+        config.logcat_filters = value
+            .split(',')
+            .map(str::trim)
+            .filter(|entry| !entry.is_empty())
+            .map(str::to_owned)
+            .collect();
+    }
+    if let Ok(value) = std::env::var("RUSTDROID_ARTIFACTS_DIR") {
+        config.artifacts_dir = if value.trim().is_empty() {
+            None
+        } else {
+            Some(value)
+        };
+    }
 
     Ok(())
 }
@@ -508,8 +553,10 @@ fn default_container_name(config: &RuntimeConfig) -> String {
 #[cfg(test)]
 mod tests {
     use std::sync::{Mutex, OnceLock};
+    use std::fs;
 
     use clap::Parser;
+    use tempfile::tempdir;
 
     use super::RuntimeConfig;
     use crate::cli::{Cli, RuntimeBackend, UiBackend};
@@ -676,6 +723,52 @@ mod tests {
         clear_env();
     }
 
+    #[test]
+    fn config_file_can_extend_a_named_profile() {
+        let temp_dir = tempdir().expect("temp dir");
+        let config_path = temp_dir.path().join("rustdroid.toml");
+        fs::write(
+            &config_path,
+            r#"
+profile = "host-fast"
+host_avd_name = "team_avd"
+artifacts_dir = ".rustdroid/artifacts"
+"#,
+        )
+        .expect("config should be written");
+
+        let config = RuntimeConfig::from_path(&config_path).expect("config should load");
+        assert_eq!(config.runtime_backend, RuntimeBackend::Host);
+        assert_eq!(config.host_avd_name.as_deref(), Some("team_avd"));
+        assert_eq!(
+            config.artifacts_dir.as_deref(),
+            Some(".rustdroid/artifacts")
+        );
+        assert_eq!(config.emulator_gpu_mode, "host");
+    }
+
+    #[test]
+    fn env_artifact_and_logcat_overrides_are_applied() {
+        let _guard = env_lock().lock().expect("env lock should be available");
+        clear_env();
+        std::env::set_var("RUSTDROID_ARTIFACTS_DIR", ".rustdroid/runs");
+        std::env::set_var("RUSTDROID_LOGCAT_FILTERS", "*:W,MyApp:I");
+
+        let cli = Cli::parse_from([
+            "rustdroid",
+            "--config",
+            "/tmp/rustdroid-nonexistent.toml",
+            "run",
+            "app.apk",
+        ]);
+
+        let config = RuntimeConfig::load(&cli).expect("env override config should load");
+        assert_eq!(config.artifacts_dir.as_deref(), Some(".rustdroid/runs"));
+        assert_eq!(config.logcat_filters, vec!["*:W", "MyApp:I"]);
+
+        clear_env();
+    }
+
     fn env_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| Mutex::new(()))
@@ -688,6 +781,8 @@ mod tests {
             "RUSTDROID_BOOT_MODE",
             "RUSTDROID_UI_BACKEND",
             "RUSTDROID_EMULATOR_GPU_MODE",
+            "RUSTDROID_LOGCAT_FILTERS",
+            "RUSTDROID_ARTIFACTS_DIR",
         ] {
             std::env::remove_var(key);
         }

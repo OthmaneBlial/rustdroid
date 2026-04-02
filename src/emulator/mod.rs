@@ -197,7 +197,13 @@ impl EmulatorOrchestrator {
                 .collect(),
         };
 
-        if let Some(artifacts_dir) = args.artifacts_dir.as_ref() {
+        let artifacts_dir = args
+            .artifacts_dir
+            .as_ref()
+            .cloned()
+            .or_else(|| self.config.artifacts_dir.as_ref().map(PathBuf::from));
+
+        if let Some(artifacts_dir) = artifacts_dir.as_ref() {
             let process_logs = self.collect_process_logs().await?;
             let logcat_dump = self.collect_logcat_dump().await?;
             write_run_artifacts(
