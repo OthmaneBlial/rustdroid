@@ -8,6 +8,7 @@ mod emulator;
 mod host;
 mod logs;
 mod output;
+mod profiles;
 mod runtime;
 mod tooling;
 

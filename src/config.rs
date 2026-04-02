@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::cli::{BootMode, Cli, RuntimeBackend, UiBackend};
+use crate::profiles::apply_named_profile;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -108,6 +109,7 @@ impl Default for RuntimeConfig {
 impl RuntimeConfig {
     pub fn load(cli: &Cli) -> Result<Self> {
         let mut config = Self::from_path(&cli.config)?;
+        apply_env_overrides(&mut config)?;
         let default_image = Self::default().image;
         let serial_explicit = cli.adb_serial.is_some();
         let host_port_explicit = cli.host_emulator_port.is_some();
@@ -418,6 +420,78 @@ fn host_emulator_port_from_serial(serial: &str) -> Option<u16> {
         .and_then(|value| value.parse::<u16>().ok())
 }
 
+fn apply_env_overrides(config: &mut RuntimeConfig) -> Result<()> {
+    if let Ok(profile) = std::env::var("RUSTDROID_PROFILE") {
+        if !profile.trim().is_empty() {
+            apply_named_profile(config, profile.trim())?;
+        }
+    }
+
+    if let Ok(value) = std::env::var("RUSTDROID_RUNTIME_BACKEND") {
+        config.runtime_backend = parse_runtime_backend(&value)?;
+    }
+    if let Ok(value) = std::env::var("RUSTDROID_BOOT_MODE") {
+        config.boot_mode = parse_boot_mode(&value)?;
+    }
+    if let Ok(value) = std::env::var("RUSTDROID_IMAGE") {
+        config.image = value;
+    }
+    if let Ok(value) = std::env::var("RUSTDROID_CONTAINER_NAME") {
+        config.container_name = value;
+    }
+    if let Ok(value) = std::env::var("RUSTDROID_HOST_AVD_NAME") {
+        config.host_avd_name = Some(value);
+    }
+    if let Ok(value) = std::env::var("RUSTDROID_HOST_EMULATOR_PORT") {
+        config.host_emulator_port = value
+            .parse::<u16>()
+            .with_context(|| format!("invalid RUSTDROID_HOST_EMULATOR_PORT='{value}'"))?;
+    }
+    if let Ok(value) = std::env::var("RUSTDROID_EMULATOR_GPU_MODE") {
+        config.emulator_gpu_mode = value;
+    }
+    if let Ok(value) = std::env::var("RUSTDROID_UI_BACKEND") {
+        config.ui_backend = parse_ui_backend(&value)?;
+    }
+
+    Ok(())
+}
+
+fn parse_runtime_backend(value: &str) -> Result<RuntimeBackend> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "docker" => Ok(RuntimeBackend::Docker),
+        "host" => Ok(RuntimeBackend::Host),
+        _ => anyhow::bail!(
+            "invalid RUSTDROID_RUNTIME_BACKEND='{}' (expected 'docker' or 'host')",
+            value
+        ),
+    }
+}
+
+fn parse_boot_mode(value: &str) -> Result<BootMode> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "warm" => Ok(BootMode::Warm),
+        "cold" => Ok(BootMode::Cold),
+        _ => anyhow::bail!(
+            "invalid RUSTDROID_BOOT_MODE='{}' (expected 'warm' or 'cold')",
+            value
+        ),
+    }
+}
+
+fn parse_ui_backend(value: &str) -> Result<UiBackend> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "scrcpy" | "native" => Ok(UiBackend::Scrcpy),
+        "vnc" => Ok(UiBackend::Vnc),
+        "web" => Ok(UiBackend::Web),
+        "both" => Ok(UiBackend::Both),
+        _ => anyhow::bail!(
+            "invalid RUSTDROID_UI_BACKEND='{}' (expected 'scrcpy', 'vnc', 'web', or 'both')",
+            value
+        ),
+    }
+}
+
 fn default_container_name(config: &RuntimeConfig) -> String {
     if config.headless {
         return "rustdroid-emulator".to_owned();
@@ -433,6 +507,8 @@ fn default_container_name(config: &RuntimeConfig) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Mutex, OnceLock};
+
     use clap::Parser;
 
     use super::RuntimeConfig;
@@ -501,5 +577,46 @@ mod tests {
         assert_eq!(config.runtime_backend, RuntimeBackend::Host);
         assert_eq!(config.adb_serial, "emulator-5560");
         assert_eq!(config.emulator_gpu_mode, "auto-no-window");
+    }
+
+    #[test]
+    fn env_profile_and_backend_overrides_are_applied() {
+        let _guard = env_lock().lock().expect("env lock should be available");
+        std::env::set_var("RUSTDROID_PROFILE", "browser-demo");
+        std::env::set_var("RUSTDROID_RUNTIME_BACKEND", "host");
+        std::env::set_var("RUSTDROID_UI_BACKEND", "scrcpy");
+        std::env::set_var("RUSTDROID_EMULATOR_GPU_MODE", "auto-no-window");
+
+        let cli = Cli::parse_from([
+            "rustdroid",
+            "--config",
+            "/tmp/rustdroid-nonexistent.toml",
+            "start",
+            "--wait",
+            "false",
+        ]);
+
+        let config = RuntimeConfig::load(&cli).expect("env override config should load");
+        assert_eq!(config.runtime_backend, RuntimeBackend::Host);
+        assert_eq!(config.ui_backend, UiBackend::Scrcpy);
+        assert_eq!(config.emulator_gpu_mode, "auto-no-window");
+
+        clear_env();
+    }
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    fn clear_env() {
+        for key in [
+            "RUSTDROID_PROFILE",
+            "RUSTDROID_RUNTIME_BACKEND",
+            "RUSTDROID_UI_BACKEND",
+            "RUSTDROID_EMULATOR_GPU_MODE",
+        ] {
+            std::env::remove_var(key);
+        }
     }
 }

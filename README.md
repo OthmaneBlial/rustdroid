@@ -221,6 +221,20 @@ rustdroid avds
 
 RustDroid now supports `--json` for the discovery and setup commands, including `version`, `doctor`, `devices`, `avds`, `self-test`, `bench`, `profile`, `config init`, and `clean`.
 
+### Reproducible Team Setups
+
+RustDroid already supports per-project config files through `--config`, and now also supports environment overrides for shared shells and CI. Useful variables include:
+
+- `RUSTDROID_PROFILE`
+- `RUSTDROID_RUNTIME_BACKEND`
+- `RUSTDROID_BOOT_MODE`
+- `RUSTDROID_IMAGE`
+- `RUSTDROID_CONTAINER_NAME`
+- `RUSTDROID_HOST_AVD_NAME`
+- `RUSTDROID_HOST_EMULATOR_PORT`
+- `RUSTDROID_EMULATOR_GPU_MODE`
+- `RUSTDROID_UI_BACKEND`
+
 ## Helper Modes
 
 `run.sh` includes these shortcuts:
