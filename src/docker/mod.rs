@@ -469,12 +469,9 @@ fn make_tar_archive(local_path: &Path, remote_name: &str) -> Result<Vec<u8>> {
     Ok(archive)
 }
 
-fn port_configuration(
-    config: &RuntimeConfig,
-) -> (
-    Option<std::collections::HashMap<String, std::collections::HashMap<(), ()>>>,
-    Option<PortMap>,
-) {
+type ExposedPorts = std::collections::HashMap<String, std::collections::HashMap<(), ()>>;
+
+fn port_configuration(config: &RuntimeConfig) -> (Option<ExposedPorts>, Option<PortMap>) {
     if config.headless {
         return (None, None);
     }

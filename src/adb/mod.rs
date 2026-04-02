@@ -60,27 +60,17 @@ pub struct AdbClient {
 }
 
 impl AdbClient {
-    pub fn new(
-        serial: impl Into<String>,
-        disable_animations: bool,
-        optimize_android_runtime: bool,
-        device_width_px: u16,
-        device_height_px: u16,
-        device_density_dpi: u16,
-        compile_installed_package: bool,
-        disable_preinstalled_packages: bool,
-        disable_google_play_services: bool,
-    ) -> Self {
+    pub fn from_config(config: &RuntimeConfig) -> Self {
         Self {
-            serial: serial.into(),
-            disable_animations,
-            optimize_android_runtime,
-            device_width_px,
-            device_height_px,
-            device_density_dpi,
-            compile_installed_package,
-            disable_preinstalled_packages,
-            disable_google_play_services,
+            serial: config.adb_serial.clone(),
+            disable_animations: config.disable_animations,
+            optimize_android_runtime: config.optimize_android_runtime,
+            device_width_px: config.device_width_px,
+            device_height_px: config.device_height_px,
+            device_density_dpi: config.device_density_dpi,
+            compile_installed_package: config.compile_installed_package,
+            disable_preinstalled_packages: config.disable_preinstalled_packages,
+            disable_google_play_services: config.disable_google_play_services,
         }
     }
 

@@ -3,9 +3,11 @@ use std::path::Path;
 #[test]
 fn release_assets_exist_in_repo() {
     for path in [
+        ".github/workflows/ci.yml",
         ".github/workflows/release.yml",
         "install.sh",
         "uninstall.sh",
+        "scripts/ci-shell-check.sh",
         "scripts/package-release.sh",
         "README.md",
         "LICENSE",
@@ -20,7 +22,12 @@ fn release_assets_exist_in_repo() {
 
 #[test]
 fn install_and_package_scripts_are_executable() {
-    for path in ["install.sh", "uninstall.sh", "scripts/package-release.sh"] {
+    for path in [
+        "install.sh",
+        "uninstall.sh",
+        "scripts/ci-shell-check.sh",
+        "scripts/package-release.sh",
+    ] {
         let metadata = std::fs::metadata(path).expect("script metadata should be readable");
         #[cfg(unix)]
         {

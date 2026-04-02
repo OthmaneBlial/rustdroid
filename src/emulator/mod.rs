@@ -68,17 +68,7 @@ struct InstallOutcome {
 
 impl EmulatorOrchestrator {
     pub fn new(config: RuntimeConfig, runtime: Runtime) -> Self {
-        let adb = AdbClient::new(
-            config.adb_serial.clone(),
-            config.disable_animations,
-            config.optimize_android_runtime,
-            config.device_width_px,
-            config.device_height_px,
-            config.device_density_dpi,
-            config.compile_installed_package,
-            config.disable_preinstalled_packages,
-            config.disable_google_play_services,
-        );
+        let adb = AdbClient::from_config(&config);
         Self {
             config,
             runtime,
@@ -106,7 +96,7 @@ impl EmulatorOrchestrator {
 
         if let Some(apk) = args.apk.as_ref() {
             self.require_apk(apk)?;
-            let remote_paths = self.upload_apks(&[apk.clone()]).await?;
+            let remote_paths = self.upload_apks(std::slice::from_ref(apk)).await?;
             let metadata = self.inspect_uploaded_apks(&remote_paths).await?;
             eprintln!(
                 "launching {} via APK metadata on {}",
@@ -258,7 +248,7 @@ impl EmulatorOrchestrator {
             eprintln!("==> install benchmark");
             let install_started = Instant::now();
             let install = self
-                .install_uploaded_apks(&[apk.clone()], args.replace)
+                .install_uploaded_apks(std::slice::from_ref(apk), args.replace)
                 .await?;
             result.install_duration_ms = Some(install_started.elapsed().as_millis());
             result.package_name = Some(install.metadata.package_name.clone());

@@ -108,6 +108,7 @@ It is not trying to replace a full device lab. It is trying to stop you from pay
 - configurable CPU, RAM, heap, density, resolution, and GPU mode
 - bash and zsh completion generation
 - helper script for common local workflows
+- GitHub Actions CI for `fmt`, `clippy`, `test`, `build`, and shell syntax checks
 
 ## Install
 
