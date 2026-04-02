@@ -241,12 +241,20 @@ fn host_backend_detects_avds_and_managed_start_stop() {
         harness.state_dir().join("avd.name").is_file(),
         "expected managed host avd marker to exist after start"
     );
+    assert!(
+        harness.state_dir().join("state.json").is_file(),
+        "expected managed host state record to exist after start"
+    );
 
     let stop_output = run_command(harness.command().arg("stop").arg("--timeout-secs").arg("5"));
     assert_success(&stop_output);
     assert!(
         !harness.state_dir().join("emulator.pid").exists(),
         "expected host pid file to be removed after stop"
+    );
+    assert!(
+        !harness.state_dir().join("state.json").exists(),
+        "expected host state record to be removed after stop"
     );
 }
 

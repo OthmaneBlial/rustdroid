@@ -127,10 +127,14 @@ pub async fn clean(dry_run: bool, json: bool) -> Result<()> {
     }
 
     let state_root = std::env::temp_dir().join("rustdroid");
-    let terminated_host_emulators =
-        terminate_pid_files(&state_root.join("host"), "host emulator", dry_run)?;
+    let terminated_host_emulators = terminate_pid_files(
+        &state_root.join("host"),
+        "host emulator",
+        "emulator",
+        dry_run,
+    )?;
     let terminated_scrcpy_sessions =
-        terminate_pid_files(&state_root.join("scrcpy"), "scrcpy", dry_run)?;
+        terminate_pid_files(&state_root.join("scrcpy"), "scrcpy", "scrcpy", dry_run)?;
 
     let removed_temp_state = if dry_run {
         state_root.exists()
@@ -187,8 +191,8 @@ pub async fn stop_all(timeout_secs: u64) -> Result<()> {
     }
 
     let state_root = std::env::temp_dir().join("rustdroid");
-    let _ = terminate_pid_files(&state_root.join("host"), "host emulator", false)?;
-    let _ = terminate_pid_files(&state_root.join("scrcpy"), "scrcpy", false)?;
+    let _ = terminate_pid_files(&state_root.join("host"), "host emulator", "emulator", false)?;
+    let _ = terminate_pid_files(&state_root.join("scrcpy"), "scrcpy", "scrcpy", false)?;
     let _ = fs::remove_dir_all(&state_root);
     Ok(())
 }
@@ -217,7 +221,12 @@ fn write_config(path: &Path, config: &RuntimeConfig) -> Result<()> {
     fs::write(path, contents).with_context(|| format!("failed to write {}", path.display()))
 }
 
-fn terminate_pid_files(root: &Path, label: &str, dry_run: bool) -> Result<usize> {
+fn terminate_pid_files(
+    root: &Path,
+    label: &str,
+    expected_program: &str,
+    dry_run: bool,
+) -> Result<usize> {
     let mut terminated = 0;
 
     if !root.exists() {
@@ -237,7 +246,7 @@ fn terminate_pid_files(root: &Path, label: &str, dry_run: bool) -> Result<usize>
             continue;
         };
 
-        if !process_alive(pid) {
+        if !process_alive(pid) || !process_matches_label(pid, expected_program) {
             continue;
         }
 
@@ -272,6 +281,19 @@ fn walk_pid_files(root: &Path) -> Result<Vec<std::path::PathBuf>> {
 
 fn process_alive(pid: u32) -> bool {
     Path::new(&format!("/proc/{pid}")).exists()
+}
+
+fn process_matches_label(pid: u32, label: &str) -> bool {
+    let Ok(bytes) = fs::read(format!("/proc/{pid}/cmdline")) else {
+        return false;
+    };
+    if bytes.is_empty() {
+        return false;
+    }
+
+    String::from_utf8_lossy(&bytes)
+        .to_ascii_lowercase()
+        .contains(&label.to_ascii_lowercase())
 }
 
 fn send_signal(pid: u32, signal: &str) -> Result<()> {

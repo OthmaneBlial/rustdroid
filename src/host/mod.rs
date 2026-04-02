@@ -8,6 +8,7 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
+use serde::{Deserialize, Serialize};
 use tokio::{net::TcpStream, process::Command, time::sleep};
 
 use crate::{config::RuntimeConfig, docker::ExecOutcome};
@@ -35,15 +36,19 @@ impl HostRuntime {
 
         if let Some(pid) = read_pid(&state.pid_path)? {
             if process_alive(pid) {
-                if matches!(config.boot_mode, crate::cli::BootMode::Cold) {
+                if !process_matches_emulator(pid, Some(config.host_emulator_port)) {
+                    eprintln!(
+                        "discarding stale host state for {} because pid {} is no longer the expected emulator process",
+                        config.adb_serial, pid
+                    );
+                    cleanup_state_files(&state)?;
+                } else if matches!(config.boot_mode, crate::cli::BootMode::Cold) {
                     eprintln!(
                         "cold boot requested; restarting managed host emulator {}",
                         config.adb_serial
                     );
                     self.stop(config, 15).await?;
-                } else if read_trimmed(&state.config_hash_path)?.as_deref()
-                    == Some(config_hash.as_str())
-                {
+                } else if managed_state_matches_config(&state, config, &config_hash)? {
                     eprintln!("reusing managed host emulator {}", config.adb_serial);
                     return Ok(());
                 } else {
@@ -104,12 +109,19 @@ impl HostRuntime {
             )
         })?;
 
-        fs::write(&state.pid_path, child.id().to_string())
-            .with_context(|| format!("failed to write {}", state.pid_path.display()))?;
-        fs::write(&state.config_hash_path, config_hash)
-            .with_context(|| format!("failed to write {}", state.config_hash_path.display()))?;
-        fs::write(&state.avd_name_path, avd_name.as_bytes())
-            .with_context(|| format!("failed to write {}", state.avd_name_path.display()))?;
+        write_state_files(
+            &state,
+            &HostStateRecord {
+                pid: child.id(),
+                adb_serial: config.adb_serial.clone(),
+                host_emulator_port: config.host_emulator_port,
+                avd_name: avd_name.clone(),
+                config_hash: config_hash.clone(),
+                started_at_ms: current_time_ms(),
+            },
+        )?;
+
+        wait_for_launch_survival(child.id(), &state.log_path).await?;
 
         eprintln!(
             "launching host emulator '{}' on {} (logs: {})",
@@ -122,6 +134,7 @@ impl HostRuntime {
 
     pub async fn stop(&self, config: &RuntimeConfig, timeout_secs: u64) -> Result<()> {
         let state = HostStatePaths::new(config);
+        let record = read_state_record(&state)?;
         let Some(pid) = read_pid(&state.pid_path)? else {
             if adb_device_reachable(&config.adb_serial).await? {
                 eprintln!(
@@ -134,6 +147,21 @@ impl HostRuntime {
         };
 
         if !process_alive(pid) {
+            cleanup_state_files(&state)?;
+            return Ok(());
+        }
+
+        if !process_matches_emulator(
+            pid,
+            record
+                .as_ref()
+                .map(|record| record.host_emulator_port)
+                .or(Some(config.host_emulator_port)),
+        ) {
+            eprintln!(
+                "dropping stale host state for {} without killing pid {} because the process no longer looks like an emulator",
+                config.adb_serial, pid
+            );
             cleanup_state_files(&state)?;
             return Ok(());
         }
@@ -227,6 +255,7 @@ struct HostStatePaths {
     pid_path: PathBuf,
     config_hash_path: PathBuf,
     avd_name_path: PathBuf,
+    record_path: PathBuf,
     log_path: PathBuf,
 }
 
@@ -241,10 +270,21 @@ impl HostStatePaths {
             pid_path: dir.join("emulator.pid"),
             config_hash_path: dir.join("config.hash"),
             avd_name_path: dir.join("avd.name"),
+            record_path: dir.join("state.json"),
             log_path: dir.join("emulator.log"),
             dir,
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct HostStateRecord {
+    pid: u32,
+    adb_serial: String,
+    host_emulator_port: u16,
+    avd_name: String,
+    config_hash: String,
+    started_at_ms: u128,
 }
 
 fn validate_host_config(config: &RuntimeConfig) -> Result<()> {
@@ -442,11 +482,43 @@ fn process_alive(pid: u32) -> bool {
     Path::new(&format!("/proc/{pid}")).exists()
 }
 
+fn process_matches_emulator(pid: u32, host_emulator_port: Option<u16>) -> bool {
+    let Some(cmdline) = process_cmdline(pid) else {
+        return false;
+    };
+    let lowercase = cmdline.to_ascii_lowercase();
+    let looks_like_emulator = lowercase.contains("emulator") || lowercase.contains("qemu-system");
+    if !looks_like_emulator {
+        return false;
+    }
+
+    host_emulator_port.is_none_or(|port| {
+        lowercase.contains(&format!("-ports {port},{}", port + 1))
+            || lowercase.contains(&format!("{port},{}", port + 1))
+            || lowercase.contains(&port.to_string())
+    })
+}
+
+fn process_cmdline(pid: u32) -> Option<String> {
+    let bytes = fs::read(format!("/proc/{pid}/cmdline")).ok()?;
+    if bytes.is_empty() {
+        return None;
+    }
+
+    Some(
+        String::from_utf8_lossy(&bytes)
+            .replace('\0', " ")
+            .trim()
+            .to_owned(),
+    )
+}
+
 fn cleanup_state_files(state: &HostStatePaths) -> Result<()> {
     for path in [
         &state.pid_path,
         &state.config_hash_path,
         &state.avd_name_path,
+        &state.record_path,
     ] {
         if path.exists() {
             fs::remove_file(path)
@@ -454,7 +526,84 @@ fn cleanup_state_files(state: &HostStatePaths) -> Result<()> {
         }
     }
 
+    if state.dir.exists() && fs::read_dir(&state.dir)?.next().is_none() {
+        fs::remove_dir(&state.dir)
+            .with_context(|| format!("failed to remove {}", state.dir.display()))?;
+    }
+
     Ok(())
+}
+
+fn managed_state_matches_config(
+    state: &HostStatePaths,
+    config: &RuntimeConfig,
+    config_hash: &str,
+) -> Result<bool> {
+    if let Some(record) = read_state_record(state)? {
+        return Ok(record.adb_serial == config.adb_serial
+            && record.host_emulator_port == config.host_emulator_port
+            && record.config_hash == config_hash);
+    }
+
+    Ok(read_trimmed(&state.config_hash_path)?.as_deref() == Some(config_hash))
+}
+
+fn write_state_files(state: &HostStatePaths, record: &HostStateRecord) -> Result<()> {
+    fs::write(&state.pid_path, record.pid.to_string())
+        .with_context(|| format!("failed to write {}", state.pid_path.display()))?;
+    fs::write(&state.config_hash_path, &record.config_hash)
+        .with_context(|| format!("failed to write {}", state.config_hash_path.display()))?;
+    fs::write(&state.avd_name_path, record.avd_name.as_bytes())
+        .with_context(|| format!("failed to write {}", state.avd_name_path.display()))?;
+    fs::write(
+        &state.record_path,
+        serde_json::to_vec_pretty(record).context("failed to serialize host state")?,
+    )
+    .with_context(|| format!("failed to write {}", state.record_path.display()))?;
+    Ok(())
+}
+
+fn read_state_record(state: &HostStatePaths) -> Result<Option<HostStateRecord>> {
+    let Some(raw) = read_trimmed(&state.record_path)? else {
+        return Ok(None);
+    };
+
+    serde_json::from_str(&raw)
+        .with_context(|| format!("failed to parse {}", state.record_path.display()))
+        .map(Some)
+}
+
+async fn wait_for_launch_survival(pid: u32, log_path: &Path) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_millis(1500);
+    while Instant::now() < deadline {
+        if !process_alive(pid) {
+            let log_tail = tail_log_file(log_path, 20);
+            bail!(
+                "host emulator exited shortly after launch{}",
+                log_tail
+                    .as_deref()
+                    .map(|tail| format!(" (recent log tail='{}')", tail))
+                    .unwrap_or_default()
+            );
+        }
+        sleep(Duration::from_millis(150)).await;
+    }
+
+    Ok(())
+}
+
+fn tail_log_file(path: &Path, line_count: usize) -> Option<String> {
+    let contents = fs::read_to_string(path).ok()?;
+    let mut lines: Vec<_> = contents.lines().rev().take(line_count).collect();
+    lines.reverse();
+    Some(lines.join(" | "))
+}
+
+fn current_time_ms() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|value| value.as_millis())
+        .unwrap_or_default()
 }
 
 fn read_pid(path: &Path) -> Result<Option<u32>> {
@@ -566,4 +715,89 @@ fn find_latest_sdk_tool(root: &Path, suffix: &str) -> Option<PathBuf> {
         .into_iter()
         .map(|path| path.join(suffix))
         .find(|path| path.exists())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use tempfile::tempdir;
+
+    use super::{
+        current_time_ms, process_cmdline, process_matches_emulator, read_state_record,
+        tail_log_file, write_state_files, HostStatePaths, HostStateRecord,
+    };
+    use crate::config::RuntimeConfig;
+
+    #[test]
+    fn state_record_round_trip_preserves_expected_fields() {
+        let temp_dir = tempdir().expect("tempdir");
+        let mut config = RuntimeConfig::default();
+        config.container_name = "host-state-test".to_owned();
+        let state = HostStatePaths::new(&config);
+        fs::create_dir_all(&state.dir).expect("state dir");
+
+        let record = HostStateRecord {
+            pid: 1234,
+            adb_serial: "emulator-5680".to_owned(),
+            host_emulator_port: 5680,
+            avd_name: "test_avd".to_owned(),
+            config_hash: "deadbeef".to_owned(),
+            started_at_ms: current_time_ms(),
+        };
+
+        let relocated_state = HostStatePaths {
+            dir: temp_dir.path().join("host").join("host-state-test"),
+            pid_path: temp_dir
+                .path()
+                .join("host")
+                .join("host-state-test")
+                .join("emulator.pid"),
+            config_hash_path: temp_dir
+                .path()
+                .join("host")
+                .join("host-state-test")
+                .join("config.hash"),
+            avd_name_path: temp_dir
+                .path()
+                .join("host")
+                .join("host-state-test")
+                .join("avd.name"),
+            record_path: temp_dir
+                .path()
+                .join("host")
+                .join("host-state-test")
+                .join("state.json"),
+            log_path: temp_dir
+                .path()
+                .join("host")
+                .join("host-state-test")
+                .join("emulator.log"),
+        };
+        fs::create_dir_all(&relocated_state.dir).expect("relocated state dir");
+
+        write_state_files(&relocated_state, &record).expect("write state");
+        let restored = read_state_record(&relocated_state)
+            .expect("read state")
+            .expect("state should exist");
+
+        assert_eq!(restored.pid, 1234);
+        assert_eq!(restored.host_emulator_port, 5680);
+        assert_eq!(restored.avd_name, "test_avd");
+    }
+
+    #[test]
+    fn current_process_matches_emulator_check_is_false() {
+        assert!(!process_matches_emulator(std::process::id(), None));
+        assert!(process_cmdline(std::process::id()).is_some());
+    }
+
+    #[test]
+    fn tail_log_file_returns_recent_lines() {
+        let temp_dir = tempdir().expect("tempdir");
+        let log_path = temp_dir.path().join("emulator.log");
+        fs::write(&log_path, "one\ntwo\nthree\nfour\n").expect("log");
+
+        assert_eq!(tail_log_file(&log_path, 2).as_deref(), Some("three | four"));
+    }
 }
