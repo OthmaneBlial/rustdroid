@@ -66,6 +66,16 @@ struct InstallOutcome {
     metadata: ApkMetadata,
 }
 
+#[derive(Debug, Clone, Default)]
+struct RunArtifacts {
+    process_logs: Option<String>,
+    logcat_dump: Option<String>,
+    crash_summary: Option<String>,
+    anr_summary: Option<String>,
+    anr_traces: Option<String>,
+    tombstones: Option<String>,
+}
+
 impl EmulatorOrchestrator {
     pub fn new(config: RuntimeConfig, runtime: Runtime) -> Self {
         let adb = AdbClient::from_config(&config);
@@ -163,11 +173,29 @@ impl EmulatorOrchestrator {
         .await;
 
         let total_duration_ms = total_started.elapsed().as_millis();
-        let (crash_summary, anr_summary) = stream_result
+        let (message_crash_summary, message_anr_summary) = stream_result
             .as_ref()
             .err()
             .map(|error| parse_failure_summary(&error.to_string()))
             .unwrap_or((None, None));
+
+        let mut artifacts = RunArtifacts::default();
+        if args.artifacts_dir.is_some() {
+            artifacts = self.collect_run_artifacts().await?;
+        }
+
+        let crash_summary = message_crash_summary.or_else(|| {
+            artifacts
+                .logcat_dump
+                .as_deref()
+                .and_then(extract_logcat_crash_summary)
+        });
+        let anr_summary = message_anr_summary.or_else(|| {
+            artifacts
+                .logcat_dump
+                .as_deref()
+                .and_then(extract_logcat_anr_summary)
+        });
 
         let summary = RunSummary {
             runtime_backend: self.runtime_backend_name().to_owned(),
@@ -204,13 +232,14 @@ impl EmulatorOrchestrator {
             .or_else(|| self.config.artifacts_dir.as_ref().map(PathBuf::from));
 
         if let Some(artifacts_dir) = artifacts_dir.as_ref() {
-            let process_logs = self.collect_process_logs().await?;
-            let logcat_dump = self.collect_logcat_dump().await?;
             write_run_artifacts(
                 artifacts_dir,
                 &summary,
-                process_logs.as_deref(),
-                logcat_dump.as_deref(),
+                &RunArtifacts {
+                    crash_summary: summary.crash_summary.clone(),
+                    anr_summary: summary.anr_summary.clone(),
+                    ..artifacts
+                },
             )?;
         }
 
@@ -477,6 +506,54 @@ impl EmulatorOrchestrator {
 
         Ok(Some(outcome.stdout))
     }
+
+    async fn collect_run_artifacts(&self) -> Result<RunArtifacts> {
+        let process_logs = self.collect_process_logs().await?;
+        let logcat_dump = self.collect_logcat_dump().await?;
+        let anr_traces = self
+            .capture_shell_file("if [ -f /data/anr/traces.txt ]; then cat /data/anr/traces.txt; fi")
+            .await?;
+        let tombstones = self
+            .capture_shell_file(
+                "if [ -d /data/tombstones ]; then for f in /data/tombstones/tombstone_*; do [ -f \"$f\" ] || continue; echo \"===== $f =====\"; cat \"$f\"; echo; done; fi",
+            )
+            .await?;
+
+        Ok(RunArtifacts {
+            crash_summary: logcat_dump
+                .as_deref()
+                .and_then(extract_logcat_crash_summary),
+            anr_summary: logcat_dump.as_deref().and_then(extract_logcat_anr_summary),
+            process_logs,
+            logcat_dump,
+            anr_traces,
+            tombstones,
+        })
+    }
+
+    async fn capture_shell_file(&self, script: &str) -> Result<Option<String>> {
+        let outcome = self
+            .runtime
+            .exec(
+                &self.config,
+                vec![
+                    "adb".to_owned(),
+                    "-s".to_owned(),
+                    self.config.adb_serial.clone(),
+                    "shell".to_owned(),
+                    "sh".to_owned(),
+                    "-lc".to_owned(),
+                    script.to_owned(),
+                ],
+            )
+            .await?;
+
+        if outcome.exit_code != 0 || outcome.stdout.trim().is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(outcome.stdout))
+    }
 }
 
 fn print_bench_result(result: &BenchResult) {
@@ -558,32 +635,92 @@ fn parse_failure_summary(message: &str) -> (Option<String>, Option<String>) {
     (None, None)
 }
 
+fn extract_logcat_crash_summary(logcat: &str) -> Option<String> {
+    extract_logcat_line(logcat, &["FATAL EXCEPTION", "crash detected"])
+}
+
+fn extract_logcat_anr_summary(logcat: &str) -> Option<String> {
+    extract_logcat_line(
+        logcat,
+        &[
+            "ANR in",
+            "Input dispatching timed out",
+            "input dispatching timed out",
+        ],
+    )
+}
+
+fn extract_logcat_line(logcat: &str, needles: &[&str]) -> Option<String> {
+    logcat
+        .lines()
+        .find(|line| needles.iter().any(|needle| line.contains(needle)))
+        .map(str::trim)
+        .map(str::to_owned)
+}
+
 fn write_run_artifacts(
     artifacts_dir: &Path,
     summary: &RunSummary,
-    process_logs: Option<&str>,
-    logcat_dump: Option<&str>,
+    artifacts: &RunArtifacts,
 ) -> Result<()> {
     fs::create_dir_all(artifacts_dir)?;
-    let summary_path = artifacts_dir.join("run-summary.json");
+    let reports_dir = artifacts_dir.join("reports");
+    let logs_dir = artifacts_dir.join("logs");
+    let forensics_dir = artifacts_dir.join("forensics");
+    fs::create_dir_all(&reports_dir)?;
+    fs::create_dir_all(&logs_dir)?;
+    fs::create_dir_all(&forensics_dir)?;
+
     let summary_json = serde_json::to_string_pretty(summary)?;
-    fs::write(summary_path, summary_json)?;
-    fs::write(
-        artifacts_dir.join("run-report.html"),
-        build_html_report(summary),
-    )?;
-    if let Some(process_logs) = process_logs {
-        fs::write(artifacts_dir.join("emulator-process.log"), process_logs)?;
+    let report_html = build_html_report(summary);
+
+    for summary_path in [
+        artifacts_dir.join("run-summary.json"),
+        reports_dir.join("run-summary.json"),
+    ] {
+        fs::write(summary_path, &summary_json)?;
     }
-    if let Some(logcat_dump) = logcat_dump {
-        fs::write(artifacts_dir.join("logcat.txt"), logcat_dump)?;
+    for report_path in [
+        artifacts_dir.join("run-report.html"),
+        reports_dir.join("run-report.html"),
+    ] {
+        fs::write(report_path, &report_html)?;
+    }
+
+    if let Some(process_logs) = artifacts.process_logs.as_deref() {
+        for path in [
+            artifacts_dir.join("emulator-process.log"),
+            logs_dir.join("emulator-process.log"),
+        ] {
+            fs::write(path, process_logs)?;
+        }
+    }
+    if let Some(logcat_dump) = artifacts.logcat_dump.as_deref() {
+        for path in [
+            artifacts_dir.join("logcat.txt"),
+            logs_dir.join("logcat.txt"),
+        ] {
+            fs::write(path, logcat_dump)?;
+        }
+    }
+    if let Some(crash_summary) = artifacts.crash_summary.as_deref() {
+        fs::write(forensics_dir.join("crash-summary.txt"), crash_summary)?;
+    }
+    if let Some(anr_summary) = artifacts.anr_summary.as_deref() {
+        fs::write(forensics_dir.join("anr-summary.txt"), anr_summary)?;
+    }
+    if let Some(anr_traces) = artifacts.anr_traces.as_deref() {
+        fs::write(forensics_dir.join("anr-traces.txt"), anr_traces)?;
+    }
+    if let Some(tombstones) = artifacts.tombstones.as_deref() {
+        fs::write(forensics_dir.join("tombstones.txt"), tombstones)?;
     }
     Ok(())
 }
 
 fn build_html_report(summary: &RunSummary) -> String {
     format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\"><title>RustDroid Run Report</title><style>body{{font-family:system-ui,sans-serif;margin:2rem;background:#f4f1ea;color:#111}}main{{max-width:840px;margin:0 auto;background:#fff;padding:2rem;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.08)}}h1{{margin-top:0}}dl{{display:grid;grid-template-columns:220px 1fr;gap:.75rem 1rem}}dt{{font-weight:700}}dd{{margin:0}}.badge{{display:inline-block;padding:.3rem .6rem;border-radius:999px;background:#111;color:#fff;font-size:.85rem}}.warn{{background:#9b2c2c}}</style></head><body><main><h1>RustDroid Run Report</h1><p><span class=\"badge\">{backend}</span></p><dl><dt>Package</dt><dd>{package}</dd><dt>ADB Serial</dt><dd>{serial}</dd><dt>Boot</dt><dd>{boot} ms</dd><dt>Install</dt><dd>{install} ms</dd><dt>Launch</dt><dd>{launch} ms</dd><dt>Total</dt><dd>{total} ms</dd><dt>ABIs</dt><dd>{abis}</dd><dt>x86 Ready</dt><dd>{x86_ready}</dd><dt>ARM Translation</dt><dd>{arm_translation}</dd><dt>GPS Disabled</dt><dd>{gps_disabled}</dd><dt>Kept Alive</dt><dd>{kept_alive}</dd><dt>Crash</dt><dd>{crash}</dd><dt>ANR</dt><dd>{anr}</dd></dl></main></body></html>",
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>RustDroid Run Report</title><style>body{{font-family:system-ui,sans-serif;margin:2rem;background:#f4f1ea;color:#111}}main{{max-width:900px;margin:0 auto;background:#fff;padding:2rem;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.08)}}h1{{margin-top:0}}dl{{display:grid;grid-template-columns:220px 1fr;gap:.75rem 1rem}}dt{{font-weight:700}}dd{{margin:0}}.badge{{display:inline-block;padding:.3rem .6rem;border-radius:999px;background:#111;color:#fff;font-size:.85rem}}.panel{{margin-top:1.5rem;padding:1rem 1.25rem;border-radius:12px;background:#f7f3ea}}code{{background:#f1ede4;padding:.1rem .35rem;border-radius:6px}}</style></head><body><main><h1>RustDroid Run Report</h1><p><span class=\"badge\">{backend}</span></p><dl><dt>Package</dt><dd>{package}</dd><dt>ADB Serial</dt><dd>{serial}</dd><dt>Boot</dt><dd>{boot} ms</dd><dt>Install</dt><dd>{install} ms</dd><dt>Launch</dt><dd>{launch} ms</dd><dt>Total</dt><dd>{total} ms</dd><dt>ABIs</dt><dd>{abis}</dd><dt>x86 Ready</dt><dd>{x86_ready}</dd><dt>ARM Translation</dt><dd>{arm_translation}</dd><dt>GPS Disabled</dt><dd>{gps_disabled}</dd><dt>Kept Alive</dt><dd>{kept_alive}</dd><dt>Crash</dt><dd>{crash}</dd><dt>ANR</dt><dd>{anr}</dd></dl><section class=\"panel\"><h2>Artifact Layout</h2><p><code>reports/</code> contains the HTML and JSON run summary. <code>logs/</code> contains emulator and logcat output. <code>forensics/</code> contains crash, ANR, tombstone, and trace captures when available.</p></section></main></body></html>",
         backend = summary.runtime_backend,
         package = summary.package_name,
         serial = summary.adb_serial,
@@ -611,7 +748,10 @@ mod tests {
 
     use tempfile::tempdir;
 
-    use super::{build_html_report, parse_failure_summary, write_run_artifacts, RunSummary};
+    use super::{
+        build_html_report, extract_logcat_anr_summary, extract_logcat_crash_summary,
+        parse_failure_summary, write_run_artifacts, RunArtifacts, RunSummary,
+    };
 
     fn sample_summary() -> RunSummary {
         RunSummary {
@@ -654,8 +794,14 @@ mod tests {
         write_run_artifacts(
             dir.path(),
             &summary,
-            Some("process logs"),
-            Some("logcat dump"),
+            &RunArtifacts {
+                process_logs: Some("process logs".to_owned()),
+                logcat_dump: Some("logcat dump".to_owned()),
+                crash_summary: Some("fatal exception".to_owned()),
+                anr_summary: Some("input dispatching timed out".to_owned()),
+                anr_traces: Some("trace data".to_owned()),
+                tombstones: Some("tombstone data".to_owned()),
+            },
         )
         .expect("artifacts should write");
 
@@ -669,6 +815,17 @@ mod tests {
         assert_eq!(
             fs::read_to_string(dir.path().join("logcat.txt")).expect("logcat"),
             "logcat dump"
+        );
+        assert!(
+            dir.path()
+                .join("forensics")
+                .join("crash-summary.txt")
+                .is_file(),
+            "expected crash summary forensics file to be written"
+        );
+        assert!(
+            dir.path().join("logs").join("logcat.txt").is_file(),
+            "expected nested logcat file to be written"
         );
         assert!(
             dir.path().join("run-report.html").is_file(),
@@ -685,5 +842,22 @@ mod tests {
         assert!(report.contains("x86_64"));
         assert!(report.contains("fatal exception"));
         assert!(report.contains("input dispatching timed out"));
+        assert!(report.contains("Artifact Layout"));
+    }
+
+    #[test]
+    fn logcat_extractors_find_crash_and_anr_lines() {
+        let logcat = "\
+04-01 12:00:00.000 E/AndroidRuntime(123): FATAL EXCEPTION: main\n\
+04-01 12:00:01.000 E/ActivityManager(456): ANR in com.example.app";
+
+        assert_eq!(
+            extract_logcat_crash_summary(logcat).as_deref(),
+            Some("04-01 12:00:00.000 E/AndroidRuntime(123): FATAL EXCEPTION: main")
+        );
+        assert_eq!(
+            extract_logcat_anr_summary(logcat).as_deref(),
+            Some("04-01 12:00:01.000 E/ActivityManager(456): ANR in com.example.app")
+        );
     }
 }
