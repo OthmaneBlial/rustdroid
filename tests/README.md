@@ -14,6 +14,8 @@ RustDroid keeps test scope explicit.
   packaging and release-contract checks for scripts, workflow files, and install-facing assets.
 - `tests/fixtures/`:
   canonical APK fixtures plus a machine-readable manifest used by integration coverage.
+- `tests/integration_host_runtime.rs`:
+  opt-in real host-emulator command coverage for the daily APK loop.
 
 ## Naming Rules
 
@@ -28,6 +30,8 @@ RustDroid keeps test scope explicit.
 - Test code should default to isolated config files and never write into the repo root.
 - Runtime-heavy flows should be opt-in and live in dedicated integration suites, not in the cheap smoke layer.
 - Refresh checked-in APK fixtures with `./scripts/generate-fixture-apks.sh`.
+- Enable the real host runtime suite with `RUSTDROID_RUN_HOST_RUNTIME_TESTS=1`.
+- Point it at a running emulator with `RUSTDROID_HOST_TEST_SERIAL=emulator-5556`.
 
 ## Suggested Commands
 
@@ -35,6 +39,8 @@ RustDroid keeps test scope explicit.
 cargo test
 cargo test --test integration_cli
 cargo test --test integration_fixtures
+cargo test --test integration_host_runtime
 cargo test --test smoke_cli
 cargo test --test release_contract
+RUSTDROID_RUN_HOST_RUNTIME_TESTS=1 RUSTDROID_HOST_TEST_SERIAL=emulator-5556 cargo test --test integration_host_runtime -- --nocapture
 ```

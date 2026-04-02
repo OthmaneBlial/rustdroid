@@ -8,7 +8,7 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
-use tokio::{process::Command, time::sleep};
+use tokio::{net::TcpStream, process::Command, time::sleep};
 
 use crate::{config::RuntimeConfig, docker::ExecOutcome};
 
@@ -58,7 +58,7 @@ impl HostRuntime {
             }
         }
 
-        if adb_device_reachable(&config.adb_serial).await? {
+        if try_reuse_unmanaged_host_emulator(config).await? {
             if matches!(config.boot_mode, crate::cli::BootMode::Cold) {
                 bail!(
                     "cold boot requested but host emulator {} is already running outside rustdroid; stop it first or choose a different --host-emulator-port",
@@ -336,6 +336,66 @@ async fn adb_device_reachable(serial: &str) -> Result<bool> {
     Ok(output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "device")
 }
 
+async fn try_reuse_unmanaged_host_emulator(config: &RuntimeConfig) -> Result<bool> {
+    if adb_device_reachable(&config.adb_serial).await? {
+        return Ok(true);
+    }
+
+    let _ = ensure_host_adb_connection(config).await;
+    adb_device_reachable(&config.adb_serial).await
+}
+
+pub(crate) async fn ensure_host_adb_connection(config: &RuntimeConfig) -> Result<()> {
+    if adb_device_reachable(&config.adb_serial).await? {
+        return Ok(());
+    }
+
+    if TcpStream::connect(("127.0.0.1", config.host_emulator_port))
+        .await
+        .is_err()
+    {
+        return Ok(());
+    }
+
+    let connect_target = adb_connect_target(config);
+    let adb_binary = resolve_host_tool("adb")?;
+    let _ = Command::new(&adb_binary)
+        .arg("disconnect")
+        .arg(&connect_target)
+        .output()
+        .await;
+    let _ = connect_host_adb_target(&connect_target).await;
+    Ok(())
+}
+
+async fn connect_host_adb_target(target: &str) -> Result<()> {
+    let adb_binary = resolve_host_tool("adb")?;
+    let output = Command::new(adb_binary)
+        .arg("connect")
+        .arg(target)
+        .output()
+        .await
+        .with_context(|| format!("failed to run host adb for {target}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{stdout}\n{stderr}");
+
+    if output.status.success()
+        || combined.contains("connected to")
+        || combined.contains("already connected to")
+    {
+        return Ok(());
+    }
+
+    bail!(
+        "failed to connect host adb to {} (stdout='{}', stderr='{}')",
+        target,
+        stdout.trim(),
+        stderr.trim()
+    );
+}
+
 async fn wait_for_process_exit(pid: u32, timeout_secs: u64) {
     let deadline = Instant::now() + Duration::from_secs(timeout_secs);
     while process_alive(pid) && Instant::now() < deadline {
@@ -354,6 +414,10 @@ fn terminate_process(pid: u32, signal: &str) -> Result<()> {
     } else {
         bail!("kill {signal} {pid} exited with status {status}");
     }
+}
+
+fn adb_connect_target(config: &RuntimeConfig) -> String {
+    format!("127.0.0.1:{}", config.host_emulator_port)
 }
 
 fn host_config_hash(config: &RuntimeConfig) -> String {

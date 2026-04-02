@@ -9,7 +9,7 @@ use tokio::time::sleep;
 
 use crate::{
     config::RuntimeConfig,
-    host::{managed_log_path, managed_process_running},
+    host::{ensure_host_adb_connection, managed_log_path, managed_process_running},
     runtime::Runtime,
 };
 
@@ -94,7 +94,11 @@ impl AdbClient {
         let deadline = Instant::now() + Duration::from_secs(timeout_secs);
 
         loop {
-            let outcome = runtime
+            if config.uses_host_runtime() {
+                let _ = ensure_host_adb_connection(config).await;
+            }
+
+            let outcome = match runtime
                 .exec(
                     config,
                     self.adb_command([
@@ -104,7 +108,37 @@ impl AdbClient {
                         "echo sys=$(getprop sys.boot_completed); echo dev=$(getprop dev.bootcomplete); echo anim=$(getprop init.svc.bootanim)",
                     ]),
                 )
-                .await?;
+                .await
+            {
+                Ok(outcome) => outcome,
+                Err(error) => {
+                    if config.uses_host_runtime() {
+                        if let Some(false) = managed_process_running(config)? {
+                            let log_tail = tail_file(&managed_log_path(config), 20);
+                            bail!(
+                                "host emulator exited before adb became ready{}",
+                                log_tail
+                                    .as_deref()
+                                    .map(|tail| format!(" (recent log tail='{}')", tail))
+                                    .unwrap_or_default()
+                            );
+                        }
+
+                        if Instant::now() >= deadline {
+                            bail!(
+                                "emulator boot timed out after {}s while waiting for host adb (last error='{}')",
+                                timeout_secs,
+                                error
+                            );
+                        }
+
+                        sleep(Duration::from_secs(poll_interval_secs)).await;
+                        continue;
+                    }
+
+                    return Err(error);
+                }
+            };
 
             let current_stdout = outcome.stdout.trim().to_owned();
             let current_stderr = outcome.stderr.trim().to_owned();
@@ -129,37 +163,42 @@ impl AdbClient {
             {
                 let package_manager = runtime
                     .exec(config, self.adb_command(["shell", "pm", "path", "android"]))
-                    .await?;
+                    .await;
                 let storage_manager = runtime
                     .exec(
                         config,
                         self.adb_command(["shell", "service", "check", "mount"]),
                     )
-                    .await?;
+                    .await;
                 let window_manager = runtime
                     .exec(
                         config,
                         self.adb_command(["shell", "service", "check", "window"]),
                     )
-                    .await?;
+                    .await;
                 let network_routes = runtime
                     .exec(config, self.adb_command(["shell", "ip", "route"]))
-                    .await?;
+                    .await;
                 let gateway_ping = runtime
                     .exec(
                         config,
                         self.adb_command(["shell", "ping", "-c", "1", "-W", "1", "10.0.2.2"]),
                     )
-                    .await?;
+                    .await;
 
-                let services_ready = package_manager.exit_code == 0
-                    && package_manager.stdout.contains("package:")
-                    && storage_manager.exit_code == 0
-                    && storage_manager.stdout.contains("Service mount: found")
-                    && window_manager.exit_code == 0
-                    && window_manager.stdout.contains("Service window: found");
-                let network_ready =
-                    !network_routes.stdout.trim().is_empty() && gateway_ping.exit_code == 0;
+                let services_ready = package_manager.as_ref().is_ok_and(|outcome| {
+                    outcome.exit_code == 0 && outcome.stdout.contains("package:")
+                }) && storage_manager.as_ref().is_ok_and(|outcome| {
+                    outcome.exit_code == 0 && outcome.stdout.contains("Service mount: found")
+                }) && window_manager.as_ref().is_ok_and(|outcome| {
+                    outcome.exit_code == 0 && outcome.stdout.contains("Service window: found")
+                });
+                let network_ready = network_routes
+                    .as_ref()
+                    .is_ok_and(|outcome| !outcome.stdout.trim().is_empty())
+                    && gateway_ping
+                        .as_ref()
+                        .is_ok_and(|outcome| outcome.exit_code == 0);
 
                 if services_ready && network_ready {
                     return Ok(());
