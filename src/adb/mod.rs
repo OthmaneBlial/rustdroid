@@ -1,9 +1,17 @@
-use std::time::{Duration, Instant};
+use std::{
+    fs,
+    path::Path,
+    time::{Duration, Instant},
+};
 
 use anyhow::{bail, Result};
 use tokio::time::sleep;
 
-use crate::{config::RuntimeConfig, runtime::Runtime};
+use crate::{
+    config::RuntimeConfig,
+    host::{managed_log_path, managed_process_running},
+    runtime::Runtime,
+};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ApkMetadata {
@@ -164,6 +172,19 @@ impl AdbClient {
                     let _ = runtime
                         .exec(config, self.adb_command(["shell", "svc", "data", "enable"]))
                         .await;
+                }
+            }
+
+            if config.uses_host_runtime() {
+                if let Some(false) = managed_process_running(config)? {
+                    let log_tail = tail_file(&managed_log_path(config), 20);
+                    bail!(
+                        "host emulator exited before adb became ready{}",
+                        log_tail
+                            .as_deref()
+                            .map(|tail| format!(" (recent log tail='{}')", tail))
+                            .unwrap_or_default()
+                    );
                 }
             }
 
@@ -788,6 +809,23 @@ impl AdbClient {
             .await;
         Ok(())
     }
+}
+
+fn tail_file(path: &Path, line_count: usize) -> Option<String> {
+    let contents = fs::read_to_string(path).ok()?;
+    let lines: Vec<_> = contents.lines().rev().take(line_count).collect();
+    if lines.is_empty() {
+        return None;
+    }
+
+    Some(
+        lines
+            .into_iter()
+            .rev()
+            .map(str::trim)
+            .collect::<Vec<_>>()
+            .join(" | "),
+    )
 }
 
 fn ensure_command_success(action: &str, stdout: &str, stderr: &str, exit_code: i64) -> Result<()> {

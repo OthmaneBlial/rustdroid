@@ -105,7 +105,7 @@ impl Default for RuntimeConfig {
 
 impl RuntimeConfig {
     pub fn load(cli: &Cli) -> Result<Self> {
-        let mut config = Self::from_file(&cli.config)?;
+        let mut config = Self::from_path(&cli.config)?;
         let default_image = Self::default().image;
         let serial_explicit = cli.adb_serial.is_some();
         let host_port_explicit = cli.host_emulator_port.is_some();
@@ -353,7 +353,7 @@ showDeviceFrame = no\n",
         self.runtime_backend == RuntimeBackend::Host
     }
 
-    fn from_file(path: &Path) -> Result<Self> {
+    pub fn from_path(path: &Path) -> Result<Self> {
         if !path.exists() {
             return Ok(Self::default());
         }

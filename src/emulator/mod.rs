@@ -1,13 +1,15 @@
-use std::path::Path;
+use std::{path::Path, time::Instant};
 
 use anyhow::Result;
+use serde::Serialize;
 
 use crate::{
     adb::AdbClient,
-    cli::{InstallArgs, LogsArgs, RunArgs, StartArgs, StopArgs},
+    cli::{BenchArgs, InstallArgs, LogsArgs, RunArgs, StartArgs, StopArgs},
     config::RuntimeConfig,
     display,
     logs::{self, StreamOptions},
+    output::print_json,
     runtime::Runtime,
 };
 
@@ -16,6 +18,19 @@ pub struct EmulatorOrchestrator {
     config: RuntimeConfig,
     runtime: Runtime,
     adb: AdbClient,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BenchResult {
+    pub runtime_backend: String,
+    pub container_name: String,
+    pub adb_serial: String,
+    pub boot_duration_ms: u128,
+    pub install_duration_ms: Option<u128>,
+    pub launch_duration_ms: Option<u128>,
+    pub total_duration_ms: u128,
+    pub package_name: Option<String>,
+    pub apk_path: Option<String>,
 }
 
 impl EmulatorOrchestrator {
@@ -92,6 +107,58 @@ impl EmulatorOrchestrator {
         .await
     }
 
+    pub async fn bench(&self, args: BenchArgs, json: bool) -> Result<()> {
+        let total_started = Instant::now();
+
+        eprintln!("==> boot benchmark");
+        let boot_started = Instant::now();
+        self.start_device(true, false).await?;
+        let boot_duration_ms = boot_started.elapsed().as_millis();
+
+        let mut result = BenchResult {
+            runtime_backend: if self.config.uses_host_runtime() {
+                "host".to_owned()
+            } else {
+                "docker".to_owned()
+            },
+            container_name: self.config.container_name.clone(),
+            adb_serial: self.config.adb_serial.clone(),
+            boot_duration_ms,
+            install_duration_ms: None,
+            launch_duration_ms: None,
+            total_duration_ms: 0,
+            package_name: None,
+            apk_path: args.apk.as_ref().map(|path| path.display().to_string()),
+        };
+
+        if let Some(apk) = args.apk.as_ref() {
+            self.require_apk(apk)?;
+
+            eprintln!("==> install benchmark");
+            let install_started = Instant::now();
+            let metadata = self.install_uploaded_apk(apk, args.replace).await?;
+            result.install_duration_ms = Some(install_started.elapsed().as_millis());
+            result.package_name = Some(metadata.package_name.clone());
+
+            eprintln!("==> launch benchmark");
+            let launch_started = Instant::now();
+            self.adb
+                .launch_app(&self.runtime, &self.config, &metadata)
+                .await?;
+            result.launch_duration_ms = Some(launch_started.elapsed().as_millis());
+        }
+
+        result.total_duration_ms = total_started.elapsed().as_millis();
+
+        if json {
+            print_json(&result)?;
+        } else {
+            print_bench_result(&result);
+        }
+
+        Ok(())
+    }
+
     pub async fn logs(&self, args: LogsArgs) -> Result<()> {
         self.start_device(false, false).await?;
         eprintln!("streaming logs");
@@ -161,4 +228,20 @@ impl EmulatorOrchestrator {
         let _ = &self.adb;
         Ok(())
     }
+}
+
+fn print_bench_result(result: &BenchResult) {
+    println!("runtime: {}", result.runtime_backend);
+    println!("target: {}", result.adb_serial);
+    println!("boot_ms: {}", result.boot_duration_ms);
+    if let Some(install_duration_ms) = result.install_duration_ms {
+        println!("install_ms: {}", install_duration_ms);
+    }
+    if let Some(launch_duration_ms) = result.launch_duration_ms {
+        println!("launch_ms: {}", launch_duration_ms);
+    }
+    if let Some(package_name) = result.package_name.as_deref() {
+        println!("package: {package_name}");
+    }
+    println!("total_ms: {}", result.total_duration_ms);
 }

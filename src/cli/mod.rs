@@ -13,6 +13,9 @@ pub struct Cli {
     #[arg(long, global = true, default_value = "rustdroid.toml")]
     pub config: PathBuf,
 
+    #[arg(long, global = true, default_value_t = false)]
+    pub json: bool,
+
     #[arg(long, global = true)]
     pub image: Option<String>,
 
@@ -136,16 +139,35 @@ pub struct Cli {
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
+    #[command(about = "Check host and runtime prerequisites")]
     Doctor(DoctorArgs),
+    #[command(about = "Run a quick RustDroid backend smoke check")]
     SelfTest(SelfTestArgs),
+    #[command(about = "List adb-visible devices")]
     Devices(DevicesArgs),
+    #[command(about = "List available host Android Virtual Devices")]
     Avds(AvdsArgs),
+    #[command(about = "Print the installed RustDroid version")]
     Version,
+    #[command(about = "Generate shell completions")]
     Completions(CompletionsArgs),
+    #[command(about = "Measure boot, install, and launch timings")]
+    Bench(BenchArgs),
+    #[command(about = "Inspect or write named RustDroid profiles")]
+    Profile(ProfileArgs),
+    #[command(about = "Initialize project config files")]
+    Config(ConfigArgs),
+    #[command(about = "Remove RustDroid-managed containers and temp state")]
+    Clean(CleanArgs),
+    #[command(about = "Start the emulator and optionally wait for boot")]
     Start(StartArgs),
+    #[command(about = "Install an APK on the active emulator")]
     Install(InstallArgs),
+    #[command(about = "Start, install, launch, and stream logs for an APK")]
     Run(RunArgs),
+    #[command(about = "Stream emulator or logcat logs")]
     Logs(LogsArgs),
+    #[command(about = "Stop the active RustDroid runtime")]
     Stop(StopArgs),
 }
 
@@ -171,6 +193,63 @@ pub struct AvdsArgs {}
 pub struct CompletionsArgs {
     #[arg(value_enum)]
     pub shell: CompletionShell,
+}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct BenchArgs {
+    pub apk: Option<PathBuf>,
+
+    #[arg(long, default_value_t = true, action = ArgAction::Set)]
+    pub replace: bool,
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum ProfileCommand {
+    #[command(about = "List built-in profiles")]
+    List,
+    #[command(about = "Write a built-in profile into the config file")]
+    Use(ProfileUseArgs),
+}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct ProfileArgs {
+    #[command(subcommand)]
+    pub command: ProfileCommand,
+}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct ProfileUseArgs {
+    pub name: String,
+
+    #[arg(long, default_value_t = false)]
+    pub force: bool,
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum ConfigCommand {
+    #[command(about = "Create a config file with optional profile defaults")]
+    Init(ConfigInitArgs),
+}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct ConfigArgs {
+    #[command(subcommand)]
+    pub command: ConfigCommand,
+}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct ConfigInitArgs {
+    #[arg(long)]
+    pub profile: Option<String>,
+
+    #[arg(long, default_value_t = false)]
+    pub force: bool,
+}
+
+#[derive(Debug, Clone, clap::Args, Default)]
+pub struct CleanArgs {
+    #[arg(long, default_value_t = false)]
+    pub dry_run: bool,
 }
 
 #[derive(Debug, Clone, clap::Args)]

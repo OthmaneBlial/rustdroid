@@ -194,6 +194,19 @@ impl HostRuntime {
     }
 }
 
+pub(crate) fn managed_process_running(config: &RuntimeConfig) -> Result<Option<bool>> {
+    let state = HostStatePaths::new(config);
+    let Some(pid) = read_pid(&state.pid_path)? else {
+        return Ok(None);
+    };
+
+    Ok(Some(process_alive(pid)))
+}
+
+pub(crate) fn managed_log_path(config: &RuntimeConfig) -> PathBuf {
+    HostStatePaths::new(config).log_path
+}
+
 #[derive(Debug, Clone)]
 struct HostStatePaths {
     dir: PathBuf,

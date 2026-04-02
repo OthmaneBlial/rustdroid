@@ -8,8 +8,9 @@ use std::{
 use anyhow::{bail, Context, Result};
 use bollard::{
     container::{
-        Config, CreateContainerOptions, InspectContainerOptions, LogOutput, RemoveContainerOptions,
-        StartContainerOptions, StopContainerOptions, UploadToContainerOptions,
+        Config, CreateContainerOptions, InspectContainerOptions, ListContainersOptions, LogOutput,
+        RemoveContainerOptions, StartContainerOptions, StopContainerOptions,
+        UploadToContainerOptions,
     },
     errors::Error as BollardError,
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
@@ -66,6 +67,46 @@ impl DockerRuntime {
 
     pub fn client(&self) -> &Docker {
         &self.docker
+    }
+
+    pub async fn list_managed_container_names(&self) -> Result<Vec<String>> {
+        let containers = self
+            .docker
+            .list_containers(Some(ListContainersOptions::<String> {
+                all: true,
+                filters: std::collections::HashMap::from([(
+                    "label".to_owned(),
+                    vec![format!("{MANAGED_LABEL_KEY}={MANAGED_LABEL_VALUE}")],
+                )]),
+                ..Default::default()
+            }))
+            .await?;
+
+        Ok(containers
+            .into_iter()
+            .flat_map(|container| container.names.unwrap_or_default())
+            .map(|name| name.trim_start_matches('/').to_owned())
+            .collect())
+    }
+
+    pub async fn remove_container_force(&self, container_name: &str) -> Result<()> {
+        match self
+            .docker
+            .remove_container(
+                container_name,
+                Some(RemoveContainerOptions {
+                    force: true,
+                    ..Default::default()
+                }),
+            )
+            .await
+        {
+            Ok(()) => Ok(()),
+            Err(error) if is_not_found(&error) => Ok(()),
+            Err(error) => {
+                Err(error).with_context(|| format!("failed to remove container '{container_name}'"))
+            }
+        }
     }
 
     pub async fn ping(&self) -> Result<()> {

@@ -94,6 +94,7 @@ It is not trying to replace a full device lab. It is trying to stop you from pay
 
 - start, stop, install, run, and log stream from a single CLI
 - `doctor`, `self-test`, `devices`, `avds`, and `version` commands
+- `bench`, `profile`, `config init`, and `clean --dry-run`
 - Docker runtime and host-native runtime
 - `scrcpy`, web, VNC, and headless modes
 - Docker `/dev/kvm` support
@@ -151,6 +152,15 @@ rustdroid doctor
 rustdroid self-test
 ```
 
+### Daily CLI Helpers
+
+```bash
+rustdroid profile list
+rustdroid --config rustdroid.toml config init --profile host-fast
+rustdroid --json bench
+rustdroid --json clean --dry-run
+```
+
 ### Fastest Local Path: Host Emulator + scrcpy
 
 ```bash
@@ -191,6 +201,10 @@ rustdroid version
 rustdroid devices
 rustdroid avds
 ```
+
+### Machine-Readable Output
+
+RustDroid now supports `--json` for the discovery and setup commands, including `version`, `doctor`, `devices`, `avds`, `self-test`, `bench`, `profile`, `config init`, and `clean`.
 
 ## Helper Modes
 

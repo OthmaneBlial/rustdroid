@@ -1,11 +1,11 @@
 use std::{
     fs::{self, OpenOptions},
     os::unix::fs::PermissionsExt,
-    path::{Path, PathBuf},
+    path::Path,
     time::Instant,
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::CommandFactory;
 use clap_complete::{
     generate,
@@ -19,6 +19,7 @@ use crate::{
     config::RuntimeConfig,
     docker::DockerRuntime,
     host::{android_sdk_root, list_host_avds, resolve_host_tool},
+    output::print_json,
     runtime::Runtime,
 };
 
@@ -54,8 +55,41 @@ struct SelfTestResult {
     error: Option<String>,
 }
 
-pub fn print_version() {
-    println!("rustdroid {}", env!("CARGO_PKG_VERSION"));
+#[derive(Debug, Clone, Serialize)]
+struct VersionInfo {
+    version: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct DoctorReport {
+    checks: Vec<CheckResult>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct DevicesReport {
+    devices: Vec<DeviceEntry>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AvdReport {
+    avds: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct SelfTestReport {
+    results: Vec<SelfTestResult>,
+}
+
+pub fn print_version(json: bool) -> Result<()> {
+    let version = VersionInfo {
+        version: env!("CARGO_PKG_VERSION").to_owned(),
+    };
+    if json {
+        return print_json(&version);
+    }
+
+    println!("rustdroid {}", version.version);
+    Ok(())
 }
 
 pub fn print_completions(shell: CompletionShell) {
@@ -66,11 +100,18 @@ pub fn print_completions(shell: CompletionShell) {
     }
 }
 
-pub async fn run_doctor(config: &RuntimeConfig) -> Result<()> {
+pub async fn run_doctor(config: &RuntimeConfig, json: bool) -> Result<()> {
     let checks = collect_doctor_checks(config).await;
-    print_doctor_checks(&checks);
+    let report = DoctorReport { checks };
 
-    let failures = checks
+    if json {
+        print_json(&report)?;
+    } else {
+        print_doctor_checks(&report.checks);
+    }
+
+    let failures = report
+        .checks
         .iter()
         .filter(|check| check.state == CheckState::Fail)
         .count();
@@ -81,7 +122,7 @@ pub async fn run_doctor(config: &RuntimeConfig) -> Result<()> {
     Ok(())
 }
 
-pub async fn run_devices() -> Result<()> {
+pub async fn run_devices(json: bool) -> Result<()> {
     let adb = resolve_host_tool("adb")?;
     let output = Command::new(&adb)
         .args(["devices", "-l"])
@@ -96,13 +137,20 @@ pub async fn run_devices() -> Result<()> {
         );
     }
 
-    let devices = parse_adb_devices(&String::from_utf8_lossy(&output.stdout));
-    if devices.is_empty() {
+    let report = DevicesReport {
+        devices: parse_adb_devices(&String::from_utf8_lossy(&output.stdout)),
+    };
+
+    if json {
+        return print_json(&report);
+    }
+
+    if report.devices.is_empty() {
         println!("No adb devices found.");
         return Ok(());
     }
 
-    for device in devices {
+    for device in report.devices {
         if device.details.is_empty() {
             println!("{}  {}", device.serial, device.state);
             continue;
@@ -119,35 +167,63 @@ pub async fn run_devices() -> Result<()> {
     Ok(())
 }
 
-pub async fn run_avds(config: &RuntimeConfig) -> Result<()> {
-    let avds = list_host_avds(&config.host_emulator_binary).await?;
-    if avds.is_empty() {
+pub async fn run_avds(config: &RuntimeConfig, json: bool) -> Result<()> {
+    let report = AvdReport {
+        avds: list_host_avds(&config.host_emulator_binary).await?,
+    };
+
+    if json {
+        return print_json(&report);
+    }
+
+    if report.avds.is_empty() {
         println!("No Android Virtual Devices found.");
         return Ok(());
     }
 
-    for avd in avds {
+    for avd in report.avds {
         println!("{avd}");
     }
 
     Ok(())
 }
 
-pub async fn run_self_test(config: &RuntimeConfig, args: &SelfTestArgs) -> Result<()> {
+pub async fn run_self_test(config: &RuntimeConfig, args: &SelfTestArgs, json: bool) -> Result<()> {
     let mut results = Vec::new();
     for backend in selected_backends(config.runtime_backend, args.backend) {
         results.push(self_test_backend(config, backend, args.full).await);
     }
 
+    let report = SelfTestReport { results };
+
+    if json {
+        print_json(&report)?;
+    } else {
+        print_self_test_results(&report.results);
+    }
+
     let mut failures = 0;
-    for result in &results {
+    for result in &report.results {
+        if !result.ok {
+            failures += 1;
+        }
+    }
+
+    if failures > 0 {
+        bail!("self-test failed for {failures} backend(s)");
+    }
+
+    Ok(())
+}
+
+fn print_self_test_results(results: &[SelfTestResult]) {
+    for result in results {
         if result.ok {
             println!(
                 "[PASS] {} self-test completed in {} ms",
                 result.backend, result.duration_ms
             );
         } else {
-            failures += 1;
             println!(
                 "[FAIL] {} self-test failed in {} ms",
                 result.backend, result.duration_ms
@@ -162,12 +238,6 @@ pub async fn run_self_test(config: &RuntimeConfig, args: &SelfTestArgs) -> Resul
             println!("  - error: {error}");
         }
     }
-
-    if failures > 0 {
-        bail!("self-test failed for {failures} backend(s)");
-    }
-
-    Ok(())
 }
 
 async fn collect_doctor_checks(config: &RuntimeConfig) -> Vec<CheckResult> {
@@ -490,9 +560,4 @@ fn format_backend(backend: crate::cli::RuntimeBackend) -> &'static str {
         crate::cli::RuntimeBackend::Docker => "docker",
         crate::cli::RuntimeBackend::Host => "host",
     }
-}
-
-#[allow(dead_code)]
-fn _canonicalize(path: &Path) -> Result<PathBuf> {
-    fs::canonicalize(path).map_err(|error| anyhow!(error))
 }
