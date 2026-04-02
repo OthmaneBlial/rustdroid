@@ -22,7 +22,13 @@ fn doctor_json_returns_check_array() {
     let context = TestContext::new();
     let output = run_command(rustdroid_command(&context).args(["--json", "doctor"]));
 
-    assert_success(&output);
+    assert!(
+        matches!(output.status.code(), Some(0 | 10)),
+        "expected doctor to return success or the documented doctor failure code, got {:?}\nstdout:\n{}\nstderr:\n{}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
     assert_output_contains(&output, "\"checks\"");
 }
 
