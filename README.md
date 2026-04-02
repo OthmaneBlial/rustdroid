@@ -148,6 +148,16 @@ Remove a local install:
 ./uninstall.sh --dry-run
 ```
 
+## Guides
+
+- [First install](docs/first-install.md)
+- [Host backend](docs/host-backend.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [CI examples](docs/ci-examples.md)
+- [Fixture testing](docs/fixture-testing.md)
+- [Release process](docs/release-process.md)
+- [Contributing](CONTRIBUTING.md)
+
 ## Quick Start
 
 ### Requirements
