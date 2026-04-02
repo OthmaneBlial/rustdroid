@@ -12,6 +12,8 @@ RustDroid keeps test scope explicit.
   cheap user-path checks that prove a critical command shape still works without requiring a full emulator boot.
 - `tests/release_*.rs`:
   packaging and release-contract checks for scripts, workflow files, and install-facing assets.
+- `tests/fixtures/`:
+  canonical APK fixtures plus a machine-readable manifest used by integration coverage.
 
 ## Naming Rules
 
@@ -25,12 +27,14 @@ RustDroid keeps test scope explicit.
 - Use `tests/common/mod.rs` for temp dirs, temp configs, command execution, and output assertions.
 - Test code should default to isolated config files and never write into the repo root.
 - Runtime-heavy flows should be opt-in and live in dedicated integration suites, not in the cheap smoke layer.
+- Refresh checked-in APK fixtures with `./scripts/generate-fixture-apks.sh`.
 
 ## Suggested Commands
 
 ```bash
 cargo test
 cargo test --test integration_cli
+cargo test --test integration_fixtures
 cargo test --test smoke_cli
 cargo test --test release_contract
 ```

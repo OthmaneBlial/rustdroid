@@ -1,0 +1,49 @@
+{
+  "fixtures": [
+    {
+      "name": "launch-success",
+      "path": "tests/fixtures/apks/launch-success.apk",
+      "package": "com.rustdroid.fixture.launch",
+      "launchable_activity": "com.rustdroid.fixture.launch.MainActivity",
+      "native_abis": []
+    },
+    {
+      "name": "missing-launcher",
+      "path": "tests/fixtures/apks/missing-launcher.apk",
+      "package": "com.rustdroid.fixture.missinglauncher",
+      "launchable_activity": null,
+      "native_abis": []
+    },
+    {
+      "name": "x86_64-native",
+      "path": "tests/fixtures/apks/x86_64-native.apk",
+      "package": "com.rustdroid.fixture.x86native",
+      "launchable_activity": "com.rustdroid.fixture.x86native.MainActivity",
+      "native_abis": ["x86_64"]
+    },
+    {
+      "name": "arm64-native",
+      "path": "tests/fixtures/apks/arm64-native.apk",
+      "package": "com.rustdroid.fixture.armnative",
+      "launchable_activity": "com.rustdroid.fixture.armnative.MainActivity",
+      "native_abis": ["arm64-v8a"]
+    },
+    {
+      "name": "split-base",
+      "path": "tests/fixtures/apks/split-base.apk",
+      "package": "com.rustdroid.fixture.split",
+      "launchable_activity": "com.rustdroid.fixture.split.MainActivity",
+      "native_abis": [],
+      "group": "split-locale-en"
+    },
+    {
+      "name": "split-config.en",
+      "path": "tests/fixtures/apks/split-config.en.apk",
+      "package": "com.rustdroid.fixture.split",
+      "launchable_activity": null,
+      "native_abis": [],
+      "group": "split-locale-en",
+      "split": "config.en"
+    }
+  ]
+}
