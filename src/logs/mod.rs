@@ -21,6 +21,7 @@ pub struct StreamOptions {
     pub source: LogSource,
     pub duration_secs: Option<u64>,
     pub package_name: Option<String>,
+    pub since_start: bool,
 }
 
 pub async fn stream(
@@ -61,9 +62,14 @@ pub async fn stream(
             Runtime::Host(host) => {
                 let log_path = host.log_path(config);
                 if log_path.exists() {
+                    let since_start = options.since_start;
                     tasks.push(tokio::spawn(async move {
                         let mut command = Command::new("tail");
-                        command.args(["-n", "50", "-F"]);
+                        if since_start {
+                            command.args(["-n", "+1", "-F"]);
+                        } else {
+                            command.args(["-n", "50", "-F"]);
+                        }
                         command.arg(&log_path);
                         command.stdout(std::process::Stdio::piped());
                         command.stderr(std::process::Stdio::null());

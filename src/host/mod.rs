@@ -35,22 +35,36 @@ impl HostRuntime {
 
         if let Some(pid) = read_pid(&state.pid_path)? {
             if process_alive(pid) {
-                if read_trimmed(&state.config_hash_path)?.as_deref() == Some(config_hash.as_str()) {
+                if matches!(config.boot_mode, crate::cli::BootMode::Cold) {
+                    eprintln!(
+                        "cold boot requested; restarting managed host emulator {}",
+                        config.adb_serial
+                    );
+                    self.stop(config, 15).await?;
+                } else if read_trimmed(&state.config_hash_path)?.as_deref()
+                    == Some(config_hash.as_str())
+                {
                     eprintln!("reusing managed host emulator {}", config.adb_serial);
                     return Ok(());
+                } else {
+                    eprintln!(
+                        "restarting managed host emulator {} to apply config changes",
+                        config.adb_serial
+                    );
+                    self.stop(config, 15).await?;
                 }
-
-                eprintln!(
-                    "restarting managed host emulator {} to apply config changes",
-                    config.adb_serial
-                );
-                self.stop(config, 15).await?;
             } else {
                 cleanup_state_files(&state)?;
             }
         }
 
         if adb_device_reachable(&config.adb_serial).await? {
+            if matches!(config.boot_mode, crate::cli::BootMode::Cold) {
+                bail!(
+                    "cold boot requested but host emulator {} is already running outside rustdroid; stop it first or choose a different --host-emulator-port",
+                    config.adb_serial
+                );
+            }
             eprintln!(
                 "reusing existing unmanaged host emulator {}",
                 config.adb_serial

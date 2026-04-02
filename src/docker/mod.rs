@@ -137,6 +137,35 @@ impl DockerRuntime {
                     );
                 }
 
+                if matches!(config.boot_mode, crate::cli::BootMode::Cold) {
+                    eprintln!("cold boot requested; recreating {}", config.container_name);
+                    self.docker
+                        .remove_container(
+                            &config.container_name,
+                            Some(RemoveContainerOptions {
+                                force: true,
+                                ..Default::default()
+                            }),
+                        )
+                        .await
+                        .with_context(|| {
+                            format!("failed to remove container '{}'", config.container_name)
+                        })?;
+                    self.create_managed_container(config).await?;
+                    eprintln!("starting container {}", config.container_name);
+                    self.docker
+                        .start_container(
+                            &config.container_name,
+                            None::<StartContainerOptions<String>>,
+                        )
+                        .await
+                        .with_context(|| {
+                            format!("failed to start container '{}'", config.container_name)
+                        })?;
+                    print_visual_access(config);
+                    return Ok(());
+                }
+
                 if !container_matches_config(&existing, config)? {
                     eprintln!(
                         "recreating container {} to apply config changes",

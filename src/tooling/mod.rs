@@ -183,6 +183,22 @@ pub async fn clean(dry_run: bool, json: bool) -> Result<()> {
     Ok(())
 }
 
+pub async fn stop_all(timeout_secs: u64) -> Result<()> {
+    if let Ok(runtime) = DockerRuntime::connect() {
+        if let Ok(container_names) = runtime.list_managed_container_names().await {
+            for name in &container_names {
+                let _ = runtime.stop(name, timeout_secs).await;
+            }
+        }
+    }
+
+    let state_root = std::env::temp_dir().join("rustdroid");
+    let _ = terminate_pid_files(&state_root.join("host"), "host emulator", false)?;
+    let _ = terminate_pid_files(&state_root.join("scrcpy"), "scrcpy", false)?;
+    let _ = fs::remove_dir_all(&state_root);
+    Ok(())
+}
+
 fn built_in_profiles() -> Vec<ProfileInfo> {
     profile_specs()
         .into_iter()

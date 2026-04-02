@@ -95,6 +95,10 @@ It is not trying to replace a full device lab. It is trying to stop you from pay
 - start, stop, install, run, and log stream from a single CLI
 - `doctor`, `self-test`, `devices`, `avds`, and `version` commands
 - `bench`, `profile`, `config init`, and `clean --dry-run`
+- explicit `open` and `launch` flows for reusing a prepared emulator
+- warm vs cold boot selection through `--boot-mode`
+- multi-APK install support for split APK sets
+- run summaries with optional artifact output folders
 - Docker runtime and host-native runtime
 - `scrcpy`, web, VNC, and headless modes
 - Docker `/dev/kvm` support
@@ -159,6 +163,17 @@ rustdroid profile list
 rustdroid --config rustdroid.toml config init --profile host-fast
 rustdroid --json bench
 rustdroid --json clean --dry-run
+```
+
+### Daily APK Loop
+
+```bash
+rustdroid --boot-mode warm open
+rustdroid install base.apk config.en.apk
+rustdroid launch --package com.example.app
+rustdroid run app.apk --duration-secs 10 --keep-alive false --artifacts-dir .rustdroid-artifacts
+rustdroid logs --package com.example.app --since-start
+rustdroid stop --all
 ```
 
 ### Fastest Local Path: Host Emulator + scrcpy

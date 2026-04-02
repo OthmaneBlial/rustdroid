@@ -201,19 +201,28 @@ impl AdbClient {
         }
     }
 
-    pub async fn install_apk(
+    pub async fn install_apks(
         &self,
         runtime: &Runtime,
         config: &RuntimeConfig,
-        remote_path: &str,
+        remote_paths: &[String],
         replace: bool,
     ) -> Result<()> {
-        let mut command = self.adb_command(["install"]);
+        anyhow::ensure!(
+            !remote_paths.is_empty(),
+            "install requires at least one APK path"
+        );
+
+        let mut command = if remote_paths.len() == 1 {
+            self.adb_command(["install"])
+        } else {
+            self.adb_command(["install-multiple"])
+        };
         if replace {
             command.push("-r".to_owned());
         }
         command.push("-t".to_owned());
-        command.push(remote_path.to_owned());
+        command.extend(remote_paths.iter().cloned());
 
         let mut last_outcome = None;
         for attempt in 0..3 {
@@ -338,11 +347,27 @@ impl AdbClient {
         config: &RuntimeConfig,
         metadata: &ApkMetadata,
     ) -> Result<()> {
+        self.launch_package(
+            runtime,
+            config,
+            &metadata.package_name,
+            metadata.launchable_activity.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn launch_package(
+        &self,
+        runtime: &Runtime,
+        config: &RuntimeConfig,
+        package_name: &str,
+        activity: Option<&str>,
+    ) -> Result<()> {
         self.stabilize_device(runtime, config).await?;
-        self.force_stop_package(runtime, config, &metadata.package_name)
+        self.force_stop_package(runtime, config, package_name)
             .await?;
 
-        if let Some(activity) = &metadata.launchable_activity {
+        if let Some(activity) = activity {
             let outcome = runtime
                 .exec(
                     config,
@@ -353,7 +378,7 @@ impl AdbClient {
                         "-W",
                         "-S",
                         "-n",
-                        &format!("{}/{}", metadata.package_name, activity),
+                        &format!("{package_name}/{activity}"),
                     ]),
                 )
                 .await?;
@@ -361,7 +386,7 @@ impl AdbClient {
             let combined = format!("{}\n{}", outcome.stdout, outcome.stderr);
             if outcome.exit_code == 0 && !looks_like_failed_activity_launch(&combined) {
                 return self
-                    .wait_for_package_foreground(runtime, config, &metadata.package_name)
+                    .wait_for_package_foreground(runtime, config, package_name)
                     .await;
             }
         }
@@ -373,7 +398,7 @@ impl AdbClient {
                     "shell",
                     "monkey",
                     "-p",
-                    &metadata.package_name,
+                    package_name,
                     "-c",
                     "android.intent.category.LAUNCHER",
                     "1",
@@ -387,7 +412,7 @@ impl AdbClient {
             &outcome.stderr,
             outcome.exit_code,
         )?;
-        self.wait_for_package_foreground(runtime, config, &metadata.package_name)
+        self.wait_for_package_foreground(runtime, config, package_name)
             .await
     }
 

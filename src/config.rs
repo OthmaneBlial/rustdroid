@@ -3,7 +3,7 @@ use std::{fs, path::Path, thread};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::cli::{Cli, RuntimeBackend, UiBackend};
+use crate::cli::{BootMode, Cli, RuntimeBackend, UiBackend};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -16,6 +16,7 @@ pub struct RuntimeConfig {
     pub adb_connect_port: u16,
     pub boot_timeout_secs: u64,
     pub poll_interval_secs: u64,
+    pub boot_mode: BootMode,
     pub headless: bool,
     pub no_skin: bool,
     pub emulator_additional_args: String,
@@ -66,6 +67,7 @@ impl Default for RuntimeConfig {
             adb_connect_port: 5555,
             boot_timeout_secs: 360,
             poll_interval_secs: 2,
+            boot_mode: BootMode::Warm,
             headless: true,
             no_skin: true,
             emulator_additional_args: "-no-audio -no-boot-anim -no-snapshot -no-snapshot-save -no-metrics -camera-back none -camera-front none -skip-adb-auth".to_owned(),
@@ -134,6 +136,9 @@ impl RuntimeConfig {
         }
         if let Some(interval) = cli.poll_interval_secs {
             config.poll_interval_secs = interval;
+        }
+        if let Some(boot_mode) = cli.boot_mode {
+            config.boot_mode = boot_mode;
         }
         if let Some(headless) = cli.headless {
             config.headless = headless;

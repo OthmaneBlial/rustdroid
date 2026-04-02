@@ -37,6 +37,9 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub poll_interval_secs: Option<u64>,
 
+    #[arg(long, global = true, value_enum)]
+    pub boot_mode: Option<BootMode>,
+
     #[arg(long, global = true, action = ArgAction::Set)]
     pub headless: Option<bool>,
 
@@ -161,8 +164,12 @@ pub enum Command {
     Clean(CleanArgs),
     #[command(about = "Start the emulator and optionally wait for boot")]
     Start(StartArgs),
+    #[command(about = "Open the emulator UI without installing an app")]
+    Open(OpenArgs),
     #[command(about = "Install an APK on the active emulator")]
     Install(InstallArgs),
+    #[command(about = "Launch an installed app by APK metadata or package name")]
+    Launch(LaunchArgs),
     #[command(about = "Start, install, launch, and stream logs for an APK")]
     Run(RunArgs),
     #[command(about = "Stream emulator or logcat logs")]
@@ -259,16 +266,35 @@ pub struct StartArgs {
 }
 
 #[derive(Debug, Clone, clap::Args)]
+pub struct OpenArgs {
+    #[arg(long, default_value_t = true, action = ArgAction::Set)]
+    pub wait: bool,
+}
+
+#[derive(Debug, Clone, clap::Args)]
 pub struct InstallArgs {
-    pub apk: PathBuf,
+    #[arg(required = true)]
+    pub apks: Vec<PathBuf>,
 
     #[arg(long, default_value_t = true, action = ArgAction::Set)]
     pub replace: bool,
 }
 
 #[derive(Debug, Clone, clap::Args)]
+pub struct LaunchArgs {
+    pub apk: Option<PathBuf>,
+
+    #[arg(long)]
+    pub package: Option<String>,
+
+    #[arg(long)]
+    pub activity: Option<String>,
+}
+
+#[derive(Debug, Clone, clap::Args)]
 pub struct RunArgs {
-    pub apk: PathBuf,
+    #[arg(required = true)]
+    pub apks: Vec<PathBuf>,
 
     #[arg(long, default_value_t = true, action = ArgAction::Set)]
     pub replace: bool,
@@ -278,6 +304,12 @@ pub struct RunArgs {
 
     #[arg(long, default_value_t = LogSource::Logcat, value_enum)]
     pub log_source: LogSource,
+
+    #[arg(long, default_value_t = true, action = ArgAction::Set)]
+    pub keep_alive: bool,
+
+    #[arg(long)]
+    pub artifacts_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, clap::Args)]
@@ -287,12 +319,21 @@ pub struct LogsArgs {
 
     #[arg(long)]
     pub duration_secs: Option<u64>,
+
+    #[arg(long, default_value_t = false)]
+    pub since_start: bool,
+
+    #[arg(long)]
+    pub package: Option<String>,
 }
 
 #[derive(Debug, Clone, clap::Args)]
 pub struct StopArgs {
     #[arg(long, default_value_t = 15)]
     pub timeout_secs: u64,
+
+    #[arg(long, default_value_t = false)]
+    pub all: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, Eq, Hash, PartialEq, ValueEnum)]
@@ -331,6 +372,14 @@ pub enum BackendScope {
     Docker,
     Host,
     Both,
+}
+
+#[derive(Debug, Clone, Copy, Default, Eq, Hash, PartialEq, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "snake_case")]
+pub enum BootMode {
+    #[default]
+    Warm,
+    Cold,
 }
 
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, Serialize, Deserialize, ValueEnum)]

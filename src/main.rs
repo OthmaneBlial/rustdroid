@@ -68,6 +68,7 @@ async fn run(cli: Cli, command: Command) -> Result<()> {
             ConfigCommand::Init(args) => tooling::init_config(&cli.config, &args, cli.json)?,
         },
         Command::Clean(args) => tooling::clean(args.dry_run, cli.json).await?,
+        Command::Stop(args) if args.all => tooling::stop_all(args.timeout_secs).await?,
         command => {
             let config = RuntimeConfig::load(&cli)?;
             let runtime = Runtime::connect(&config)?;
@@ -75,7 +76,9 @@ async fn run(cli: Cli, command: Command) -> Result<()> {
 
             match command {
                 Command::Start(args) => orchestrator.start(args).await?,
+                Command::Open(args) => orchestrator.open(args).await?,
                 Command::Install(args) => orchestrator.install(args).await?,
+                Command::Launch(args) => orchestrator.launch(args).await?,
                 Command::Run(args) => orchestrator.run(args).await?,
                 Command::Logs(args) => orchestrator.logs(args).await?,
                 Command::Stop(args) => orchestrator.stop(args).await?,
