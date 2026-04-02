@@ -18,6 +18,8 @@ RustDroid keeps test scope explicit.
   opt-in real host-emulator command coverage for the daily APK loop.
 - `tests/integration_host_backend.rs`:
   opt-in backend-focused checks for AVD discovery, managed start/stop, artifacts, and optional scrcpy coverage.
+- `scripts/run-smoke-matrix.sh`:
+  single host-smoke entrypoint for the minimum release-safe runtime flows.
 
 ## Naming Rules
 
@@ -37,6 +39,11 @@ RustDroid keeps test scope explicit.
 - Enable the backend-focused host suite with `RUSTDROID_RUN_HOST_BACKEND_TESTS=1`.
 - Point backend artifact and scrcpy checks at a running emulator with `RUSTDROID_HOST_TEST_SERIAL=emulator-5556`.
 - Enable the scrcpy-specific backend check with `RUSTDROID_RUN_HOST_SCRCPY_TESTS=1` on a runner with a GUI session.
+- Run the live smoke checklist with `./scripts/run-smoke-matrix.sh`.
+- Override `RUSTDROID_SMOKE_AVD`, `RUSTDROID_SMOKE_PORT`, or `RUSTDROID_BIN` when the default host test lane does not match your machine.
+- Override `RUSTDROID_SMOKE_GPU_MODE` when your host emulator needs a different renderer than the default smoke-safe `swiftshader_indirect`.
+- Override `RUSTDROID_SMOKE_EMULATOR_ARGS` when your host AVD needs a different launch shape than the default read-only smoke profile.
+- Set `RUSTDROID_SMOKE_ENABLE_GUI=1` only on machines where you want the visible `scrcpy` fast lane included.
 
 ## Suggested Commands
 
@@ -48,6 +55,8 @@ cargo test --test integration_host_runtime
 cargo test --test integration_host_backend
 cargo test --test smoke_cli
 cargo test --test release_contract
+./scripts/run-smoke-matrix.sh --list
+RUSTDROID_SMOKE_AVD=test_avd ./scripts/run-smoke-matrix.sh
 RUSTDROID_RUN_HOST_RUNTIME_TESTS=1 RUSTDROID_HOST_TEST_SERIAL=emulator-5556 cargo test --test integration_host_runtime -- --nocapture
 RUSTDROID_RUN_HOST_BACKEND_TESTS=1 cargo test --test integration_host_backend host_backend_detects_avds_and_managed_start_stop -- --nocapture
 RUSTDROID_RUN_HOST_BACKEND_TESTS=1 RUSTDROID_HOST_TEST_SERIAL=emulator-5556 cargo test --test integration_host_backend host_backend_run_writes_artifacts_for_running_device -- --nocapture

@@ -163,6 +163,7 @@ rustdroid profile list
 rustdroid --config rustdroid.toml config init --profile host-fast
 rustdroid --json bench
 rustdroid --json clean --dry-run
+./scripts/run-smoke-matrix.sh --list
 ```
 
 ### Daily APK Loop
@@ -216,6 +217,28 @@ rustdroid version
 rustdroid devices
 rustdroid avds
 ```
+
+### Release-Safe Smoke Matrix
+
+RustDroid now ships a single host-smoke entrypoint for the minimum flows that should stay green before a release:
+
+```bash
+./scripts/run-smoke-matrix.sh
+```
+
+Set `RUSTDROID_SMOKE_ENABLE_GUI=1` when you want the visible `scrcpy` fast lane included on a GUI-capable machine.
+By default the smoke lane uses a read-only host emulator profile plus `swiftshader_indirect` so the checklist stays reproducible and fast on repeat runs.
+
+That matrix covers:
+
+- host fast path
+- host headless
+- cold boot
+- warm reuse
+- install-only
+- launch-only
+- artifact-enabled run
+- split APK install
 
 ### Machine-Readable Output
 

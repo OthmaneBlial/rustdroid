@@ -1,5 +1,8 @@
 mod common;
 
+use std::path::PathBuf;
+use std::process::Command;
+
 use common::{assert_output_contains, assert_success, run_command, rustdroid_command, TestContext};
 
 #[test]
@@ -21,4 +24,21 @@ fn doctor_json_returns_check_array() {
 
     assert_success(&output);
     assert_output_contains(&output, "\"checks\"");
+}
+
+#[test]
+fn smoke_matrix_entrypoint_lists_required_cases() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let script = root.join("scripts/run-smoke-matrix.sh");
+
+    let output = Command::new("bash")
+        .arg(&script)
+        .arg("--list")
+        .output()
+        .expect("smoke matrix script should run");
+
+    assert_success(&output);
+    assert_output_contains(&output, "host-fast");
+    assert_output_contains(&output, "host-headless");
+    assert_output_contains(&output, "split-install");
 }
