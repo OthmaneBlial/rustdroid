@@ -210,7 +210,12 @@ impl EmulatorOrchestrator {
         if let Some(artifacts_dir) = args.artifacts_dir.as_ref() {
             let process_logs = self.collect_process_logs().await?;
             let logcat_dump = self.collect_logcat_dump().await?;
-            write_run_artifacts(artifacts_dir, &summary, process_logs.as_deref(), logcat_dump.as_deref())?;
+            write_run_artifacts(
+                artifacts_dir,
+                &summary,
+                process_logs.as_deref(),
+                logcat_dump.as_deref(),
+            )?;
         }
 
         print_run_summary(&summary);
@@ -567,7 +572,10 @@ fn write_run_artifacts(
     let summary_path = artifacts_dir.join("run-summary.json");
     let summary_json = serde_json::to_string_pretty(summary)?;
     fs::write(summary_path, summary_json)?;
-    fs::write(artifacts_dir.join("run-report.html"), build_html_report(summary))?;
+    fs::write(
+        artifacts_dir.join("run-report.html"),
+        build_html_report(summary),
+    )?;
     if let Some(process_logs) = process_logs {
         fs::write(artifacts_dir.join("emulator-process.log"), process_logs)?;
     }
@@ -599,4 +607,87 @@ fn build_html_report(summary: &RunSummary) -> String {
         crash = summary.crash_summary.as_deref().unwrap_or("none"),
         anr = summary.anr_summary.as_deref().unwrap_or("none"),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use tempfile::tempdir;
+
+    use super::{build_html_report, parse_failure_summary, write_run_artifacts, RunSummary};
+
+    fn sample_summary() -> RunSummary {
+        RunSummary {
+            runtime_backend: "host".to_owned(),
+            container_name: "rustdroid-emulator".to_owned(),
+            adb_serial: "emulator-5554".to_owned(),
+            package_name: "com.example.app".to_owned(),
+            launchable_activity: Some("com.example.app.MainActivity".to_owned()),
+            native_abis: vec!["x86_64".to_owned()],
+            x86_ready: true,
+            uses_arm_translation: false,
+            gps_disabled: true,
+            boot_duration_ms: 1000,
+            install_duration_ms: 200,
+            launch_duration_ms: 50,
+            total_duration_ms: 1400,
+            kept_alive: false,
+            crash_summary: Some("fatal exception".to_owned()),
+            anr_summary: Some("input dispatching timed out".to_owned()),
+            apk_paths: vec!["app.apk".to_owned()],
+        }
+    }
+
+    #[test]
+    fn failure_summary_classifies_crash_and_anr() {
+        let (crash, anr) = parse_failure_summary("Fatal Exception in main thread");
+        assert_eq!(crash.as_deref(), Some("Fatal Exception in main thread"));
+        assert_eq!(anr, None);
+
+        let (crash, anr) = parse_failure_summary("ANR detected in foreground process");
+        assert_eq!(crash, None);
+        assert_eq!(anr.as_deref(), Some("ANR detected in foreground process"));
+    }
+
+    #[test]
+    fn write_run_artifacts_persists_summary_and_logs() {
+        let dir = tempdir().expect("tempdir");
+        let summary = sample_summary();
+
+        write_run_artifacts(
+            dir.path(),
+            &summary,
+            Some("process logs"),
+            Some("logcat dump"),
+        )
+        .expect("artifacts should write");
+
+        let summary_json =
+            fs::read_to_string(dir.path().join("run-summary.json")).expect("summary json");
+        assert!(summary_json.contains("\"package_name\": \"com.example.app\""));
+        assert_eq!(
+            fs::read_to_string(dir.path().join("emulator-process.log")).expect("process log"),
+            "process logs"
+        );
+        assert_eq!(
+            fs::read_to_string(dir.path().join("logcat.txt")).expect("logcat"),
+            "logcat dump"
+        );
+        assert!(
+            dir.path().join("run-report.html").is_file(),
+            "expected html report to be written"
+        );
+    }
+
+    #[test]
+    fn html_report_includes_core_summary_fields() {
+        let report = build_html_report(&sample_summary());
+
+        assert!(report.contains("RustDroid Run Report"));
+        assert!(report.contains("com.example.app"));
+        assert!(report.contains("x86_64"));
+        assert!(report.contains("fatal exception"));
+        assert!(report.contains("input dispatching timed out"));
+    }
 }

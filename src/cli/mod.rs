@@ -388,3 +388,64 @@ pub enum CompletionShell {
     Bash,
     Zsh,
 }
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+
+    use super::{BootMode, Cli, Command};
+
+    #[test]
+    fn run_command_parses_multiple_apks_and_artifacts() {
+        let cli = Cli::parse_from([
+            "rustdroid",
+            "--boot-mode",
+            "cold",
+            "run",
+            "base.apk",
+            "config.en.apk",
+            "--artifacts-dir",
+            "artifacts",
+            "--keep-alive",
+            "false",
+        ]);
+
+        assert_eq!(cli.boot_mode, Some(BootMode::Cold));
+        match cli.command {
+            Command::Run(args) => {
+                assert_eq!(args.apks.len(), 2);
+                assert_eq!(args.apks[0].to_string_lossy(), "base.apk");
+                assert_eq!(args.apks[1].to_string_lossy(), "config.en.apk");
+                assert_eq!(
+                    args.artifacts_dir
+                        .as_deref()
+                        .map(|path| path.to_string_lossy()),
+                    Some("artifacts".into())
+                );
+                assert!(!args.keep_alive);
+            }
+            other => panic!("expected run command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn stop_all_parses_independently_from_runtime_flags() {
+        let cli = Cli::parse_from([
+            "rustdroid",
+            "--runtime-backend",
+            "host",
+            "stop",
+            "--all",
+            "--timeout-secs",
+            "42",
+        ]);
+
+        match cli.command {
+            Command::Stop(args) => {
+                assert!(args.all);
+                assert_eq!(args.timeout_secs, 42);
+            }
+            other => panic!("expected stop command, got {other:?}"),
+        }
+    }
+}

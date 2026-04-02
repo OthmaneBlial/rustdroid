@@ -113,3 +113,47 @@ fn profile_specs() -> Vec<(&'static str, &'static str)> {
         ("low-ram", "Reduced-memory profile for constrained machines"),
     ]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{apply_named_profile, built_in_profiles};
+    use crate::{
+        cli::{RuntimeBackend, UiBackend},
+        config::RuntimeConfig,
+    };
+
+    #[test]
+    fn host_fast_profile_switches_to_host_visible_scrcpy_loop() {
+        let mut config = RuntimeConfig::default();
+        apply_named_profile(&mut config, "host-fast").expect("profile should apply");
+
+        assert_eq!(config.runtime_backend, RuntimeBackend::Host);
+        assert!(!config.headless);
+        assert_eq!(config.ui_backend, UiBackend::Scrcpy);
+        assert_eq!(config.emulator_gpu_mode, "host");
+        assert!(config.disable_google_play_services);
+    }
+
+    #[test]
+    fn built_in_profiles_include_expected_public_names() {
+        let profiles = built_in_profiles();
+        let names: Vec<_> = profiles.iter().map(|profile| profile.name).collect();
+
+        assert!(names.contains(&"fast-local"));
+        assert!(names.contains(&"host-fast"));
+        assert!(names.contains(&"docker-ci"));
+    }
+
+    #[test]
+    fn unknown_profile_returns_clear_error() {
+        let mut config = RuntimeConfig::default();
+        let error = apply_named_profile(&mut config, "unknown-profile").expect_err("should fail");
+
+        assert!(
+            error
+                .to_string()
+                .contains("unknown profile 'unknown-profile'"),
+            "unexpected error: {error}"
+        );
+    }
+}

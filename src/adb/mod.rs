@@ -964,4 +964,15 @@ mod tests {
         assert_eq!(metadata.native_abis, vec!["arm64-v8a", "armeabi-v7a"]);
         assert!(metadata.uses_arm_translation_on_x86_emulator());
     }
+
+    #[test]
+    fn parse_badging_detects_x86_ready_apk() {
+        let metadata = parse_badging(
+            "package: name='com.example.app' versionCode='1'\nlaunchable-activity: name='com.example.app.MainActivity' label='' icon=''\nnative-code: 'x86_64'\n",
+        )
+        .expect("metadata");
+
+        assert_eq!(metadata.native_abis, vec!["x86_64"]);
+        assert!(!metadata.uses_arm_translation_on_x86_emulator());
+    }
 }

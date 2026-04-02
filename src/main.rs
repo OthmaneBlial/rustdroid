@@ -131,3 +131,121 @@ fn error_hint(command: &Command, message: &str) -> Option<&'static str> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{error_hint, exit_code_for_command};
+    use crate::cli::{
+        BackendScope, BenchArgs, CleanArgs, Command, ConfigArgs, ConfigCommand, ConfigInitArgs,
+        DoctorArgs, ProfileArgs, ProfileCommand, ProfileUseArgs, RunArgs, SelfTestArgs, StopArgs,
+    };
+
+    #[test]
+    fn exit_codes_stay_stable_for_non_runtime_commands() {
+        assert_eq!(
+            exit_code_for_command(&Command::Doctor(DoctorArgs::default())),
+            10
+        );
+        assert_eq!(
+            exit_code_for_command(&Command::SelfTest(SelfTestArgs {
+                backend: BackendScope::Current,
+                full: false,
+            })),
+            11
+        );
+        assert_eq!(
+            exit_code_for_command(&Command::Bench(BenchArgs {
+                apk: None,
+                replace: true,
+            })),
+            12
+        );
+        assert_eq!(
+            exit_code_for_command(&Command::Config(ConfigArgs {
+                command: ConfigCommand::Init(ConfigInitArgs {
+                    profile: None,
+                    force: false,
+                }),
+            })),
+            13
+        );
+        assert_eq!(
+            exit_code_for_command(&Command::Profile(ProfileArgs {
+                command: ProfileCommand::Use(ProfileUseArgs {
+                    name: "fast-local".to_owned(),
+                    force: false,
+                }),
+            })),
+            14
+        );
+        assert_eq!(
+            exit_code_for_command(&Command::Clean(CleanArgs { dry_run: true })),
+            15
+        );
+    }
+
+    #[test]
+    fn runtime_commands_keep_generic_exit_code() {
+        assert_eq!(
+            exit_code_for_command(&Command::Run(RunArgs {
+                apks: Vec::new(),
+                replace: true,
+                duration_secs: None,
+                log_source: crate::cli::LogSource::Logcat,
+                keep_alive: true,
+                artifacts_dir: None,
+            })),
+            1
+        );
+        assert_eq!(
+            exit_code_for_command(&Command::Stop(StopArgs {
+                timeout_secs: 15,
+                all: false,
+            })),
+            1
+        );
+    }
+
+    #[test]
+    fn error_hint_maps_common_runtime_failures() {
+        let run_command = Command::Run(RunArgs {
+            apks: Vec::new(),
+            replace: true,
+            duration_secs: None,
+            log_source: crate::cli::LogSource::Logcat,
+            keep_alive: true,
+            artifacts_dir: None,
+        });
+
+        assert_eq!(
+            error_hint(&run_command, "APK not found: app.apk"),
+            Some("Pass a real APK path from your build output.")
+        );
+        assert_eq!(
+            error_hint(&run_command, "docker daemon is unavailable"),
+            Some("Start Docker or switch to `--runtime-backend host` for the host emulator path.")
+        );
+    }
+
+    #[test]
+    fn error_hint_uses_command_specific_guidance() {
+        assert_eq!(
+            error_hint(
+                &Command::Doctor(DoctorArgs::default()),
+                "some other environment failure"
+            ),
+            Some(
+                "Review the failing checks above and rerun the command once the environment is fixed."
+            )
+        );
+        assert_eq!(
+            error_hint(
+                &Command::Profile(ProfileArgs {
+                    command: ProfileCommand::List,
+                }),
+                "unknown profile"
+            ),
+            Some("Use `--config <path>` to target a different config file if needed.")
+        );
+    }
+}

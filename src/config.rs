@@ -544,6 +544,8 @@ mod tests {
 
     #[test]
     fn fast_local_prefers_emulator_12_when_image_not_overridden() {
+        let _guard = env_lock().lock().expect("env lock should be available");
+        clear_env();
         let cli = Cli::parse_from([
             "rustdroid",
             "--config",
@@ -560,6 +562,8 @@ mod tests {
 
     #[test]
     fn host_backend_defaults_to_host_gpu_and_serial_from_port() {
+        let _guard = env_lock().lock().expect("env lock should be available");
+        clear_env();
         let cli = Cli::parse_from([
             "rustdroid",
             "--config",
@@ -580,10 +584,77 @@ mod tests {
     }
 
     #[test]
+    fn visible_host_backend_defaults_to_host_gpu_mode() {
+        let _guard = env_lock().lock().expect("env lock should be available");
+        clear_env();
+        let cli = Cli::parse_from([
+            "rustdroid",
+            "--config",
+            "/tmp/rustdroid-nonexistent.toml",
+            "--runtime-backend",
+            "host",
+            "--headless",
+            "false",
+            "--ui-backend",
+            "web",
+            "start",
+            "--wait",
+            "false",
+        ]);
+
+        let config = RuntimeConfig::load(&cli).expect("host config should load");
+        assert_eq!(config.runtime_backend, RuntimeBackend::Host);
+        assert_eq!(config.emulator_gpu_mode, "host");
+        assert_eq!(config.adb_serial, "emulator-5554");
+    }
+
+    #[test]
+    fn headless_args_add_no_window_only_once() {
+        let config = RuntimeConfig {
+            headless: true,
+            emulator_additional_args: "-no-window -no-boot-anim".to_owned(),
+            ..RuntimeConfig::default()
+        };
+
+        assert_eq!(
+            config.effective_emulator_additional_args(),
+            "-no-window -no-boot-anim"
+        );
+    }
+
+    #[test]
+    fn invalid_boot_mode_env_override_returns_error() {
+        let _guard = env_lock().lock().expect("env lock should be available");
+        clear_env();
+        std::env::set_var("RUSTDROID_BOOT_MODE", "broken");
+
+        let cli = Cli::parse_from([
+            "rustdroid",
+            "--config",
+            "/tmp/rustdroid-nonexistent.toml",
+            "start",
+            "--wait",
+            "false",
+        ]);
+
+        let error = RuntimeConfig::load(&cli).expect_err("invalid boot mode should fail");
+        assert!(
+            error
+                .to_string()
+                .contains("invalid RUSTDROID_BOOT_MODE='broken'"),
+            "unexpected error: {error}"
+        );
+
+        clear_env();
+    }
+
+    #[test]
     fn env_profile_and_backend_overrides_are_applied() {
         let _guard = env_lock().lock().expect("env lock should be available");
+        clear_env();
         std::env::set_var("RUSTDROID_PROFILE", "browser-demo");
         std::env::set_var("RUSTDROID_RUNTIME_BACKEND", "host");
+        std::env::set_var("RUSTDROID_BOOT_MODE", "cold");
         std::env::set_var("RUSTDROID_UI_BACKEND", "scrcpy");
         std::env::set_var("RUSTDROID_EMULATOR_GPU_MODE", "auto-no-window");
 
@@ -598,6 +669,7 @@ mod tests {
 
         let config = RuntimeConfig::load(&cli).expect("env override config should load");
         assert_eq!(config.runtime_backend, RuntimeBackend::Host);
+        assert_eq!(config.boot_mode, crate::cli::BootMode::Cold);
         assert_eq!(config.ui_backend, UiBackend::Scrcpy);
         assert_eq!(config.emulator_gpu_mode, "auto-no-window");
 
@@ -613,6 +685,7 @@ mod tests {
         for key in [
             "RUSTDROID_PROFILE",
             "RUSTDROID_RUNTIME_BACKEND",
+            "RUSTDROID_BOOT_MODE",
             "RUSTDROID_UI_BACKEND",
             "RUSTDROID_EMULATOR_GPU_MODE",
         ] {
