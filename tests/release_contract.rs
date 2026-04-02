@@ -4,7 +4,9 @@ use std::path::Path;
 fn release_assets_exist_in_repo() {
     for path in [
         ".github/workflows/ci.yml",
+        ".github/workflows/publish-crate.yml",
         ".github/workflows/release.yml",
+        "docs/package-distribution.md",
         "docs/release-announcement-checklist.md",
         "docs/release-rollback.md",
         "docs/releases/v0.1.0.md",
@@ -14,6 +16,7 @@ fn release_assets_exist_in_repo() {
         "scripts/ci-host-check.sh",
         "scripts/ci-package-check.sh",
         "scripts/ci-shell-check.sh",
+        "scripts/check-cargo-distribution.sh",
         "scripts/generate-release-notes.sh",
         "scripts/package-release.sh",
         "scripts/verify-release-install.sh",
@@ -36,6 +39,7 @@ fn install_and_package_scripts_are_executable() {
         "scripts/ci-host-check.sh",
         "scripts/ci-package-check.sh",
         "scripts/ci-shell-check.sh",
+        "scripts/check-cargo-distribution.sh",
         "scripts/generate-release-notes.sh",
         "scripts/package-release.sh",
         "scripts/verify-release-install.sh",

@@ -2,8 +2,26 @@
 name = "rustdroid"
 version = "0.1.0"
 edition = "2021"
-description = "Fast Android APK orchestration on top of docker-android"
+description = "Fast host-first Android APK testing CLI"
 license = "MIT"
+repository = "https://github.com/OthmaneBlial/rustdroid"
+homepage = "https://github.com/OthmaneBlial/rustdroid"
+documentation = "https://github.com/OthmaneBlial/rustdroid#readme"
+readme = "README.md"
+keywords = ["android", "apk", "emulator", "testing", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+include = [
+    "Cargo.toml",
+    "Cargo.lock",
+    "README.md",
+    "LICENSE",
+    "docs/**",
+    "install.sh",
+    "uninstall.sh",
+    "scripts/**",
+    "src/**",
+    "tests/**",
+]
 
 [dependencies]
 anyhow = "1.0"

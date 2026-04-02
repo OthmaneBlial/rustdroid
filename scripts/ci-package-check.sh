@@ -12,6 +12,7 @@ ARCHIVE_PATH="$DIST_DIR/rustdroid-$TARGET.tar.gz"
 CHECKSUM_PATH="$ARCHIVE_PATH.sha256"
 LISTING_PATH="$DIST_DIR/rustdroid-$TARGET.contents"
 
+./scripts/check-cargo-distribution.sh "$DIST_DIR/cargo-install-root"
 ./scripts/package-release.sh "$TARGET" "$VERSION"
 tar -tzf "$ARCHIVE_PATH" >"$LISTING_PATH"
 
