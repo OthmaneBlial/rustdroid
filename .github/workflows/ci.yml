@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  rust:
+  fast-checks:
     runs-on: ubuntu-22.04
 
     steps:
@@ -25,23 +25,159 @@ jobs:
       - name: Cache Rust artifacts
         uses: Swatinem/rust-cache@v2
 
-      - name: Check formatting
+      - id: fmt
+        name: Check formatting
+        continue-on-error: true
         run: cargo fmt --check
 
-      - name: Run clippy
+      - id: clippy
+        name: Run clippy
+        continue-on-error: true
         run: cargo clippy --all-targets -- -D warnings
 
-      - name: Run tests
+      - id: tests
+        name: Run tests
+        continue-on-error: true
         run: cargo test
 
-      - name: Build debug binary
+      - id: build
+        name: Build debug binary
+        continue-on-error: true
         run: cargo build --locked
 
-  shell:
+      - id: shell
+        name: Run shell syntax checks
+        continue-on-error: true
+        run: ./scripts/ci-shell-check.sh
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "## Fast Checks"
+            echo
+            echo "- fmt: ${{ steps.fmt.outcome }}"
+            echo "- clippy: ${{ steps.clippy.outcome }}"
+            echo "- tests: ${{ steps.tests.outcome }}"
+            echo "- build: ${{ steps.build.outcome }}"
+            echo "- shell: ${{ steps.shell.outcome }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ steps.fmt.outcome }}" != "success" || \
+                "${{ steps.clippy.outcome }}" != "success" || \
+                "${{ steps.tests.outcome }}" != "success" || \
+                "${{ steps.build.outcome }}" != "success" || \
+                "${{ steps.shell.outcome }}" != "success" ]]; then
+            exit 1
+          fi
+
+  host-integration:
     runs-on: ubuntu-22.04
+    needs: fast-checks
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run shell syntax checks
-        run: ./scripts/ci-shell-check.sh
+      - name: Enable KVM group access
+        run: |
+          sudo chown root:kvm /dev/kvm
+          sudo chmod 0660 /dev/kvm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - id: host_suite
+        name: Run host runtime and smoke validation
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          avd-name: test_avd
+          profile: Nexus 5
+          target: google_apis
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
+          script: |
+            export RUSTDROID_HOST_TEST_SERIAL=emulator-5556
+            export RUSTDROID_HOST_TEST_AVD=test_avd
+            export RUSTDROID_CI_HOST_ARTIFACTS_DIR="$RUNNER_TEMP/rustdroid-host"
+            export RUSTDROID_SMOKE_ENABLE_GUI=0
+            cargo build --locked
+            ./scripts/ci-host-check.sh
+
+      - name: Upload host artifacts on failure
+        if: steps.host_suite.outcome != 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-integration-artifacts
+          path: ${{ runner.temp }}/rustdroid-host
+          if-no-files-found: ignore
+
+      - name: Write job summary
+        if: always()
+        run: |
+          if [[ -f "${RUNNER_TEMP}/rustdroid-host/results.env" ]]; then
+            source "${RUNNER_TEMP}/rustdroid-host/results.env"
+          fi
+
+          {
+            echo "## Host Integration"
+            echo
+            echo "- suite step: ${{ steps.host_suite.outcome }}"
+            echo "- integration_host_runtime: ${runtime_status:-not-run}"
+            echo "- integration_host_backend: ${backend_status:-not-run}"
+            echo "- smoke_matrix: ${smoke_status:-not-run}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ steps.host_suite.outcome }}" != "success" ]]; then
+            exit 1
+          fi
+
+  package-validation:
+    runs-on: ubuntu-22.04
+    needs: fast-checks
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-musl
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - id: package
+        name: Build and validate release archive
+        continue-on-error: true
+        run: ./scripts/ci-package-check.sh x86_64-unknown-linux-musl ci
+
+      - name: Upload packaging artifacts on failure
+        if: steps.package.outcome != 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-validation-artifacts
+          path: |
+            dist
+          if-no-files-found: ignore
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "## Package Validation"
+            echo
+            echo "- package archive validation: ${{ steps.package.outcome }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ steps.package.outcome }}" != "success" ]]; then
+            exit 1
+          fi

@@ -7,6 +7,8 @@ fn release_assets_exist_in_repo() {
         ".github/workflows/release.yml",
         "install.sh",
         "uninstall.sh",
+        "scripts/ci-host-check.sh",
+        "scripts/ci-package-check.sh",
         "scripts/ci-shell-check.sh",
         "scripts/package-release.sh",
         "README.md",
@@ -25,6 +27,8 @@ fn install_and_package_scripts_are_executable() {
     for path in [
         "install.sh",
         "uninstall.sh",
+        "scripts/ci-host-check.sh",
+        "scripts/ci-package-check.sh",
         "scripts/ci-shell-check.sh",
         "scripts/package-release.sh",
     ] {
