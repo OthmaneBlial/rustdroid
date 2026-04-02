@@ -16,6 +16,8 @@ RustDroid keeps test scope explicit.
   canonical APK fixtures plus a machine-readable manifest used by integration coverage.
 - `tests/integration_host_runtime.rs`:
   opt-in real host-emulator command coverage for the daily APK loop.
+- `tests/integration_host_backend.rs`:
+  opt-in backend-focused checks for AVD discovery, managed start/stop, artifacts, and optional scrcpy coverage.
 
 ## Naming Rules
 
@@ -32,6 +34,9 @@ RustDroid keeps test scope explicit.
 - Refresh checked-in APK fixtures with `./scripts/generate-fixture-apks.sh`.
 - Enable the real host runtime suite with `RUSTDROID_RUN_HOST_RUNTIME_TESTS=1`.
 - Point it at a running emulator with `RUSTDROID_HOST_TEST_SERIAL=emulator-5556`.
+- Enable the backend-focused host suite with `RUSTDROID_RUN_HOST_BACKEND_TESTS=1`.
+- Point backend artifact and scrcpy checks at a running emulator with `RUSTDROID_HOST_TEST_SERIAL=emulator-5556`.
+- Enable the scrcpy-specific backend check with `RUSTDROID_RUN_HOST_SCRCPY_TESTS=1` on a runner with a GUI session.
 
 ## Suggested Commands
 
@@ -40,7 +45,10 @@ cargo test
 cargo test --test integration_cli
 cargo test --test integration_fixtures
 cargo test --test integration_host_runtime
+cargo test --test integration_host_backend
 cargo test --test smoke_cli
 cargo test --test release_contract
 RUSTDROID_RUN_HOST_RUNTIME_TESTS=1 RUSTDROID_HOST_TEST_SERIAL=emulator-5556 cargo test --test integration_host_runtime -- --nocapture
+RUSTDROID_RUN_HOST_BACKEND_TESTS=1 cargo test --test integration_host_backend host_backend_detects_avds_and_managed_start_stop -- --nocapture
+RUSTDROID_RUN_HOST_BACKEND_TESTS=1 RUSTDROID_HOST_TEST_SERIAL=emulator-5556 cargo test --test integration_host_backend host_backend_run_writes_artifacts_for_running_device -- --nocapture
 ```
