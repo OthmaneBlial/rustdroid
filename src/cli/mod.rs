@@ -176,6 +176,8 @@ pub enum Command {
     ClearData(ClearDataArgs),
     #[command(about = "Start, install, launch, and stream logs for an APK")]
     Run(RunArgs),
+    #[command(about = "Watch an APK output path and rerun install/launch cycles")]
+    Watch(WatchArgs),
     #[command(about = "Stream emulator or logcat logs")]
     Logs(LogsArgs),
     #[command(about = "Stop the active RustDroid runtime")]
@@ -330,6 +332,32 @@ pub struct RunArgs {
 
     #[arg(long)]
     pub artifacts_dir: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct WatchArgs {
+    pub path: PathBuf,
+
+    #[arg(long, default_value_t = 2)]
+    pub poll_interval_secs: u64,
+
+    #[arg(long, default_value_t = 2)]
+    pub settle_secs: u64,
+
+    #[arg(long)]
+    pub duration_secs: Option<u64>,
+
+    #[arg(long, default_value_t = LogSource::Logcat, value_enum)]
+    pub log_source: LogSource,
+
+    #[arg(long, default_value_t = true, action = ArgAction::Set)]
+    pub keep_alive: bool,
+
+    #[arg(long, default_value_t = false)]
+    pub quiet: bool,
+
+    #[arg(long)]
+    pub max_cycles: Option<u32>,
 }
 
 #[derive(Debug, Clone, clap::Args)]
@@ -504,6 +532,39 @@ mod tests {
                 assert_eq!(args.package, None);
             }
             other => panic!("expected clear-data command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn watch_command_parses_polling_and_cycle_controls() {
+        let cli = Cli::parse_from([
+            "rustdroid",
+            "watch",
+            "build/outputs",
+            "--poll-interval-secs",
+            "1",
+            "--settle-secs",
+            "3",
+            "--duration-secs",
+            "5",
+            "--keep-alive",
+            "false",
+            "--quiet",
+            "--max-cycles",
+            "1",
+        ]);
+
+        match cli.command {
+            Command::Watch(args) => {
+                assert_eq!(args.path.to_string_lossy(), "build/outputs");
+                assert_eq!(args.poll_interval_secs, 1);
+                assert_eq!(args.settle_secs, 3);
+                assert_eq!(args.duration_secs, Some(5));
+                assert!(!args.keep_alive);
+                assert!(args.quiet);
+                assert_eq!(args.max_cycles, Some(1));
+            }
+            other => panic!("expected watch command, got {other:?}"),
         }
     }
 }

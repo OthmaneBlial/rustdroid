@@ -9,13 +9,14 @@ use anyhow::{bail, Result};
 use bollard::container::LogsOptions;
 use futures_util::StreamExt;
 use serde::Serialize;
+use tokio::time::sleep;
 
 use crate::{
     adb::{AdbClient, ApkMetadata},
     apks::{ObbFile, PreparedApkSet},
     cli::{
         BenchArgs, ClearDataArgs, InstallArgs, LaunchArgs, LogsArgs, OpenArgs, RunArgs, StartArgs,
-        StopArgs, UninstallArgs,
+        StopArgs, UninstallArgs, WatchArgs,
     },
     config::RuntimeConfig,
     display,
@@ -78,6 +79,13 @@ struct RunArtifacts {
     anr_summary: Option<String>,
     anr_traces: Option<String>,
     tombstones: Option<String>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct WatchToken {
+    path: PathBuf,
+    modified_at_ms: u128,
+    size_bytes: u64,
 }
 
 impl EmulatorOrchestrator {
@@ -287,6 +295,97 @@ impl EmulatorOrchestrator {
         }
 
         stream_result
+    }
+
+    pub async fn watch(&self, args: WatchArgs) -> Result<()> {
+        let mut last_seen: Option<WatchToken> = None;
+        let mut cycles = 0_u32;
+        let mut ui_opened = false;
+
+        loop {
+            let Some(candidate) = resolve_watch_candidate(&args.path)? else {
+                if !args.quiet {
+                    eprintln!(
+                        "watching {} for .apk, .apks, or .xapk outputs",
+                        args.path.display()
+                    );
+                }
+                sleep(std::time::Duration::from_secs(args.poll_interval_secs)).await;
+                continue;
+            };
+
+            if last_seen.as_ref() == Some(&candidate) {
+                sleep(std::time::Duration::from_secs(args.poll_interval_secs)).await;
+                continue;
+            }
+
+            if args.settle_secs > 0 {
+                sleep(std::time::Duration::from_secs(args.settle_secs)).await;
+            }
+
+            let Some(stable_candidate) = resolve_watch_candidate(&args.path)? else {
+                sleep(std::time::Duration::from_secs(args.poll_interval_secs)).await;
+                continue;
+            };
+            if stable_candidate.path != candidate.path {
+                sleep(std::time::Duration::from_secs(args.poll_interval_secs)).await;
+                continue;
+            }
+
+            cycles += 1;
+            if !args.quiet {
+                eprintln!(
+                    "==> watch cycle {} using {}",
+                    cycles,
+                    stable_candidate.path.display()
+                );
+            }
+
+            let prepared =
+                PreparedApkSet::from_inputs(std::slice::from_ref(&stable_candidate.path))?;
+            self.start_device(true, !ui_opened).await?;
+            ui_opened = true;
+
+            let install = self.install_prepared_apks(&prepared, true).await?;
+            self.adb
+                .launch_app(&self.runtime, &self.config, &install.metadata)
+                .await?;
+
+            if let Some(duration_secs) = args.duration_secs {
+                logs::stream(
+                    &self.runtime,
+                    &self.config,
+                    StreamOptions {
+                        source: args.log_source,
+                        duration_secs: Some(duration_secs),
+                        package_name: Some(install.metadata.package_name.clone()),
+                        since_start: false,
+                    },
+                )
+                .await?;
+            }
+
+            if !args.keep_alive {
+                self.runtime.stop(&self.config, 15).await?;
+                ui_opened = false;
+            }
+
+            if !args.quiet {
+                eprintln!(
+                    "watch cycle {} complete: package={} input={}",
+                    cycles,
+                    install.metadata.package_name,
+                    stable_candidate.path.display()
+                );
+            }
+
+            last_seen = Some(stable_candidate);
+            if args.max_cycles.is_some_and(|limit| cycles >= limit) {
+                return Ok(());
+            }
+
+            sleep(std::time::Duration::from_secs(args.poll_interval_secs)).await;
+        }
     }
 
     pub async fn bench(&self, args: BenchArgs, json: bool) -> Result<()> {
@@ -900,15 +999,78 @@ fn build_html_report(summary: &RunSummary) -> String {
     )
 }
 
+fn resolve_watch_candidate(path: &Path) -> Result<Option<WatchToken>> {
+    if path.is_file() {
+        if !supported_watch_input(path) {
+            bail!(
+                "watch only supports .apk, .apks, or .xapk files (got '{}')",
+                path.display()
+            );
+        }
+        return Ok(Some(watch_token(path)?));
+    }
+
+    if !path.exists() {
+        bail!("watch path not found: {}", path.display());
+    }
+    if !path.is_dir() {
+        bail!(
+            "watch path must be a file or directory (got '{}')",
+            path.display()
+        );
+    }
+
+    let mut candidates = Vec::new();
+    for entry in fs::read_dir(path)? {
+        let entry = entry?;
+        let candidate = entry.path();
+        if candidate.is_file() && supported_watch_input(&candidate) {
+            candidates.push(watch_token(&candidate)?);
+        }
+    }
+
+    candidates.sort_by(|left, right| {
+        right
+            .modified_at_ms
+            .cmp(&left.modified_at_ms)
+            .then(left.path.cmp(&right.path))
+    });
+    Ok(candidates.into_iter().next())
+}
+
+fn watch_token(path: &Path) -> Result<WatchToken> {
+    let metadata = fs::metadata(path)?;
+    let modified_at_ms = metadata
+        .modified()
+        .ok()
+        .and_then(|value| value.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|value| value.as_millis())
+        .unwrap_or_default();
+
+    Ok(WatchToken {
+        path: path.to_path_buf(),
+        modified_at_ms,
+        size_bytes: metadata.len(),
+    })
+}
+
+fn supported_watch_input(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|extension| extension.to_str()),
+        Some("apk" | "apks" | "xapk")
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::{fs, thread::sleep, time::Duration};
 
     use tempfile::tempdir;
 
     use super::{
         build_html_report, extract_logcat_anr_summary, extract_logcat_crash_summary,
-        parse_failure_summary, write_run_artifacts, RunArtifacts, RunSummary,
+        parse_failure_summary, resolve_watch_candidate, write_run_artifacts, RunArtifacts,
+        RunSummary,
     };
 
     fn sample_summary() -> RunSummary {
@@ -1017,5 +1179,36 @@ mod tests {
             extract_logcat_anr_summary(logcat).as_deref(),
             Some("04-01 12:00:01.000 E/ActivityManager(456): ANR in com.example.app")
         );
+    }
+
+    #[test]
+    fn watch_candidate_uses_direct_file_input() {
+        let dir = tempdir().expect("tempdir");
+        let apk_path = dir.path().join("app.apk");
+        fs::write(&apk_path, b"apk").expect("apk");
+
+        let candidate = resolve_watch_candidate(&apk_path)
+            .expect("watch candidate")
+            .expect("candidate should exist");
+        assert_eq!(candidate.path, apk_path);
+    }
+
+    #[test]
+    fn watch_candidate_prefers_latest_supported_file_in_directory() {
+        let dir = tempdir().expect("tempdir");
+        let older = dir.path().join("older.apk");
+        let newer = dir.path().join("newer.xapk");
+        let ignored = dir.path().join("ignored.txt");
+
+        fs::write(&older, b"older").expect("older");
+        sleep(Duration::from_millis(20));
+        fs::write(&ignored, b"ignored").expect("ignored");
+        sleep(Duration::from_millis(20));
+        fs::write(&newer, b"newer").expect("newer");
+
+        let candidate = resolve_watch_candidate(dir.path())
+            .expect("watch directory")
+            .expect("candidate should exist");
+        assert_eq!(candidate.path, newer);
     }
 }

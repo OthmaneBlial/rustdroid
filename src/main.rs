@@ -84,6 +84,7 @@ async fn run(cli: Cli, command: Command) -> Result<()> {
                 Command::Uninstall(args) => orchestrator.uninstall(args).await?,
                 Command::ClearData(args) => orchestrator.clear_data(args).await?,
                 Command::Run(args) => orchestrator.run(args).await?,
+                Command::Watch(args) => orchestrator.watch(args).await?,
                 Command::Logs(args) => orchestrator.logs(args).await?,
                 Command::Stop(args) => orchestrator.stop(args).await?,
                 _ => unreachable!("non-runtime commands are handled above"),

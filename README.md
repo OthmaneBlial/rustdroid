@@ -99,6 +99,7 @@ It is not trying to replace a full device lab. It is trying to stop you from pay
 - warm vs cold boot selection through `--boot-mode`
 - multi-APK install support for split APK sets plus `.apks` and `.xapk` archives
 - quick `uninstall` and `clear-data` commands with package auto-detection from APK inputs
+- `watch` mode for repeated local rebuild-install-launch loops
 - run summaries with optional artifact output folders
 - Docker runtime and host-native runtime
 - `scrcpy`, web, VNC, and headless modes
@@ -199,6 +200,7 @@ rustdroid install base.apk config.en.apk
 rustdroid install app.apks
 rustdroid run app.xapk --duration-secs 10 --keep-alive false
 rustdroid launch --package com.example.app
+rustdroid watch build/outputs/apk/debug --duration-secs 2 --keep-alive true
 rustdroid clear-data --package com.example.app
 rustdroid uninstall app.apks
 rustdroid run app.apk --duration-secs 10 --keep-alive false --artifacts-dir .rustdroid-artifacts
