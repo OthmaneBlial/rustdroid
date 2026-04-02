@@ -445,6 +445,45 @@ impl AdbClient {
             .await
     }
 
+    pub async fn uninstall_package(
+        &self,
+        runtime: &Runtime,
+        config: &RuntimeConfig,
+        package_name: &str,
+    ) -> Result<()> {
+        self.stabilize_device(runtime, config).await?;
+        let outcome = runtime
+            .exec(config, self.adb_command(["uninstall", package_name]))
+            .await?;
+        ensure_command_success(
+            "uninstall package",
+            &outcome.stdout,
+            &outcome.stderr,
+            outcome.exit_code,
+        )
+    }
+
+    pub async fn clear_package_data(
+        &self,
+        runtime: &Runtime,
+        config: &RuntimeConfig,
+        package_name: &str,
+    ) -> Result<()> {
+        self.stabilize_device(runtime, config).await?;
+        let outcome = runtime
+            .exec(
+                config,
+                self.adb_command(["shell", "pm", "clear", package_name]),
+            )
+            .await?;
+        ensure_command_success(
+            "clear package data",
+            &outcome.stdout,
+            &outcome.stderr,
+            outcome.exit_code,
+        )
+    }
+
     fn adb_command<const N: usize>(&self, command: [&str; N]) -> Vec<String> {
         let mut args = vec!["adb".to_owned(), "-s".to_owned(), self.serial.clone()];
         args.extend(command.into_iter().map(str::to_owned));

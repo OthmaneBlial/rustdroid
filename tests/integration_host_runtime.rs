@@ -235,6 +235,16 @@ fn host_runtime_apk_commands_work() {
     assert_success(&launch_output);
     assert_output_contains(&launch_output, "launching com.rustdroid.fixture.launch");
 
+    let clear_data_output = run_command(
+        harness
+            .command()
+            .arg("clear-data")
+            .arg("--package")
+            .arg(FIXTURE_PACKAGE),
+    );
+    assert_success(&clear_data_output);
+    assert_output_contains(&clear_data_output, "clearing data");
+
     let logs_output = run_command(
         harness
             .command()
@@ -275,6 +285,16 @@ fn host_runtime_apk_commands_work() {
         read_to_string(&harness.artifacts_dir.join("run-summary.json")).contains(FIXTURE_PACKAGE),
         "run summary should mention the fixture package"
     );
+
+    let uninstall_output = run_command(
+        harness
+            .command()
+            .arg("uninstall")
+            .arg("--package")
+            .arg(FIXTURE_PACKAGE),
+    );
+    assert_success(&uninstall_output);
+    assert_output_contains(&uninstall_output, "uninstalling");
 
     let stop_all_output = run_command(
         harness

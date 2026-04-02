@@ -1,4 +1,5 @@
 mod adb;
+mod apks;
 mod cli;
 mod config;
 mod diagnostics;
@@ -80,6 +81,8 @@ async fn run(cli: Cli, command: Command) -> Result<()> {
                 Command::Open(args) => orchestrator.open(args).await?,
                 Command::Install(args) => orchestrator.install(args).await?,
                 Command::Launch(args) => orchestrator.launch(args).await?,
+                Command::Uninstall(args) => orchestrator.uninstall(args).await?,
+                Command::ClearData(args) => orchestrator.clear_data(args).await?,
                 Command::Run(args) => orchestrator.run(args).await?,
                 Command::Logs(args) => orchestrator.logs(args).await?,
                 Command::Stop(args) => orchestrator.stop(args).await?,
@@ -136,8 +139,9 @@ fn error_hint(command: &Command, message: &str) -> Option<&'static str> {
 mod tests {
     use super::{error_hint, exit_code_for_command};
     use crate::cli::{
-        BackendScope, BenchArgs, CleanArgs, Command, ConfigArgs, ConfigCommand, ConfigInitArgs,
-        DoctorArgs, ProfileArgs, ProfileCommand, ProfileUseArgs, RunArgs, SelfTestArgs, StopArgs,
+        BackendScope, BenchArgs, CleanArgs, ClearDataArgs, Command, ConfigArgs, ConfigCommand,
+        ConfigInitArgs, DoctorArgs, ProfileArgs, ProfileCommand, ProfileUseArgs, RunArgs,
+        SelfTestArgs, StopArgs, UninstallArgs,
     };
 
     #[test]
@@ -201,6 +205,20 @@ mod tests {
             exit_code_for_command(&Command::Stop(StopArgs {
                 timeout_secs: 15,
                 all: false,
+            })),
+            1
+        );
+        assert_eq!(
+            exit_code_for_command(&Command::Uninstall(UninstallArgs {
+                input: None,
+                package: Some("com.example.app".to_owned()),
+            })),
+            1
+        );
+        assert_eq!(
+            exit_code_for_command(&Command::ClearData(ClearDataArgs {
+                input: None,
+                package: Some("com.example.app".to_owned()),
             })),
             1
         );

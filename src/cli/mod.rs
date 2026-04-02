@@ -170,6 +170,10 @@ pub enum Command {
     Install(InstallArgs),
     #[command(about = "Launch an installed app by APK metadata or package name")]
     Launch(LaunchArgs),
+    #[command(about = "Uninstall an app by package name or APK metadata")]
+    Uninstall(UninstallArgs),
+    #[command(about = "Clear app data by package name or APK metadata")]
+    ClearData(ClearDataArgs),
     #[command(about = "Start, install, launch, and stream logs for an APK")]
     Run(RunArgs),
     #[command(about = "Stream emulator or logcat logs")]
@@ -282,13 +286,29 @@ pub struct InstallArgs {
 
 #[derive(Debug, Clone, clap::Args)]
 pub struct LaunchArgs {
-    pub apk: Option<PathBuf>,
+    pub input: Option<PathBuf>,
 
     #[arg(long)]
     pub package: Option<String>,
 
     #[arg(long)]
     pub activity: Option<String>,
+}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct UninstallArgs {
+    pub input: Option<PathBuf>,
+
+    #[arg(long)]
+    pub package: Option<String>,
+}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct ClearDataArgs {
+    pub input: Option<PathBuf>,
+
+    #[arg(long)]
+    pub package: Option<String>,
 }
 
 #[derive(Debug, Clone, clap::Args)]
@@ -446,6 +466,44 @@ mod tests {
                 assert_eq!(args.timeout_secs, 42);
             }
             other => panic!("expected stop command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn cleanup_commands_parse_archive_input_and_package_override() {
+        let cli = Cli::parse_from([
+            "rustdroid",
+            "uninstall",
+            "bundle.apks",
+            "--package",
+            "com.example.app",
+        ]);
+
+        match cli.command {
+            Command::Uninstall(args) => {
+                assert_eq!(
+                    args.input
+                        .as_deref()
+                        .map(|path| path.to_string_lossy().into_owned()),
+                    Some("bundle.apks".to_owned())
+                );
+                assert_eq!(args.package.as_deref(), Some("com.example.app"));
+            }
+            other => panic!("expected uninstall command, got {other:?}"),
+        }
+
+        let cli = Cli::parse_from(["rustdroid", "clear-data", "app.xapk"]);
+        match cli.command {
+            Command::ClearData(args) => {
+                assert_eq!(
+                    args.input
+                        .as_deref()
+                        .map(|path| path.to_string_lossy().into_owned()),
+                    Some("app.xapk".to_owned())
+                );
+                assert_eq!(args.package, None);
+            }
+            other => panic!("expected clear-data command, got {other:?}"),
         }
     }
 }

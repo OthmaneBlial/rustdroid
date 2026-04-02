@@ -12,7 +12,11 @@ use serde::Serialize;
 
 use crate::{
     adb::{AdbClient, ApkMetadata},
-    cli::{BenchArgs, InstallArgs, LaunchArgs, LogsArgs, OpenArgs, RunArgs, StartArgs, StopArgs},
+    apks::{ObbFile, PreparedApkSet},
+    cli::{
+        BenchArgs, ClearDataArgs, InstallArgs, LaunchArgs, LogsArgs, OpenArgs, RunArgs, StartArgs,
+        StopArgs, UninstallArgs,
+    },
     config::RuntimeConfig,
     display,
     logs::{self, StreamOptions},
@@ -95,19 +99,21 @@ impl EmulatorOrchestrator {
     }
 
     pub async fn install(&self, args: InstallArgs) -> Result<()> {
-        self.require_apks(&args.apks)?;
+        let prepared = PreparedApkSet::from_inputs(&args.apks)?;
         self.start_device(true, false).await?;
-        self.install_uploaded_apks(&args.apks, args.replace).await?;
+        self.install_prepared_apks(&prepared, args.replace).await?;
         Ok(())
     }
 
     pub async fn launch(&self, args: LaunchArgs) -> Result<()> {
         self.start_device(true, true).await?;
 
-        if let Some(apk) = args.apk.as_ref() {
-            self.require_apk(apk)?;
-            let remote_paths = self.upload_apks(std::slice::from_ref(apk)).await?;
-            let metadata = self.inspect_uploaded_apks(&remote_paths).await?;
+        if let Some(input) = args.input.as_ref() {
+            let prepared = PreparedApkSet::from_inputs(std::slice::from_ref(input))?;
+            let mut metadata = self.inspect_prepared_apks(&prepared).await?;
+            if let Some(activity) = args.activity.as_ref() {
+                metadata.launchable_activity = Some(activity.clone());
+            }
             eprintln!(
                 "launching {} via APK metadata on {}",
                 metadata.package_name,
@@ -136,11 +142,41 @@ impl EmulatorOrchestrator {
             return Ok(());
         }
 
-        bail!("launch requires either an APK path or --package <name>");
+        bail!("launch requires either an APK/archive path or --package <name>");
+    }
+
+    pub async fn uninstall(&self, args: UninstallArgs) -> Result<()> {
+        self.start_device(true, false).await?;
+        let package_name = self
+            .resolve_package_name(args.input.as_ref(), args.package)
+            .await?;
+        eprintln!(
+            "uninstalling {} on {}",
+            package_name,
+            self.runtime_backend_name()
+        );
+        self.adb
+            .uninstall_package(&self.runtime, &self.config, &package_name)
+            .await
+    }
+
+    pub async fn clear_data(&self, args: ClearDataArgs) -> Result<()> {
+        self.start_device(true, false).await?;
+        let package_name = self
+            .resolve_package_name(args.input.as_ref(), args.package)
+            .await?;
+        eprintln!(
+            "clearing data for {} on {}",
+            package_name,
+            self.runtime_backend_name()
+        );
+        self.adb
+            .clear_package_data(&self.runtime, &self.config, &package_name)
+            .await
     }
 
     pub async fn run(&self, args: RunArgs) -> Result<()> {
-        self.require_apks(&args.apks)?;
+        let prepared = PreparedApkSet::from_inputs(&args.apks)?;
         let total_started = Instant::now();
 
         eprintln!("==> starting emulator on {}", self.runtime_backend_name());
@@ -150,7 +186,7 @@ impl EmulatorOrchestrator {
 
         eprintln!("==> installing package set");
         let install_started = Instant::now();
-        let install = self.install_uploaded_apks(&args.apks, args.replace).await?;
+        let install = self.install_prepared_apks(&prepared, args.replace).await?;
         let install_duration_ms = install_started.elapsed().as_millis();
 
         eprintln!("==> launching {}", install.metadata.package_name);
@@ -278,13 +314,11 @@ impl EmulatorOrchestrator {
         };
 
         if let Some(apk) = args.apk.as_ref() {
-            self.require_apk(apk)?;
+            let prepared = PreparedApkSet::from_inputs(std::slice::from_ref(apk))?;
 
             eprintln!("==> install benchmark");
             let install_started = Instant::now();
-            let install = self
-                .install_uploaded_apks(std::slice::from_ref(apk), args.replace)
-                .await?;
+            let install = self.install_prepared_apks(&prepared, args.replace).await?;
             result.install_duration_ms = Some(install_started.elapsed().as_millis());
             result.package_name = Some(install.metadata.package_name.clone());
 
@@ -350,12 +384,12 @@ impl EmulatorOrchestrator {
         Ok(())
     }
 
-    async fn install_uploaded_apks(
+    async fn install_prepared_apks(
         &self,
-        apk_paths: &[PathBuf],
+        prepared: &PreparedApkSet,
         replace: bool,
     ) -> Result<InstallOutcome> {
-        let remote_paths = self.upload_apks(apk_paths).await?;
+        let remote_paths = self.upload_apks(&prepared.apk_paths).await?;
         let metadata = self.inspect_uploaded_apks(&remote_paths).await?;
         print_apk_notes(
             &metadata,
@@ -365,6 +399,7 @@ impl EmulatorOrchestrator {
         self.adb
             .install_apks(&self.runtime, &self.config, &remote_paths, replace)
             .await?;
+        self.push_obb_files(&metadata, &prepared.obb_files).await?;
         if self.config.compile_installed_package {
             eprintln!("compiling {} for faster relaunches", metadata.package_name);
             if let Err(error) = self
@@ -380,6 +415,142 @@ impl EmulatorOrchestrator {
         }
 
         Ok(InstallOutcome { metadata })
+    }
+
+    async fn inspect_prepared_apks(&self, prepared: &PreparedApkSet) -> Result<ApkMetadata> {
+        let remote_paths = self.upload_apks(&prepared.apk_paths).await?;
+        self.inspect_uploaded_apks(&remote_paths).await
+    }
+
+    async fn resolve_package_name(
+        &self,
+        input: Option<&PathBuf>,
+        package_name: Option<String>,
+    ) -> Result<String> {
+        if let Some(package_name) = package_name {
+            return Ok(package_name);
+        }
+
+        let input = input.ok_or_else(|| {
+            anyhow::anyhow!("command requires either an APK/archive path or --package <name>")
+        })?;
+        let prepared = PreparedApkSet::from_inputs(std::slice::from_ref(input))?;
+        Ok(self.inspect_prepared_apks(&prepared).await?.package_name)
+    }
+
+    async fn push_obb_files(&self, metadata: &ApkMetadata, obb_files: &[ObbFile]) -> Result<()> {
+        if obb_files.is_empty() {
+            return Ok(());
+        }
+
+        self.try_enable_shell_obb_access().await;
+        let upload_dir = format!("{}/obb", self.config.remote_apk_dir);
+        for (index, obb_file) in obb_files.iter().enumerate() {
+            let relative_device_path = obb_file.device_relative_path(&metadata.package_name);
+            let target_path = format!("/sdcard/Android/obb/{}", relative_device_path.display());
+            let parent = relative_device_path
+                .parent()
+                .map(|path| format!("/sdcard/Android/obb/{}", path.display()))
+                .unwrap_or_else(|| "/sdcard/Android/obb".to_owned());
+
+            let uploaded_path = self
+                .runtime
+                .upload_file(
+                    &self.config,
+                    &obb_file.local_path,
+                    &upload_dir,
+                    &format!(
+                        "{index}-{}",
+                        obb_file
+                            .local_path
+                            .file_name()
+                            .and_then(|value| value.to_str())
+                            .unwrap_or("main.obb")
+                    ),
+                )
+                .await?;
+
+            let mkdir_outcome = self
+                .runtime
+                .exec(
+                    &self.config,
+                    vec![
+                        "adb".to_owned(),
+                        "-s".to_owned(),
+                        self.config.adb_serial.clone(),
+                        "shell".to_owned(),
+                        "mkdir".to_owned(),
+                        "-p".to_owned(),
+                        parent,
+                    ],
+                )
+                .await?;
+            if mkdir_outcome.exit_code != 0 {
+                eprintln!(
+                    "warning: failed to prepare OBB directory for {} (stderr='{}')",
+                    metadata.package_name,
+                    mkdir_outcome.stderr.trim()
+                );
+                continue;
+            }
+
+            let push_outcome = self
+                .runtime
+                .exec(
+                    &self.config,
+                    vec![
+                        "adb".to_owned(),
+                        "-s".to_owned(),
+                        self.config.adb_serial.clone(),
+                        "push".to_owned(),
+                        uploaded_path,
+                        target_path,
+                    ],
+                )
+                .await?;
+            if push_outcome.exit_code != 0 {
+                eprintln!(
+                    "warning: failed to push OBB for {} (stderr='{}')",
+                    metadata.package_name,
+                    push_outcome.stderr.trim()
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn try_enable_shell_obb_access(&self) {
+        let commands = [
+            vec![
+                "adb".to_owned(),
+                "-s".to_owned(),
+                self.config.adb_serial.clone(),
+                "shell".to_owned(),
+                "cmd".to_owned(),
+                "appops".to_owned(),
+                "set".to_owned(),
+                "com.android.shell".to_owned(),
+                "MANAGE_EXTERNAL_STORAGE".to_owned(),
+                "allow".to_owned(),
+            ],
+            vec![
+                "adb".to_owned(),
+                "-s".to_owned(),
+                self.config.adb_serial.clone(),
+                "shell".to_owned(),
+                "appops".to_owned(),
+                "set".to_owned(),
+                "--uid".to_owned(),
+                "com.android.shell".to_owned(),
+                "MANAGE_EXTERNAL_STORAGE".to_owned(),
+                "allow".to_owned(),
+            ],
+        ];
+
+        for command in commands {
+            let _ = self.runtime.exec(&self.config, command).await;
+        }
     }
 
     async fn upload_apks(&self, apk_paths: &[PathBuf]) -> Result<Vec<String>> {
@@ -429,19 +600,6 @@ impl EmulatorOrchestrator {
             primary.ok_or_else(|| anyhow::anyhow!("failed to inspect uploaded APK set"))?;
         metadata.native_abis = native_abis.into_iter().collect();
         Ok(metadata)
-    }
-
-    fn require_apk(&self, apk_path: &Path) -> Result<()> {
-        anyhow::ensure!(apk_path.is_file(), "APK not found: {}", apk_path.display());
-        Ok(())
-    }
-
-    fn require_apks(&self, apk_paths: &[PathBuf]) -> Result<()> {
-        anyhow::ensure!(!apk_paths.is_empty(), "at least one APK path is required");
-        for apk_path in apk_paths {
-            self.require_apk(apk_path)?;
-        }
-        Ok(())
     }
 
     fn runtime_backend_name(&self) -> &'static str {

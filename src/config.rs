@@ -552,8 +552,8 @@ fn default_container_name(config: &RuntimeConfig) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Mutex, OnceLock};
     use std::fs;
+    use std::sync::{Mutex, OnceLock};
 
     use clap::Parser;
     use tempfile::tempdir;
