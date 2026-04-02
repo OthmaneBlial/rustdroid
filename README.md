@@ -156,7 +156,12 @@ Remove a local install:
 - [CI examples](docs/ci-examples.md)
 - [Fixture testing](docs/fixture-testing.md)
 - [Release process](docs/release-process.md)
+- [1.0 checklist](docs/1.0-checklist.md)
+- [Versioning policy](docs/versioning-policy.md)
+- [Changelog policy](docs/changelog-policy.md)
+- [Support scope](docs/support-scope.md)
 - [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
 
 ## Quick Start
 
