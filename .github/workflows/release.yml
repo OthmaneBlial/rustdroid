@@ -6,6 +6,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build-linux:
     runs-on: ubuntu-22.04
@@ -28,8 +31,14 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+
       - name: Build release archive
         run: ./scripts/package-release.sh "${{ matrix.target }}" "${{ github.ref_name }}"
+
+      - name: Generate release notes and install snippet
+        run: ./scripts/generate-release-notes.sh "${{ github.ref_name }}" "${{ matrix.target }}"
 
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
@@ -38,11 +47,15 @@ jobs:
           path: |
             dist/rustdroid-${{ matrix.target }}.tar.gz
             dist/rustdroid-${{ matrix.target }}.tar.gz.sha256
+            dist/install-snippet.txt
+            dist/release-notes.md
 
       - name: Publish GitHub release assets
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          body_path: dist/release-notes.md
           files: |
             dist/rustdroid-${{ matrix.target }}.tar.gz
             dist/rustdroid-${{ matrix.target }}.tar.gz.sha256
+            dist/install-snippet.txt

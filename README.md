@@ -109,6 +109,7 @@ It is not trying to replace a full device lab. It is trying to stop you from pay
 - bash and zsh completion generation
 - helper script for common local workflows
 - GitHub Actions CI split into fast checks, host integration validation, and package validation
+- tag-driven releases with a bundled install snippet and generated release notes
 
 ## Install
 
