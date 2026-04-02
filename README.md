@@ -110,6 +110,7 @@ It is not trying to replace a full device lab. It is trying to stop you from pay
 - helper script for common local workflows
 - GitHub Actions CI split into fast checks, host integration validation, and package validation
 - tag-driven releases with a bundled install snippet and generated release notes
+- a curated `v0.1.0` first-release note plus announcement and rollback checklists
 
 ## Install
 

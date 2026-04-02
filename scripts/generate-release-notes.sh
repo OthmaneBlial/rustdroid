@@ -13,6 +13,7 @@ REPO="${RUSTDROID_REPO:-OthmaneBlial/rustdroid}"
 ARCHIVE_NAME="rustdroid-$TARGET.tar.gz"
 CHECKSUM_NAME="$ARCHIVE_NAME.sha256"
 SNIPPET_NAME="$(basename "$SNIPPET_PATH")"
+CURATED_NOTES_PATH="$ROOT_DIR/docs/releases/${VERSION}.md"
 
 if [[ -z "$VERSION" ]]; then
   echo "usage: scripts/generate-release-notes.sh <version> [target] [output-path] [snippet-path]" >&2
@@ -27,6 +28,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh)
 # Or install a specific tag:
 RUSTDROID_VERSION=${VERSION} bash <(curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh)
 EOF
+
+if [[ -f "$CURATED_NOTES_PATH" ]]; then
+  cp "$CURATED_NOTES_PATH" "$OUTPUT_PATH"
+  exit 0
+fi
 
 previous_tag="$(git tag --sort=-v:refname | grep -vx "$VERSION" | head -n 1 || true)"
 if [[ -n "$previous_tag" ]]; then

@@ -5,6 +5,9 @@ fn release_assets_exist_in_repo() {
     for path in [
         ".github/workflows/ci.yml",
         ".github/workflows/release.yml",
+        "docs/release-announcement-checklist.md",
+        "docs/release-rollback.md",
+        "docs/releases/v0.1.0.md",
         "docs/version-bump-checklist.md",
         "install.sh",
         "uninstall.sh",
@@ -13,6 +16,7 @@ fn release_assets_exist_in_repo() {
         "scripts/ci-shell-check.sh",
         "scripts/generate-release-notes.sh",
         "scripts/package-release.sh",
+        "scripts/verify-release-install.sh",
         "README.md",
         "LICENSE",
     ] {
@@ -34,6 +38,7 @@ fn install_and_package_scripts_are_executable() {
         "scripts/ci-shell-check.sh",
         "scripts/generate-release-notes.sh",
         "scripts/package-release.sh",
+        "scripts/verify-release-install.sh",
     ] {
         let metadata = std::fs::metadata(path).expect("script metadata should be readable");
         #[cfg(unix)]
