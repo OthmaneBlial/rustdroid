@@ -123,6 +123,15 @@ bash <(curl -fsSL https://raw.githubusercontent.com/OthmaneBlial/rustdroid/main/
 
 That installer tries the latest GitHub release first, then falls back to a local source build when release assets are not available.
 
+Archive install with checksum verification:
+
+```bash
+./install.sh \
+  --archive dist/rustdroid-x86_64-unknown-linux-musl.tar.gz \
+  --checksum dist/rustdroid-x86_64-unknown-linux-musl.tar.gz.sha256 \
+  --health-check
+```
+
 Source-only install:
 
 ```bash
@@ -133,6 +142,7 @@ Remove a local install:
 
 ```bash
 ./uninstall.sh
+./uninstall.sh --dry-run
 ```
 
 ## Quick Start

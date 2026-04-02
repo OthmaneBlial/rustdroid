@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::process::Command;
 
 #[test]
 fn release_assets_exist_in_repo() {
@@ -54,5 +55,25 @@ fn install_and_package_scripts_are_executable() {
                 path
             );
         }
+    }
+}
+
+#[test]
+fn install_and_uninstall_help_commands_work() {
+    for (script, arg) in [("install.sh", "--help"), ("uninstall.sh", "--help")] {
+        let output = Command::new("bash")
+            .arg(script)
+            .arg(arg)
+            .output()
+            .unwrap_or_else(|error| panic!("failed to run {} {}: {}", script, arg, error));
+
+        assert!(
+            output.status.success(),
+            "{} {} failed:\nstdout:\n{}\nstderr:\n{}",
+            script,
+            arg,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 }

@@ -8,6 +8,9 @@ BASH_COMPLETION_DIR="${RUSTDROID_BASH_COMPLETION_DIR:-$HOME/.local/share/bash-co
 ZSH_COMPLETION_DIR="${RUSTDROID_ZSH_COMPLETION_DIR:-$HOME/.local/share/zsh/site-functions}"
 MODE="auto"
 VERSION="${RUSTDROID_VERSION:-latest}"
+ARCHIVE_PATH=""
+CHECKSUM_PATH=""
+RUN_HEALTH_CHECK=0
 TMP_DIR="$(mktemp -d)"
 
 cleanup() {
@@ -21,13 +24,16 @@ usage() {
 RustDroid installer
 
 Usage:
-  ./install.sh [--release | --source] [--version TAG] [--install-dir PATH]
+  ./install.sh [--release | --source] [--version TAG] [--install-dir PATH] [--archive PATH]
 
 Options:
   --release           Only install from a GitHub release tarball
   --source            Only build from source
   --version TAG       Release tag to install. Defaults to the latest release.
+  --archive PATH      Install from a local release archive
+  --checksum PATH     Local or remote checksum file for --archive
   --install-dir PATH  Destination directory for the rustdroid binary
+  --health-check      Run `rustdroid doctor` after install
   -h, --help          Show this help
 EOF
 }
@@ -68,12 +74,26 @@ resolve_latest_release() {
   grep -m1 '"tag_name"' "$metadata" | sed -E 's/.*"([^"]+)".*/\1/'
 }
 
-release_asset_name() {
+host_architecture() {
   case "$(uname -m)" in
     x86_64|amd64)
-      printf 'rustdroid-x86_64-unknown-linux-musl.tar.gz'
+      printf 'x86_64'
       ;;
     aarch64|arm64)
+      printf 'aarch64'
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+release_asset_name() {
+  case "$(host_architecture)" in
+    x86_64)
+      printf 'rustdroid-x86_64-unknown-linux-musl.tar.gz'
+      ;;
+    aarch64)
       printf 'rustdroid-aarch64-unknown-linux-musl.tar.gz'
       ;;
     *)
@@ -87,7 +107,7 @@ install_binary() {
 
   mkdir -p "$INSTALL_DIR"
   install -m 0755 "$source_binary" "$INSTALL_DIR/rustdroid"
-  install_completions
+  install_completions || log "warning: shell completions were not installed cleanly"
   log "installed rustdroid to $INSTALL_DIR/rustdroid"
 }
 
@@ -95,10 +115,32 @@ install_completions() {
   mkdir -p "$BASH_COMPLETION_DIR" "$ZSH_COMPLETION_DIR"
   "$INSTALL_DIR/rustdroid" completions bash > "$BASH_COMPLETION_DIR/rustdroid"
   "$INSTALL_DIR/rustdroid" completions zsh > "$ZSH_COMPLETION_DIR/_rustdroid"
+  [[ -s "$BASH_COMPLETION_DIR/rustdroid" ]]
+  [[ -s "$ZSH_COMPLETION_DIR/_rustdroid" ]]
 }
 
 ensure_source_prereqs() {
   have_command cargo || fail "cargo is required for source installation"
+}
+
+ensure_checksum_prereqs() {
+  have_command sha256sum || fail "sha256sum is required to verify RustDroid release checksums"
+}
+
+verify_checksum() {
+  local archive="$1"
+  local checksum_file="$2"
+  local checksum_line
+  local expected
+  local actual
+
+  ensure_checksum_prereqs
+  checksum_line="$(grep "$(basename "$archive")" "$checksum_file" | head -n 1 || true)"
+  [[ -n "$checksum_line" ]] || fail "checksum file did not include $(basename "$archive")"
+
+  expected="$(awk '{print $1}' <<<"$checksum_line")"
+  actual="$(sha256sum "$archive" | awk '{print $1}')"
+  [[ "$expected" == "$actual" ]] || fail "checksum verification failed for $(basename "$archive")"
 }
 
 build_from_source() {
@@ -121,6 +163,7 @@ install_from_release() {
   local resolved_version="$VERSION"
   local asset
   local archive
+  local checksum
   local binary_path
 
   asset="$(release_asset_name)" || return 1
@@ -130,20 +173,61 @@ install_from_release() {
   [[ -n "$resolved_version" ]] || return 1
 
   archive="$TMP_DIR/$asset"
+  checksum="$TMP_DIR/$asset.sha256"
   log "downloading ${REPO} ${resolved_version} release"
   download "https://github.com/${REPO}/releases/download/${resolved_version}/${asset}" "$archive"
+  download "https://github.com/${REPO}/releases/download/${resolved_version}/${asset}.sha256" "$checksum"
+  verify_checksum "$archive" "$checksum"
   tar -xzf "$archive" -C "$TMP_DIR"
   binary_path="$(find "$TMP_DIR" -type f -name rustdroid | head -n 1)"
   [[ -n "$binary_path" ]] || fail "release archive did not contain a rustdroid binary"
   install_binary "$binary_path"
 }
 
+install_from_archive() {
+  local archive="$ARCHIVE_PATH"
+  local checksum_file="$CHECKSUM_PATH"
+  local binary_path
+
+  [[ -n "$archive" ]] || fail "--archive requires a path"
+  [[ -f "$archive" ]] || fail "archive not found: $archive"
+
+  if [[ -n "$checksum_file" ]]; then
+    [[ -f "$checksum_file" ]] || fail "checksum file not found: $checksum_file"
+    verify_checksum "$archive" "$checksum_file"
+  fi
+
+  tar -xzf "$archive" -C "$TMP_DIR"
+  binary_path="$(find "$TMP_DIR" -type f -name rustdroid | head -n 1)"
+  [[ -n "$binary_path" ]] || fail "archive did not contain a rustdroid binary"
+  install_binary "$binary_path"
+}
+
+run_health_check() {
+  log
+  log "running post-install health check"
+  "$INSTALL_DIR/rustdroid" doctor
+}
+
 print_post_install() {
+  local detected_arch
+  detected_arch="$(host_architecture 2>/dev/null || true)"
+
   if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
     log
     log "add this to your shell profile if rustdroid is not on PATH yet:"
     log "  export PATH=\"$INSTALL_DIR:\$PATH\""
   fi
+
+  if [[ -n "$detected_arch" ]]; then
+    log
+    log "detected architecture: $detected_arch"
+  fi
+
+  log
+  log "completion files:"
+  log "  bash: $BASH_COMPLETION_DIR/rustdroid"
+  log "  zsh:  $ZSH_COMPLETION_DIR/_rustdroid"
 
   log
   log "next steps:"
@@ -164,10 +248,24 @@ while [[ $# -gt 0 ]]; do
       [[ $# -gt 0 ]] || fail "--version requires a value"
       VERSION="$1"
       ;;
+    --archive)
+      shift
+      [[ $# -gt 0 ]] || fail "--archive requires a value"
+      ARCHIVE_PATH="$1"
+      MODE="archive"
+      ;;
+    --checksum)
+      shift
+      [[ $# -gt 0 ]] || fail "--checksum requires a value"
+      CHECKSUM_PATH="$1"
+      ;;
     --install-dir)
       shift
       [[ $# -gt 0 ]] || fail "--install-dir requires a value"
       INSTALL_DIR="$1"
+      ;;
+    --health-check)
+      RUN_HEALTH_CHECK=1
       ;;
     -h|--help)
       usage
@@ -181,6 +279,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$MODE" in
+  archive)
+    install_from_archive
+    ;;
   release)
     install_from_release || fail "release installation failed"
     ;;
@@ -197,5 +298,9 @@ case "$MODE" in
     fail "unsupported install mode: $MODE"
     ;;
 esac
+
+if [[ "$RUN_HEALTH_CHECK" -eq 1 ]]; then
+  run_health_check
+fi
 
 print_post_install
