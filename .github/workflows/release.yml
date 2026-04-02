@@ -1,0 +1,48 @@
+name: release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-musl
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build release archive
+        run: ./scripts/package-release.sh "${{ matrix.target }}" "${{ github.ref_name }}"
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdroid-${{ matrix.target }}
+          path: |
+            dist/rustdroid-${{ matrix.target }}.tar.gz
+            dist/rustdroid-${{ matrix.target }}.tar.gz.sha256
+
+      - name: Publish GitHub release assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/rustdroid-${{ matrix.target }}.tar.gz
+            dist/rustdroid-${{ matrix.target }}.tar.gz.sha256

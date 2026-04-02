@@ -138,22 +138,13 @@ impl EmulatorOrchestrator {
         }
         eprintln!("installing {}", metadata.package_name);
         self.adb
-            .install_apk(
-                &self.runtime,
-                &self.config,
-                &remote_path,
-                replace,
-            )
+            .install_apk(&self.runtime, &self.config, &remote_path, replace)
             .await?;
         if self.config.compile_installed_package {
             eprintln!("compiling {} for faster relaunches", metadata.package_name);
             if let Err(error) = self
                 .adb
-                .compile_package(
-                    &self.runtime,
-                    &self.config,
-                    &metadata.package_name,
-                )
+                .compile_package(&self.runtime, &self.config, &metadata.package_name)
                 .await
             {
                 eprintln!(

@@ -123,10 +123,16 @@ impl AdbClient {
                     .exec(config, self.adb_command(["shell", "pm", "path", "android"]))
                     .await?;
                 let storage_manager = runtime
-                    .exec(config, self.adb_command(["shell", "service", "check", "mount"]))
+                    .exec(
+                        config,
+                        self.adb_command(["shell", "service", "check", "mount"]),
+                    )
                     .await?;
                 let window_manager = runtime
-                    .exec(config, self.adb_command(["shell", "service", "check", "window"]))
+                    .exec(
+                        config,
+                        self.adb_command(["shell", "service", "check", "window"]),
+                    )
                     .await?;
                 let network_routes = runtime
                     .exec(config, self.adb_command(["shell", "ip", "route"]))
@@ -144,7 +150,8 @@ impl AdbClient {
                     && storage_manager.stdout.contains("Service mount: found")
                     && window_manager.exit_code == 0
                     && window_manager.stdout.contains("Service window: found");
-                let network_ready = !network_routes.stdout.trim().is_empty() && gateway_ping.exit_code == 0;
+                let network_ready =
+                    !network_routes.stdout.trim().is_empty() && gateway_ping.exit_code == 0;
 
                 if services_ready && network_ready {
                     return Ok(());
@@ -369,11 +376,7 @@ impl AdbClient {
         args
     }
 
-    pub async fn stabilize_device(
-        &self,
-        runtime: &Runtime,
-        config: &RuntimeConfig,
-    ) -> Result<()> {
+    pub async fn stabilize_device(&self, runtime: &Runtime, config: &RuntimeConfig) -> Result<()> {
         for attempt in 0..6 {
             let focus = self.current_focus(runtime, config).await?;
             let lowercase = focus.to_ascii_lowercase();
@@ -385,8 +388,7 @@ impl AdbClient {
                 if attempt >= 3 {
                     let _ = self.restart_system_ui(runtime, config).await;
                 }
-                self.choose_wait_on_anr_dialog(runtime, config)
-                    .await?;
+                self.choose_wait_on_anr_dialog(runtime, config).await?;
                 sleep(Duration::from_secs(2)).await;
                 continue;
             }
@@ -395,8 +397,7 @@ impl AdbClient {
                 || lowercase.contains("keeps stopping")
                 || lowercase.contains("isn't responding")
             {
-                self.choose_wait_on_anr_dialog(runtime, config)
-                    .await?;
+                self.choose_wait_on_anr_dialog(runtime, config).await?;
                 sleep(Duration::from_secs(2)).await;
                 continue;
             }
@@ -405,17 +406,16 @@ impl AdbClient {
         }
 
         let _ = runtime
-            .exec(config, self.adb_command(["shell", "input", "keyevent", "KEYCODE_HOME"]))
+            .exec(
+                config,
+                self.adb_command(["shell", "input", "keyevent", "KEYCODE_HOME"]),
+            )
             .await;
         self.configure_runtime_performance(runtime, config).await?;
         Ok(())
     }
 
-    async fn current_focus(
-        &self,
-        runtime: &Runtime,
-        config: &RuntimeConfig,
-    ) -> Result<String> {
+    async fn current_focus(&self, runtime: &Runtime, config: &RuntimeConfig) -> Result<String> {
         let outcome = runtime
             .exec(
                 config,
@@ -439,7 +439,10 @@ impl AdbClient {
         package_name: &str,
     ) -> Result<()> {
         let outcome = runtime
-            .exec(config, self.adb_command(["shell", "am", "force-stop", package_name]))
+            .exec(
+                config,
+                self.adb_command(["shell", "am", "force-stop", package_name]),
+            )
             .await?;
         ensure_command_success(
             "force-stop package",
@@ -462,7 +465,10 @@ impl AdbClient {
             )
             .await;
         let _ = runtime
-            .exec(config, self.adb_command(["shell", "am", "force-stop", package_name]))
+            .exec(
+                config,
+                self.adb_command(["shell", "am", "force-stop", package_name]),
+            )
             .await;
     }
 
@@ -575,7 +581,10 @@ impl AdbClient {
         let size = format!("{}x{}", self.device_width_px, self.device_height_px);
         let density = self.device_density_dpi.to_string();
         let _ = runtime
-            .exec(config, self.adb_command(["shell", "wm", "size", size.as_str()]))
+            .exec(
+                config,
+                self.adb_command(["shell", "wm", "size", size.as_str()]),
+            )
             .await;
         let _ = runtime
             .exec(
@@ -643,11 +652,7 @@ impl AdbClient {
         }
     }
 
-    async fn unlock_device(
-        &self,
-        runtime: &Runtime,
-        config: &RuntimeConfig,
-    ) -> Result<()> {
+    async fn unlock_device(&self, runtime: &Runtime, config: &RuntimeConfig) -> Result<()> {
         let center_x = (self.device_width_px / 2).max(1).to_string();
         let start_y = (self
             .device_height_px
@@ -663,7 +668,10 @@ impl AdbClient {
             )
             .await;
         let _ = runtime
-            .exec(config, self.adb_command(["shell", "wm", "dismiss-keyguard"]))
+            .exec(
+                config,
+                self.adb_command(["shell", "wm", "dismiss-keyguard"]),
+            )
             .await;
         let _ = runtime
             .exec(
@@ -681,7 +689,10 @@ impl AdbClient {
             )
             .await;
         let _ = runtime
-            .exec(config, self.adb_command(["shell", "input", "keyevent", "82"]))
+            .exec(
+                config,
+                self.adb_command(["shell", "input", "keyevent", "82"]),
+            )
             .await;
         Ok(())
     }
@@ -707,8 +718,7 @@ impl AdbClient {
                 || lowercase.contains("keeps stopping")
                 || lowercase.contains("isn't responding")
             {
-                self.choose_wait_on_anr_dialog(runtime, config)
-                    .await?;
+                self.choose_wait_on_anr_dialog(runtime, config).await?;
                 sleep(Duration::from_secs(2)).await;
                 continue;
             }
@@ -754,16 +764,15 @@ impl AdbClient {
             )
             .await;
         let _ = runtime
-            .exec(config, self.adb_command(["shell", "input", "keyevent", "KEYCODE_ENTER"]))
+            .exec(
+                config,
+                self.adb_command(["shell", "input", "keyevent", "KEYCODE_ENTER"]),
+            )
             .await;
         Ok(())
     }
 
-    async fn restart_system_ui(
-        &self,
-        runtime: &Runtime,
-        config: &RuntimeConfig,
-    ) -> Result<()> {
+    async fn restart_system_ui(&self, runtime: &Runtime, config: &RuntimeConfig) -> Result<()> {
         let _ = runtime
             .exec(
                 config,

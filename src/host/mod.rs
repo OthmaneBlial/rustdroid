@@ -51,7 +51,10 @@ impl HostRuntime {
         }
 
         if adb_device_reachable(&config.adb_serial).await? {
-            eprintln!("reusing existing unmanaged host emulator {}", config.adb_serial);
+            eprintln!(
+                "reusing existing unmanaged host emulator {}",
+                config.adb_serial
+            );
             return Ok(());
         }
 
@@ -150,11 +153,7 @@ impl HostRuntime {
         Ok(())
     }
 
-    pub async fn exec(
-        &self,
-        _config: &RuntimeConfig,
-        command: Vec<String>,
-    ) -> Result<ExecOutcome> {
+    pub async fn exec(&self, _config: &RuntimeConfig, command: Vec<String>) -> Result<ExecOutcome> {
         let Some(program) = command.first() else {
             bail!("cannot execute an empty host command");
         };
@@ -259,12 +258,25 @@ fn build_launch_args(config: &RuntimeConfig, avd_name: &str) -> Vec<String> {
     args
 }
 
-async fn resolve_avd_name(config: &RuntimeConfig) -> Result<String> {
+pub(crate) async fn resolve_avd_name(config: &RuntimeConfig) -> Result<String> {
     if let Some(avd_name) = config.host_avd_name.as_ref() {
         return Ok(avd_name.clone());
     }
 
-    let emulator_binary = resolve_host_tool(&config.host_emulator_binary)?;
+    let avd_name = list_host_avds(&config.host_emulator_binary)
+        .await?
+        .into_iter()
+        .next();
+
+    avd_name.ok_or_else(|| {
+        anyhow::anyhow!(
+            "no host AVD found; create one in Android Studio or pass --host-avd-name explicitly"
+        )
+    })
+}
+
+pub(crate) async fn list_host_avds(emulator_binary: &str) -> Result<Vec<String>> {
+    let emulator_binary = resolve_host_tool(emulator_binary)?;
     let output = Command::new(emulator_binary)
         .arg("-list-avds")
         .output()
@@ -278,17 +290,12 @@ async fn resolve_avd_name(config: &RuntimeConfig) -> Result<String> {
         );
     }
 
-    let avd_name = String::from_utf8_lossy(&output.stdout)
+    Ok(String::from_utf8_lossy(&output.stdout)
         .lines()
         .map(str::trim)
-        .find(|line| !line.is_empty())
-        .map(str::to_owned);
-
-    avd_name.ok_or_else(|| {
-        anyhow::anyhow!(
-            "no host AVD found; create one in Android Studio or pass --host-avd-name explicitly"
-        )
-    })
+        .filter(|line| !line.is_empty())
+        .map(str::to_owned)
+        .collect())
 }
 
 async fn adb_device_reachable(serial: &str) -> Result<bool> {
@@ -332,7 +339,9 @@ fn host_config_hash(config: &RuntimeConfig) -> String {
     config.emulator_ram_mb.hash(&mut hasher);
     config.emulator_cpu_cores.hash(&mut hasher);
     config.emulator_gpu_mode.hash(&mut hasher);
-    config.effective_emulator_additional_args().hash(&mut hasher);
+    config
+        .effective_emulator_additional_args()
+        .hash(&mut hasher);
     config.headless.hash(&mut hasher);
     config.ui_backend.hash(&mut hasher);
     format!("{:016x}", hasher.finish())
@@ -435,7 +444,7 @@ fn find_in_path(program: &str) -> Option<PathBuf> {
     })
 }
 
-fn android_sdk_root() -> Option<PathBuf> {
+pub(crate) fn android_sdk_root() -> Option<PathBuf> {
     let home_sdk = std::env::var_os("HOME")
         .map(PathBuf::from)
         .map(|home| home.join("Android").join("Sdk"));

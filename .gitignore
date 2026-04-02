@@ -1,3 +1,4 @@
 base
 target/
+dist/
 *.apk

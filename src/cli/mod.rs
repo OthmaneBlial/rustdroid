@@ -4,7 +4,11 @@ use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Parser)]
-#[command(author, version, about)]
+#[command(
+    author,
+    version,
+    about = "Fast Android emulator orchestration for local APK testing"
+)]
 pub struct Cli {
     #[arg(long, global = true, default_value = "rustdroid.toml")]
     pub config: PathBuf,
@@ -130,13 +134,43 @@ pub struct Cli {
     pub command: Command,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug, Clone, Subcommand)]
 pub enum Command {
+    Doctor(DoctorArgs),
+    SelfTest(SelfTestArgs),
+    Devices(DevicesArgs),
+    Avds(AvdsArgs),
+    Version,
+    Completions(CompletionsArgs),
     Start(StartArgs),
     Install(InstallArgs),
     Run(RunArgs),
     Logs(LogsArgs),
     Stop(StopArgs),
+}
+
+#[derive(Debug, Clone, clap::Args, Default)]
+pub struct DoctorArgs {}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct SelfTestArgs {
+    #[arg(long, value_enum, default_value_t = BackendScope::Current)]
+    pub backend: BackendScope,
+
+    #[arg(long, default_value_t = false)]
+    pub full: bool,
+}
+
+#[derive(Debug, Clone, clap::Args, Default)]
+pub struct DevicesArgs {}
+
+#[derive(Debug, Clone, clap::Args, Default)]
+pub struct AvdsArgs {}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct CompletionsArgs {
+    #[arg(value_enum)]
+    pub shell: CompletionShell,
 }
 
 #[derive(Debug, Clone, clap::Args)]
@@ -208,4 +242,21 @@ pub enum RuntimeBackend {
     #[default]
     Docker,
     Host,
+}
+
+#[derive(Debug, Clone, Copy, Default, Eq, Hash, PartialEq, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "snake_case")]
+pub enum BackendScope {
+    #[default]
+    Current,
+    Docker,
+    Host,
+    Both,
+}
+
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum CompletionShell {
+    Bash,
+    Zsh,
 }

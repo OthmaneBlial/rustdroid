@@ -709,13 +709,11 @@ fn runtime_group_add(config: &RuntimeConfig) -> Option<Vec<String>> {
 
         let mut groups = BTreeSet::new();
 
-        for path in std::iter::once("/dev/kvm".to_owned()).chain(
-            if config.docker_gpu_passthrough {
-                gpu_device_paths().into_iter()
-            } else {
-                Vec::new().into_iter()
-            },
-        ) {
+        for path in std::iter::once("/dev/kvm".to_owned()).chain(if config.docker_gpu_passthrough {
+            gpu_device_paths().into_iter()
+        } else {
+            Vec::new().into_iter()
+        }) {
             if let Ok(metadata) = fs::metadata(&path) {
                 groups.insert(metadata.gid().to_string());
             }

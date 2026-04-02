@@ -248,7 +248,9 @@ impl RuntimeConfig {
                 config.adb_serial = format!("emulator-{}", config.host_emulator_port);
             }
 
-            if cli.emulator_gpu_mode.is_none() && config.emulator_gpu_mode == Self::default().emulator_gpu_mode {
+            if cli.emulator_gpu_mode.is_none()
+                && config.emulator_gpu_mode == Self::default().emulator_gpu_mode
+            {
                 config.emulator_gpu_mode = if config.effective_emulator_headless() {
                     "auto-no-window".to_owned()
                 } else {

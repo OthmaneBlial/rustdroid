@@ -93,6 +93,7 @@ It is not trying to replace a full device lab. It is trying to stop you from pay
 ## Features
 
 - start, stop, install, run, and log stream from a single CLI
+- `doctor`, `self-test`, `devices`, `avds`, and `version` commands
 - Docker runtime and host-native runtime
 - `scrcpy`, web, VNC, and headless modes
 - Docker `/dev/kvm` support
@@ -100,7 +101,30 @@ It is not trying to replace a full device lab. It is trying to stop you from pay
 - APK metadata inspection with ABI detection
 - post-boot performance tuning
 - configurable CPU, RAM, heap, density, resolution, and GPU mode
+- bash and zsh completion generation
 - helper script for common local workflows
+
+## Install
+
+Fast path:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/OthmaneBlial/rustdroid/main/install.sh)
+```
+
+That installer tries the latest GitHub release first, then falls back to a local source build when release assets are not available.
+
+Source-only install:
+
+```bash
+./install.sh --source
+```
+
+Remove a local install:
+
+```bash
+./uninstall.sh
+```
 
 ## Quick Start
 
@@ -118,6 +142,13 @@ It is not trying to replace a full device lab. It is trying to stop you from pay
 
 ```bash
 cargo build
+```
+
+### First Health Check
+
+```bash
+rustdroid doctor
+rustdroid self-test
 ```
 
 ### Fastest Local Path: Host Emulator + scrcpy
@@ -151,6 +182,14 @@ Or directly:
 
 ```bash
 ./run.sh headless app-debug.apk
+```
+
+### Discovery Commands
+
+```bash
+rustdroid version
+rustdroid devices
+rustdroid avds
 ```
 
 ## Helper Modes

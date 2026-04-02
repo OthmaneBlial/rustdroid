@@ -14,12 +14,7 @@ use tokio::{
     time::{sleep, Duration},
 };
 
-use crate::{
-    cli::LogSource,
-    config::RuntimeConfig,
-    host::resolve_host_tool,
-    runtime::Runtime,
-};
+use crate::{cli::LogSource, config::RuntimeConfig, host::resolve_host_tool, runtime::Runtime};
 
 #[derive(Debug, Clone)]
 pub struct StreamOptions {
