@@ -115,11 +115,29 @@ jobs:
           path: ${{ runner.temp }}/rustdroid-host
           if-no-files-found: ignore
 
+      - id: performance
+        name: Check performance baseline
+        run: |
+          export RUSTDROID_PERF_ARTIFACTS_DIR="$RUNNER_TEMP/rustdroid-performance"
+          cargo build --locked
+          ./scripts/check-performance-baseline.sh
+
+      - name: Upload performance artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-artifacts
+          path: ${{ runner.temp }}/rustdroid-performance
+          if-no-files-found: ignore
+
       - name: Write job summary
         if: always()
         run: |
           if [[ -f "${RUNNER_TEMP}/rustdroid-host/results.env" ]]; then
             source "${RUNNER_TEMP}/rustdroid-host/results.env"
+          fi
+          if [[ -f "${RUNNER_TEMP}/rustdroid-performance/bench.json" ]]; then
+            export PERF_BENCH_JSON="$(cat "${RUNNER_TEMP}/rustdroid-performance/bench.json")"
           fi
 
           {
@@ -129,9 +147,10 @@ jobs:
             echo "- integration_host_runtime: ${runtime_status:-not-run}"
             echo "- integration_host_backend: ${backend_status:-not-run}"
             echo "- smoke_matrix: ${smoke_status:-not-run}"
+            echo "- performance: ${{ steps.performance.outcome }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [[ "${{ steps.host_suite.outcome }}" != "success" ]]; then
+          if [[ "${{ steps.host_suite.outcome }}" != "success" || "${{ steps.performance.outcome }}" != "success" ]]; then
             exit 1
           fi
 

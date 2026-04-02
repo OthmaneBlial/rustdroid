@@ -112,6 +112,7 @@ It is not trying to replace a full device lab. It is trying to stop you from pay
 - tag-driven releases with a bundled install snippet and generated release notes
 - a curated `v0.1.0` first-release note plus announcement and rollback checklists
 - crates.io-ready manifest metadata plus manual publish workflow when a token is available
+- host benchmark baselines with CI artifact capture for regression tracking
 
 ## Install
 
