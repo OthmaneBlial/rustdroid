@@ -115,7 +115,7 @@ fn extract_archive_entries(
     let mut archive = ZipArchive::new(archive_file)
         .with_context(|| format!("failed to read archive '{}'", archive_path.display()))?;
     let archive_label = sanitize_component(
-        &archive_path
+        archive_path
             .file_stem()
             .and_then(|value| value.to_str())
             .unwrap_or("archive"),

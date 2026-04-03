@@ -732,8 +732,10 @@ mod tests {
     #[test]
     fn state_record_round_trip_preserves_expected_fields() {
         let temp_dir = tempdir().expect("tempdir");
-        let mut config = RuntimeConfig::default();
-        config.container_name = "host-state-test".to_owned();
+        let config = RuntimeConfig {
+            container_name: "host-state-test".to_owned(),
+            ..RuntimeConfig::default()
+        };
         let state = HostStatePaths::new(&config);
         fs::create_dir_all(&state.dir).expect("state dir");
 
