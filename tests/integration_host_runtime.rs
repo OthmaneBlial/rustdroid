@@ -68,7 +68,7 @@ impl HostRuntimeHarness {
             .arg("--headless")
             .arg("true")
             .arg("--emulator-gpu-mode")
-            .arg("auto-no-window")
+            .arg("swiftshader_indirect")
             .arg(format!(
                 "--emulator-additional-args={DEFAULT_TEST_EMULATOR_ARGS}"
             ));
@@ -139,6 +139,14 @@ fn best_effort_stop_all(harness: &HostRuntimeHarness) {
         .arg("--timeout-secs")
         .arg("5");
     let _ = command.output();
+}
+
+fn emit_logcat_marker(serial: &str, marker: &str) {
+    let output = Command::new("adb")
+        .args(["-s", serial, "shell", "log", "-t", "rustdroid", marker])
+        .output()
+        .expect("adb log command should run");
+    assert_success(&output);
 }
 
 #[test]
@@ -245,19 +253,20 @@ fn host_runtime_apk_commands_work() {
     assert_success(&clear_data_output);
     assert_output_contains(&clear_data_output, "clearing data");
 
+    let log_marker = format!("rustdroid-host-runtime-{}", unique_suffix());
+    emit_logcat_marker(&harness.adb_serial, &log_marker);
     let logs_output = run_command(
         harness
             .command()
             .arg("logs")
             .arg("--source")
             .arg("logcat")
-            .arg("--package")
-            .arg(FIXTURE_PACKAGE)
             .arg("--duration-secs")
             .arg("2"),
     );
     assert_success(&logs_output);
     assert_output_contains(&logs_output, "[logcat]");
+    assert_output_contains(&logs_output, &log_marker);
 
     let run_output = run_command(
         harness

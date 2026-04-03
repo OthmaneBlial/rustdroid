@@ -35,9 +35,9 @@ RustDroid keeps test scope explicit.
 - Runtime-heavy flows should be opt-in and live in dedicated integration suites, not in the cheap smoke layer.
 - Refresh checked-in APK fixtures with `./scripts/generate-fixture-apks.sh`.
 - Enable the real host runtime suite with `RUSTDROID_RUN_HOST_RUNTIME_TESTS=1`.
-- Point it at a running emulator with `RUSTDROID_HOST_TEST_SERIAL=emulator-5556`.
+- Point it at a running emulator with `RUSTDROID_HOST_TEST_SERIAL=emulator-5554`.
 - Enable the backend-focused host suite with `RUSTDROID_RUN_HOST_BACKEND_TESTS=1`.
-- Point backend artifact and scrcpy checks at a running emulator with `RUSTDROID_HOST_TEST_SERIAL=emulator-5556`.
+- Point backend artifact and scrcpy checks at a running emulator with `RUSTDROID_HOST_TEST_SERIAL=emulator-5554`.
 - Enable the scrcpy-specific backend check with `RUSTDROID_RUN_HOST_SCRCPY_TESTS=1` on a runner with a GUI session.
 - Run the live smoke checklist with `./scripts/run-smoke-matrix.sh`.
 - Override `RUSTDROID_SMOKE_AVD`, `RUSTDROID_SMOKE_PORT`, or `RUSTDROID_BIN` when the default host test lane does not match your machine.
@@ -57,7 +57,7 @@ cargo test --test smoke_cli
 cargo test --test release_contract
 ./scripts/run-smoke-matrix.sh --list
 RUSTDROID_SMOKE_AVD=test_avd ./scripts/run-smoke-matrix.sh
-RUSTDROID_RUN_HOST_RUNTIME_TESTS=1 RUSTDROID_HOST_TEST_SERIAL=emulator-5556 cargo test --test integration_host_runtime -- --nocapture
+RUSTDROID_RUN_HOST_RUNTIME_TESTS=1 RUSTDROID_HOST_TEST_SERIAL=emulator-5554 cargo test --test integration_host_runtime -- --nocapture
 RUSTDROID_RUN_HOST_BACKEND_TESTS=1 cargo test --test integration_host_backend host_backend_detects_avds_and_managed_start_stop -- --nocapture
-RUSTDROID_RUN_HOST_BACKEND_TESTS=1 RUSTDROID_HOST_TEST_SERIAL=emulator-5556 cargo test --test integration_host_backend host_backend_run_writes_artifacts_for_running_device -- --nocapture
+RUSTDROID_RUN_HOST_BACKEND_TESTS=1 RUSTDROID_HOST_TEST_SERIAL=emulator-5554 cargo test --test integration_host_backend host_backend_run_writes_artifacts_for_running_device -- --nocapture
 ```

@@ -100,7 +100,7 @@ jobs:
           target: google_apis
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
           script: |
-            export RUSTDROID_HOST_TEST_SERIAL=emulator-5556
+            export RUSTDROID_HOST_TEST_SERIAL=emulator-5554
             export RUSTDROID_HOST_TEST_AVD=test_avd
             export RUSTDROID_CI_HOST_ARTIFACTS_DIR="$RUNNER_TEMP/rustdroid-host"
             export RUSTDROID_SMOKE_ENABLE_GUI=0

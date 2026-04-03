@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-SERIAL="${RUSTDROID_HOST_TEST_SERIAL:-emulator-5556}"
+SERIAL="${RUSTDROID_HOST_TEST_SERIAL:-emulator-5554}"
 AVD="${RUSTDROID_HOST_TEST_AVD:-test_avd}"
 ARTIFACT_ROOT="${RUSTDROID_CI_HOST_ARTIFACTS_DIR:-$ROOT_DIR/ci-artifacts/host}"
 RESULTS_FILE="$ARTIFACT_ROOT/results.env"

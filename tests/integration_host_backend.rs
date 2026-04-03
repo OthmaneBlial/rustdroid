@@ -63,6 +63,8 @@ impl ManagedHostHarness {
             .arg(&self.host_avd_name)
             .arg("--headless")
             .arg("true")
+            .arg("--emulator-gpu-mode")
+            .arg("swiftshader_indirect")
             .arg(format!(
                 "--emulator-additional-args={DEFAULT_TEST_EMULATOR_ARGS}"
             ));
@@ -128,7 +130,9 @@ impl RunningHostHarness {
             .arg("--host-emulator-port")
             .arg(self.host_emulator_port.to_string())
             .arg("--headless")
-            .arg("true");
+            .arg("true")
+            .arg("--emulator-gpu-mode")
+            .arg("swiftshader_indirect");
         command
     }
 }
