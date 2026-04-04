@@ -15,14 +15,15 @@ Relevant files:
 
 ## Host Integration Shape
 
-The host integration job expects:
+The host integration workflow expects:
 
 - Android emulator support on the runner
 - writable `/dev/kvm` access for the job user on Linux runners
 - a real AVD
 - host integration scripts from `scripts/ci-host-check.sh`
 
-That job also uploads failure artifacts and performance artifacts.
+That workflow uploads failure artifacts and performance artifacts.
+It is kept separate from the default PR CI so the emulator lane can fail without blocking the rest of the pipeline.
 
 ## Package Validation Shape
 

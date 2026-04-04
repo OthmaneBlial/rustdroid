@@ -5,6 +5,7 @@ use std::process::Command;
 fn release_assets_exist_in_repo() {
     for path in [
         ".github/workflows/ci.yml",
+        ".github/workflows/host-integration.yml",
         ".github/workflows/publish-crate.yml",
         ".github/workflows/release.yml",
         "docs/performance-baselines.json",
