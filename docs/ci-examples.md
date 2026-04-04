@@ -43,7 +43,7 @@ This verifies:
 
 Performance tracking uses:
 
-- `base/performance-baselines.json`
+- `docs/performance-baselines.json`
 - `scripts/check-performance-baseline.sh`
 - `docs/performance-notes/v0.1.0.md`
 

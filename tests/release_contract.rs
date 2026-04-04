@@ -7,7 +7,7 @@ fn release_assets_exist_in_repo() {
         ".github/workflows/ci.yml",
         ".github/workflows/publish-crate.yml",
         ".github/workflows/release.yml",
-        "base/performance-baselines.json",
+        "docs/performance-baselines.json",
         "docs/package-distribution.md",
         "docs/performance-notes/v0.1.0.md",
         "docs/release-announcement-checklist.md",

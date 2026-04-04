@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 ARTIFACT_DIR="${RUSTDROID_PERF_ARTIFACTS_DIR:-$ROOT_DIR/ci-artifacts/performance}"
-BASELINE_PATH="${RUSTDROID_PERF_BASELINE_PATH:-$ROOT_DIR/base/performance-baselines.json}"
+BASELINE_PATH="${RUSTDROID_PERF_BASELINE_PATH:-$ROOT_DIR/docs/performance-baselines.json}"
 AVD="${RUSTDROID_PERF_AVD:-test_avd}"
 PORT="${RUSTDROID_PERF_PORT:-5670}"
 SERIAL="${RUSTDROID_PERF_SERIAL:-emulator-${PORT}}"
