@@ -106,6 +106,7 @@ jobs:
             export RUSTDROID_HOST_TEST_AVD=test_avd
             export RUSTDROID_CI_HOST_ARTIFACTS_DIR="$RUNNER_TEMP/rustdroid-host"
             export RUSTDROID_SMOKE_ENABLE_GUI=0
+            export RUSTDROID_SMOKE_BOOT_TIMEOUT_SECS=360
             cargo build --locked
             ./scripts/ci-host-check.sh
 

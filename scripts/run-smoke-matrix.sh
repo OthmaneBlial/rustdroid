@@ -14,7 +14,44 @@ fi
 
 mkdir -p "$TMP_DIR"
 
-PORT="${RUSTDROID_SMOKE_PORT:-5660}"
+find_free_even_port() {
+  python3 - <<'PY'
+import socket
+import sys
+
+for port in range(5660, 5800, 2):
+    sock1 = None
+    sock2 = None
+    try:
+        sock1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock1.bind(("127.0.0.1", port))
+        sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock2.bind(("127.0.0.1", port + 1))
+    except OSError:
+        try:
+            if sock1 is not None:
+                sock1.close()
+        except Exception:
+            pass
+        try:
+            if sock2 is not None:
+                sock2.close()
+        except Exception:
+            pass
+        continue
+    else:
+        sock1.close()
+        sock2.close()
+        print(port)
+        sys.exit(0)
+
+raise SystemExit("failed to allocate a free even emulator port pair")
+PY
+}
+
+PORT="${RUSTDROID_SMOKE_PORT:-$(find_free_even_port)}"
 SERIAL="${RUSTDROID_SMOKE_SERIAL:-emulator-${PORT}}"
 RUNTIME_PORT="${RUSTDROID_SMOKE_RUNTIME_PORT:-$((PORT + 2))}"
 RUNTIME_SERIAL="${RUSTDROID_SMOKE_RUNTIME_SERIAL:-emulator-${RUNTIME_PORT}}"
@@ -52,7 +89,7 @@ Usage:
 Environment:
   RUSTDROID_BIN                     Path to the rustdroid binary to test
   RUSTDROID_SMOKE_AVD              Host AVD name (default: test_avd)
-  RUSTDROID_SMOKE_PORT             Host emulator console port (default: 5660)
+  RUSTDROID_SMOKE_PORT             Host emulator console port (default: first free even port in 5660-5798)
   RUSTDROID_SMOKE_SERIAL           adb serial (default: emulator-${PORT})
   RUSTDROID_SMOKE_RUNTIME_PORT     Direct runtime helper emulator port (default: ${PORT}+2)
   RUSTDROID_SMOKE_RUNTIME_SERIAL   Direct runtime helper adb serial (default: emulator-${RUNTIME_PORT})
@@ -181,6 +218,8 @@ ensure_runtime_helper() {
 
   stop_runtime_helper
   mkdir -p "$TMP_DIR"
+
+  log "Using host emulator port ${PORT} and runtime helper port ${RUNTIME_PORT}"
   emulator \
     -avd "$AVD" \
     -port "$RUNTIME_PORT" \
