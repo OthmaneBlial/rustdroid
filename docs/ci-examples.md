@@ -18,6 +18,7 @@ Relevant files:
 The host integration job expects:
 
 - Android emulator support on the runner
+- writable `/dev/kvm` access for the job user on Linux runners
 - a real AVD
 - host integration scripts from `scripts/ci-host-check.sh`
 
