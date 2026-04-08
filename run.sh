@@ -2,8 +2,7 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$ROOT_DIR"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 DEFAULT_APK="app-debug.apk"
 DEFAULT_DURATION_SECS="10"
@@ -12,7 +11,9 @@ DEFAULT_LOCAL_ADB_PORT="5557"
 DEFAULT_WEB_VNC_PORT="6090"
 DEFAULT_VNC_PORT="5900"
 
-BINARY_PATH="$ROOT_DIR/target/debug/rustdroid"
+BINARY_PATH=""
+REPO_ROOT=""
+BINARY_MODE=""
 CONTAINER_NAME=""
 RUNTIME_ARGS=()
 INTERRUPTED=0
@@ -23,6 +24,7 @@ RustDroid helper
 
 Usage:
   ./run.sh [mode] [apk]
+  rustdroid-run [mode] [apk]
 
 Modes:
   fast-local  Aggressive local run tuned for speed
@@ -40,7 +42,7 @@ Modes:
 Examples:
   ./run.sh
   ./run.sh fast-local
-  ./run.sh host-local
+  rustdroid-run host-local app-debug.apk
   ./run.sh web app-debug.apk
   ./run.sh stop
 EOF
@@ -78,26 +80,67 @@ EOF
   esac
 }
 
-ensure_binary() {
-  if [[ ! -x "$BINARY_PATH" ]]; then
-    echo "building rustdroid"
-    cargo build
+resolve_binary() {
+  if [[ -n "${RUSTDROID_BIN_PATH:-}" ]]; then
+    BINARY_PATH="$RUSTDROID_BIN_PATH"
+    BINARY_MODE="explicit"
     return
   fi
 
-  if [[ Cargo.toml -nt "$BINARY_PATH" ]]; then
+  if [[ -x "$SCRIPT_DIR/rustdroid" ]]; then
+    BINARY_PATH="$SCRIPT_DIR/rustdroid"
+    BINARY_MODE="installed"
+    return
+  fi
+
+  if [[ -f "$SCRIPT_DIR/Cargo.toml" ]]; then
+    REPO_ROOT="$SCRIPT_DIR"
+    BINARY_PATH="$REPO_ROOT/target/debug/rustdroid"
+    BINARY_MODE="repo"
+    return
+  fi
+
+  if command -v rustdroid >/dev/null 2>&1; then
+    BINARY_PATH="$(command -v rustdroid)"
+    BINARY_MODE="path"
+    return
+  fi
+
+  echo "error: unable to locate the rustdroid binary" >&2
+  echo "hint: install rustdroid first or set RUSTDROID_BIN_PATH" >&2
+  exit 1
+}
+
+ensure_binary() {
+  resolve_binary
+
+  if [[ "$BINARY_MODE" != "repo" ]]; then
+    [[ -x "$BINARY_PATH" ]] || {
+      echo "error: rustdroid binary is not executable: $BINARY_PATH" >&2
+      exit 1
+    }
+    return
+  fi
+
+  if [[ ! -x "$BINARY_PATH" ]]; then
+    echo "building rustdroid"
+    cargo build --manifest-path "$REPO_ROOT/Cargo.toml"
+    return
+  fi
+
+  if [[ "$REPO_ROOT/Cargo.toml" -nt "$BINARY_PATH" ]]; then
     echo "rebuilding rustdroid"
-    cargo build
+    cargo build --manifest-path "$REPO_ROOT/Cargo.toml"
     return
   fi
 
   while IFS= read -r file; do
     if [[ "$file" -nt "$BINARY_PATH" ]]; then
       echo "rebuilding rustdroid"
-      cargo build
+      cargo build --manifest-path "$REPO_ROOT/Cargo.toml"
       return
     fi
-  done < <(find src -type f)
+  done < <(find "$REPO_ROOT/src" -type f)
 }
 
 stop_container() {
@@ -273,27 +316,39 @@ ensure_binary
 
 case "$MODE" in
   fast-local)
-    RUNTIME_ARGS=()
+    RUNTIME_ARGS=(--profile fast-local)
     CONTAINER_NAME="rustdroid-run-fast-local"
     ADB_CONNECT_PORT="$(resolve_host_port "$CONTAINER_NAME" '5555/tcp' "$DEFAULT_FAST_LOCAL_ADB_PORT" 5599)"
     echo "mode: fast-local"
     echo "apk: $APK_PATH"
     echo "android image: budtmo/docker-android:emulator_12.0"
     echo "adb connect port: $ADB_CONNECT_PORT"
-    run_with_cleanup       "$BINARY_PATH"       --container-name "$CONTAINER_NAME"       --image budtmo/docker-android:emulator_12.0       --adb-connect-port "$ADB_CONNECT_PORT"       --headless false       --fast-local       run "$APK_PATH"       --duration-secs "$DEFAULT_DURATION_SECS"
+    run_with_cleanup \
+      "$BINARY_PATH" \
+      "${RUNTIME_ARGS[@]}" \
+      --container-name "$CONTAINER_NAME" \
+      --adb-connect-port "$ADB_CONNECT_PORT" \
+      run "$APK_PATH" \
+      --duration-secs "$DEFAULT_DURATION_SECS"
     ;;
   local)
-    RUNTIME_ARGS=()
+    RUNTIME_ARGS=(--profile stable-local)
     CONTAINER_NAME="rustdroid-run-local"
     ADB_CONNECT_PORT="$(resolve_host_port "$CONTAINER_NAME" '5555/tcp' "$DEFAULT_LOCAL_ADB_PORT" 5599)"
     echo "mode: local"
     echo "apk: $APK_PATH"
-    echo "android image: budtmo/docker-android:emulator_12.0"
+    echo "android image: budtmo/docker-android:emulator_14.0"
     echo "adb connect port: $ADB_CONNECT_PORT"
-    run_with_cleanup       "$BINARY_PATH"       --container-name "$CONTAINER_NAME"       --image budtmo/docker-android:emulator_12.0       --adb-connect-port "$ADB_CONNECT_PORT"       --headless false       --fast-local       --disable-google-play-services false       --scrcpy-max-size 720       --scrcpy-max-fps 24       --scrcpy-video-bit-rate 3M       run "$APK_PATH"       --duration-secs "$DEFAULT_DURATION_SECS"
+    run_with_cleanup \
+      "$BINARY_PATH" \
+      "${RUNTIME_ARGS[@]}" \
+      --container-name "$CONTAINER_NAME" \
+      --adb-connect-port "$ADB_CONNECT_PORT" \
+      run "$APK_PATH" \
+      --duration-secs "$DEFAULT_DURATION_SECS"
     ;;
   host-local)
-    RUNTIME_ARGS=(--runtime-backend host)
+    RUNTIME_ARGS=(--profile host-fast)
     CONTAINER_NAME="rustdroid-run-host-local"
     echo "mode: host-local"
     echo "apk: $APK_PATH"
@@ -302,13 +357,11 @@ case "$MODE" in
       "$BINARY_PATH" \
       "${RUNTIME_ARGS[@]}" \
       --container-name "$CONTAINER_NAME" \
-      --headless false \
-      --fast-local \
       run "$APK_PATH" \
       --duration-secs "$DEFAULT_DURATION_SECS"
     ;;
   host-headless)
-    RUNTIME_ARGS=(--runtime-backend host)
+    RUNTIME_ARGS=(--profile host-fast)
     CONTAINER_NAME="rustdroid-run-host-headless"
     echo "mode: host-headless"
     echo "apk: $APK_PATH"
@@ -318,7 +371,6 @@ case "$MODE" in
       "${RUNTIME_ARGS[@]}" \
       --container-name "$CONTAINER_NAME" \
       --headless true \
-      --fast-local \
       run "$APK_PATH" \
       --duration-secs "$DEFAULT_DURATION_SECS"
     ;;
@@ -338,7 +390,7 @@ case "$MODE" in
       logs
     ;;
   web)
-    RUNTIME_ARGS=()
+    RUNTIME_ARGS=(--profile browser-demo)
     CONTAINER_NAME="rustdroid-run-web"
     WEB_VNC_PORT="$(resolve_host_port "$CONTAINER_NAME" '6080/tcp' "$DEFAULT_WEB_VNC_PORT" 6199)"
     echo "mode: web"
@@ -346,9 +398,8 @@ case "$MODE" in
     echo "open: http://127.0.0.1:${WEB_VNC_PORT}?autoconnect=true"
     run_with_cleanup \
       "$BINARY_PATH" \
+      "${RUNTIME_ARGS[@]}" \
       --container-name "$CONTAINER_NAME" \
-      --headless false \
-      --ui-backend web \
       --web-vnc-port "$WEB_VNC_PORT" \
       run "$APK_PATH" \
       --duration-secs "$DEFAULT_DURATION_SECS"
@@ -370,15 +421,15 @@ case "$MODE" in
       --duration-secs "$DEFAULT_DURATION_SECS"
     ;;
   headless)
-    RUNTIME_ARGS=()
+    RUNTIME_ARGS=(--profile fast-local)
     CONTAINER_NAME="rustdroid-run-headless"
     echo "mode: headless"
     echo "apk: $APK_PATH"
     run_with_cleanup \
       "$BINARY_PATH" \
+      "${RUNTIME_ARGS[@]}" \
       --container-name "$CONTAINER_NAME" \
       --headless true \
-      --fast-local \
       run "$APK_PATH" \
       --duration-secs "$DEFAULT_DURATION_SECS"
     ;;

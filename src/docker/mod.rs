@@ -39,6 +39,12 @@ pub struct ExecOutcome {
     pub exit_code: i64,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct ExistingPortBinding {
+    pub host_port: u16,
+    pub running: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct DockerRuntime {
     docker: Docker,
@@ -112,6 +118,41 @@ impl DockerRuntime {
     pub async fn ping(&self) -> Result<()> {
         self.docker.ping().await?;
         Ok(())
+    }
+
+    pub async fn inspect_host_port_binding(
+        &self,
+        container_name: &str,
+        container_port: &str,
+    ) -> Result<Option<ExistingPortBinding>> {
+        match self
+            .docker
+            .inspect_container(container_name, None::<InspectContainerOptions>)
+            .await
+        {
+            Ok(existing) => {
+                let host_port = existing
+                    .host_config
+                    .as_ref()
+                    .and_then(|host_config| host_config.port_bindings.as_ref())
+                    .and_then(|port_bindings| port_bindings.get(container_port))
+                    .and_then(|bindings| bindings.as_ref())
+                    .and_then(|bindings| bindings.first())
+                    .and_then(|binding| binding.host_port.as_deref())
+                    .and_then(|port| port.parse::<u16>().ok());
+
+                Ok(host_port.map(|host_port| ExistingPortBinding {
+                    host_port,
+                    running: existing
+                        .state
+                        .as_ref()
+                        .and_then(|state| state.running)
+                        .unwrap_or(false),
+                }))
+            }
+            Err(error) if is_not_found(&error) => Ok(None),
+            Err(error) => Err(error.into()),
+        }
     }
 
     pub async fn ensure_started(&self, config: &RuntimeConfig) -> Result<()> {

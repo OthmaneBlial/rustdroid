@@ -11,6 +11,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/OthmaneBlial/rustdroid/main/
 ```
 
 If the release asset is unavailable, the installer falls back to a local source build.
+It installs both `rustdroid` and `rustdroid-run`.
 
 ## Host Requirements
 
@@ -42,7 +43,16 @@ If `doctor` fails, fix the reported issue before trying the main run loop.
 The fastest local path is usually host backend plus `scrcpy`:
 
 ```bash
+rustdroid-run host-local app-debug.apk
 rustdroid --runtime-backend host --host-avd-name test_avd run app-debug.apk
+rustdroid --profile host-fast --host-avd-name test_avd run app-debug.apk
+```
+
+For the Docker fast loop:
+
+```bash
+rustdroid fast app-debug.apk
+rustdroid fast-local app-debug.apk
 ```
 
 For repeated local work:

@@ -5,6 +5,7 @@ RustDroid ships through two package channels:
 ## Current Ready Paths
 
 - Release archives attached to GitHub releases.
+- The release installer drops both `rustdroid` and `rustdroid-run`.
 - `cargo install --path .` for local source installs.
 - `cargo publish --dry-run` validation in the package-check lane to keep crates.io publication ready.
 

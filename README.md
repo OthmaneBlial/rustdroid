@@ -125,6 +125,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/OthmaneBlial/rustdroid/main/
 ```
 
 That installer tries the latest GitHub release first, then falls back to a local source build when release assets are not available.
+It installs both `rustdroid` and the `rustdroid-run` helper.
 
 Archive install with checksum verification:
 
@@ -227,6 +228,7 @@ rustdroid stop --all
 
 ```bash
 ./run.sh host-local app-debug.apk
+rustdroid --profile host-fast --host-avd-name test_avd run app-debug.apk
 ```
 
 Or directly:
@@ -242,6 +244,10 @@ Or directly:
 
 ```bash
 ./run.sh fast-local app-debug.apk
+rustdroid fast app-debug.apk
+rustdroid fast-local app-debug.apk
+rustdroid-run fast-local app-debug.apk
+rustdroid --profile fast-local run app-debug.apk
 ```
 
 ### Browser UI
@@ -308,7 +314,7 @@ RustDroid already supports per-project config files through `--config`, and now 
 
 ## Helper Modes
 
-`run.sh` includes these shortcuts:
+`run.sh` in the repo and `rustdroid-run` after install include these shortcuts:
 
 - `fast-local`
 - `local`

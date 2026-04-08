@@ -14,6 +14,7 @@ fn help_lists_primary_daily_commands() {
     assert_output_contains(&output, "open");
     assert_output_contains(&output, "launch");
     assert_output_contains(&output, "run");
+    assert_output_contains(&output, "fast-local");
     assert_output_contains(&output, "doctor");
 }
 
