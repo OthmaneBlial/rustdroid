@@ -13,6 +13,9 @@ pub struct Cli {
     #[arg(long, global = true, default_value = "rustdroid.toml")]
     pub config: PathBuf,
 
+    #[arg(long, global = true)]
+    pub profile: Option<String>,
+
     #[arg(long, global = true, default_value_t = false)]
     pub json: bool,
 
@@ -176,6 +179,12 @@ pub enum Command {
     ClearData(ClearDataArgs),
     #[command(about = "Start, install, launch, and stream logs for an APK")]
     Run(RunArgs),
+    #[command(
+        name = "fast-local",
+        alias = "fast",
+        about = "Run the fast-local helper preset directly from the main CLI"
+    )]
+    FastLocal(HelperRunArgs),
     #[command(about = "Watch an APK output path and rerun install/launch cycles")]
     Watch(WatchArgs),
     #[command(about = "Stream emulator or logcat logs")]
@@ -335,6 +344,39 @@ pub struct RunArgs {
 }
 
 #[derive(Debug, Clone, clap::Args)]
+pub struct HelperRunArgs {
+    pub apk: Option<PathBuf>,
+
+    #[arg(long, default_value_t = true, action = ArgAction::Set)]
+    pub replace: bool,
+
+    #[arg(long, default_value_t = 10)]
+    pub duration_secs: u64,
+
+    #[arg(long, default_value_t = LogSource::Logcat, value_enum)]
+    pub log_source: LogSource,
+
+    #[arg(long, default_value_t = true, action = ArgAction::Set)]
+    pub keep_alive: bool,
+
+    #[arg(long)]
+    pub artifacts_dir: Option<PathBuf>,
+}
+
+impl HelperRunArgs {
+    pub fn into_run_args(self, default_apk: &str) -> RunArgs {
+        RunArgs {
+            apks: vec![self.apk.unwrap_or_else(|| PathBuf::from(default_apk))],
+            replace: self.replace,
+            duration_secs: Some(self.duration_secs),
+            log_source: self.log_source,
+            keep_alive: self.keep_alive,
+            artifacts_dir: self.artifacts_dir,
+        }
+    }
+}
+
+#[derive(Debug, Clone, clap::Args)]
 pub struct WatchArgs {
     pub path: PathBuf,
 
@@ -447,6 +489,8 @@ mod tests {
     fn run_command_parses_multiple_apks_and_artifacts() {
         let cli = Cli::parse_from([
             "rustdroid",
+            "--profile",
+            "fast-local",
             "--boot-mode",
             "cold",
             "run",
@@ -458,6 +502,7 @@ mod tests {
             "false",
         ]);
 
+        assert_eq!(cli.profile.as_deref(), Some("fast-local"));
         assert_eq!(cli.boot_mode, Some(BootMode::Cold));
         match cli.command {
             Command::Run(args) => {
@@ -477,9 +522,30 @@ mod tests {
     }
 
     #[test]
+    fn fast_alias_parses_helper_defaults() {
+        let cli = Cli::parse_from(["rustdroid", "fast", "app.apk", "--keep-alive", "false"]);
+
+        match cli.command {
+            Command::FastLocal(args) => {
+                assert_eq!(
+                    args.apk
+                        .as_deref()
+                        .map(|path| path.to_string_lossy().into_owned()),
+                    Some("app.apk".to_owned())
+                );
+                assert_eq!(args.duration_secs, 10);
+                assert!(!args.keep_alive);
+            }
+            other => panic!("expected fast-local command, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn stop_all_parses_independently_from_runtime_flags() {
         let cli = Cli::parse_from([
             "rustdroid",
+            "--profile",
+            "host-fast",
             "--runtime-backend",
             "host",
             "stop",
@@ -488,6 +554,7 @@ mod tests {
             "42",
         ]);
 
+        assert_eq!(cli.profile.as_deref(), Some("host-fast"));
         match cli.command {
             Command::Stop(args) => {
                 assert!(args.all);

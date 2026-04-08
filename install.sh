@@ -6,12 +6,14 @@ REPO="${RUSTDROID_REPO:-OthmaneBlial/rustdroid}"
 INSTALL_DIR="${RUSTDROID_INSTALL_DIR:-$HOME/.local/bin}"
 BASH_COMPLETION_DIR="${RUSTDROID_BASH_COMPLETION_DIR:-$HOME/.local/share/bash-completion/completions}"
 ZSH_COMPLETION_DIR="${RUSTDROID_ZSH_COMPLETION_DIR:-$HOME/.local/share/zsh/site-functions}"
+HELPER_NAME="rustdroid-run"
 MODE="auto"
 VERSION="${RUSTDROID_VERSION:-latest}"
 ARCHIVE_PATH=""
 CHECKSUM_PATH=""
 RUN_HEALTH_CHECK=0
 TMP_DIR="$(mktemp -d)"
+HELPER_INSTALLED=0
 
 cleanup() {
   rm -rf "$TMP_DIR"
@@ -32,7 +34,7 @@ Options:
   --version TAG       Release tag to install. Defaults to the latest release.
   --archive PATH      Install from a local release archive
   --checksum PATH     Local or remote checksum file for --archive
-  --install-dir PATH  Destination directory for the rustdroid binary
+  --install-dir PATH  Destination directory for the rustdroid tools
   --health-check      Run `rustdroid doctor` after install
   -h, --help          Show this help
 EOF
@@ -102,13 +104,24 @@ release_asset_name() {
   esac
 }
 
-install_binary() {
+install_runtime_artifacts() {
   local source_binary="$1"
+  local source_helper="${2:-}"
 
   mkdir -p "$INSTALL_DIR"
   install -m 0755 "$source_binary" "$INSTALL_DIR/rustdroid"
+  HELPER_INSTALLED=0
+  if [[ -n "$source_helper" && -f "$source_helper" ]]; then
+    install -m 0755 "$source_helper" "$INSTALL_DIR/$HELPER_NAME"
+    HELPER_INSTALLED=1
+  fi
   install_completions || log "warning: shell completions were not installed cleanly"
   log "installed rustdroid to $INSTALL_DIR/rustdroid"
+  if [[ "$HELPER_INSTALLED" -eq 1 ]]; then
+    log "installed helper to $INSTALL_DIR/$HELPER_NAME"
+  else
+    log "warning: helper script was not available in this package"
+  fi
 }
 
 install_completions() {
@@ -127,6 +140,30 @@ ensure_checksum_prereqs() {
   have_command sha256sum || fail "sha256sum is required to verify RustDroid release checksums"
 }
 
+source_release_binary_path() {
+  local source_dir="$1"
+  printf '%s/target/release/rustdroid' "$source_dir"
+}
+
+source_release_binary_is_fresh() {
+  local source_dir="$1"
+  local binary_path
+  local path
+
+  binary_path="$(source_release_binary_path "$source_dir")"
+  [[ -x "$binary_path" ]] || return 1
+
+  for path in "$source_dir/Cargo.toml" "$source_dir/Cargo.lock" "$source_dir/build.rs"; do
+    [[ -e "$path" && "$path" -nt "$binary_path" ]] && return 1
+  done
+
+  while IFS= read -r path; do
+    [[ "$path" -nt "$binary_path" ]] && return 1
+  done < <(find "$source_dir/src" -type f 2>/dev/null)
+
+  return 0
+}
+
 verify_checksum() {
   local archive="$1"
   local checksum_file="$2"
@@ -143,10 +180,20 @@ verify_checksum() {
   [[ "$expected" == "$actual" ]] || fail "checksum verification failed for $(basename "$archive")"
 }
 
+find_release_root() {
+  local search_root="$1"
+  local binary_path
+
+  binary_path="$(find "$search_root" -type f -name rustdroid | head -n 1)"
+  [[ -n "$binary_path" ]] || fail "release archive did not contain a rustdroid binary"
+  dirname "$binary_path"
+}
+
 build_from_source() {
   ensure_source_prereqs
 
   local source_dir="$PWD"
+  local binary_path
   if [[ ! -f "$source_dir/Cargo.toml" ]]; then
     have_command git || fail "git is required to clone RustDroid for source installation"
     source_dir="$TMP_DIR/rustdroid"
@@ -154,9 +201,14 @@ build_from_source() {
     git clone --depth 1 "https://github.com/${REPO}.git" "$source_dir" >/dev/null 2>&1
   fi
 
-  log "building rustdroid from source"
-  (cd "$source_dir" && cargo build --release --locked)
-  install_binary "$source_dir/target/release/rustdroid"
+  binary_path="$(source_release_binary_path "$source_dir")"
+  if source_release_binary_is_fresh "$source_dir"; then
+    log "using existing rustdroid release build"
+  else
+    log "building rustdroid from source"
+    (cd "$source_dir" && cargo build --release --locked)
+  fi
+  install_runtime_artifacts "$binary_path" "$source_dir/run.sh"
 }
 
 install_from_release() {
@@ -164,7 +216,7 @@ install_from_release() {
   local asset
   local archive
   local checksum
-  local binary_path
+  local release_root
 
   asset="$(release_asset_name)" || return 1
   if [[ "$resolved_version" == "latest" ]]; then
@@ -179,15 +231,14 @@ install_from_release() {
   download "https://github.com/${REPO}/releases/download/${resolved_version}/${asset}.sha256" "$checksum"
   verify_checksum "$archive" "$checksum"
   tar -xzf "$archive" -C "$TMP_DIR"
-  binary_path="$(find "$TMP_DIR" -type f -name rustdroid | head -n 1)"
-  [[ -n "$binary_path" ]] || fail "release archive did not contain a rustdroid binary"
-  install_binary "$binary_path"
+  release_root="$(find_release_root "$TMP_DIR")"
+  install_runtime_artifacts "$release_root/rustdroid" "$release_root/run.sh"
 }
 
 install_from_archive() {
   local archive="$ARCHIVE_PATH"
   local checksum_file="$CHECKSUM_PATH"
-  local binary_path
+  local release_root
 
   [[ -n "$archive" ]] || fail "--archive requires a path"
   [[ -f "$archive" ]] || fail "archive not found: $archive"
@@ -198,9 +249,8 @@ install_from_archive() {
   fi
 
   tar -xzf "$archive" -C "$TMP_DIR"
-  binary_path="$(find "$TMP_DIR" -type f -name rustdroid | head -n 1)"
-  [[ -n "$binary_path" ]] || fail "archive did not contain a rustdroid binary"
-  install_binary "$binary_path"
+  release_root="$(find_release_root "$TMP_DIR")"
+  install_runtime_artifacts "$release_root/rustdroid" "$release_root/run.sh"
 }
 
 run_health_check() {
@@ -229,10 +279,20 @@ print_post_install() {
   log "  bash: $BASH_COMPLETION_DIR/rustdroid"
   log "  zsh:  $ZSH_COMPLETION_DIR/_rustdroid"
 
+  if [[ "$HELPER_INSTALLED" -eq 1 ]]; then
+    log
+    log "helper:"
+    log "  $INSTALL_DIR/$HELPER_NAME"
+  fi
+
   log
   log "next steps:"
   log "  rustdroid doctor"
   log "  rustdroid self-test"
+  if [[ "$HELPER_INSTALLED" -eq 1 ]]; then
+    log "  $HELPER_NAME fast-local app-debug.apk"
+  fi
+  log "  rustdroid --profile fast-local run app-debug.apk"
 }
 
 while [[ $# -gt 0 ]]; do

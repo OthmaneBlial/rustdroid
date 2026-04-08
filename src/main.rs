@@ -13,13 +13,14 @@ mod profiles;
 mod runtime;
 mod tooling;
 
-use std::process;
+use std::{net::TcpListener, process};
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 
-use cli::{Cli, Command, ConfigCommand, ProfileCommand};
+use cli::{Cli, Command, ConfigCommand, HelperRunArgs, ProfileCommand};
 use config::RuntimeConfig;
+use docker::DockerRuntime;
 use emulator::EmulatorOrchestrator;
 use runtime::Runtime;
 
@@ -60,6 +61,7 @@ async fn run(cli: Cli, command: Command) -> Result<()> {
             let orchestrator = EmulatorOrchestrator::new(config, runtime);
             orchestrator.bench(args, cli.json).await?;
         }
+        Command::FastLocal(args) => run_fast_local(cli, args).await?,
         Command::Profile(args) => match args.command {
             ProfileCommand::List => tooling::list_profiles(cli.json)?,
             ProfileCommand::Use(args) => {
@@ -84,6 +86,7 @@ async fn run(cli: Cli, command: Command) -> Result<()> {
                 Command::Uninstall(args) => orchestrator.uninstall(args).await?,
                 Command::ClearData(args) => orchestrator.clear_data(args).await?,
                 Command::Run(args) => orchestrator.run(args).await?,
+                Command::FastLocal(_) => unreachable!("fast-local is handled above"),
                 Command::Watch(args) => orchestrator.watch(args).await?,
                 Command::Logs(args) => orchestrator.logs(args).await?,
                 Command::Stop(args) => orchestrator.stop(args).await?,
@@ -92,6 +95,61 @@ async fn run(cli: Cli, command: Command) -> Result<()> {
         }
     }
     Ok(())
+}
+
+async fn run_fast_local(mut cli: Cli, args: HelperRunArgs) -> Result<()> {
+    cli.profile = Some("fast-local".to_owned());
+    if cli.container_name.is_none() {
+        cli.container_name = Some("rustdroid-run-fast-local".to_owned());
+    }
+
+    let mut config = RuntimeConfig::load(&cli)?;
+    if cli.adb_connect_port.is_none() {
+        config.adb_connect_port =
+            resolve_docker_helper_port(&config.container_name, "5555/tcp", 5556, 5599).await?;
+    }
+
+    let runtime = Runtime::connect(&config)?;
+    let orchestrator = EmulatorOrchestrator::new(config, runtime);
+    orchestrator.run(args.into_run_args("app-debug.apk")).await
+}
+
+async fn resolve_docker_helper_port(
+    container_name: &str,
+    container_port: &str,
+    preferred_port: u16,
+    end_port: u16,
+) -> Result<u16> {
+    if let Ok(runtime) = DockerRuntime::connect() {
+        if let Some(binding) = runtime
+            .inspect_host_port_binding(container_name, container_port)
+            .await?
+        {
+            if binding.running || !port_in_use(binding.host_port) {
+                return Ok(binding.host_port);
+            }
+        }
+    }
+
+    find_free_port(preferred_port, end_port)
+}
+
+fn port_in_use(port: u16) -> bool {
+    TcpListener::bind(("127.0.0.1", port)).is_err()
+}
+
+fn find_free_port(start_port: u16, end_port: u16) -> Result<u16> {
+    for port in start_port..=end_port {
+        if !port_in_use(port) {
+            return Ok(port);
+        }
+    }
+
+    bail!(
+        "no free TCP port found between {} and {}",
+        start_port,
+        end_port
+    );
 }
 
 fn exit_code_for_command(command: &Command) -> i32 {
@@ -141,8 +199,8 @@ mod tests {
     use super::{error_hint, exit_code_for_command};
     use crate::cli::{
         BackendScope, BenchArgs, CleanArgs, ClearDataArgs, Command, ConfigArgs, ConfigCommand,
-        ConfigInitArgs, DoctorArgs, ProfileArgs, ProfileCommand, ProfileUseArgs, RunArgs,
-        SelfTestArgs, StopArgs, UninstallArgs,
+        ConfigInitArgs, DoctorArgs, HelperRunArgs, ProfileArgs, ProfileCommand, ProfileUseArgs,
+        RunArgs, SelfTestArgs, StopArgs, UninstallArgs,
     };
 
     #[test]
@@ -206,6 +264,17 @@ mod tests {
             exit_code_for_command(&Command::Stop(StopArgs {
                 timeout_secs: 15,
                 all: false,
+            })),
+            1
+        );
+        assert_eq!(
+            exit_code_for_command(&Command::FastLocal(HelperRunArgs {
+                apk: None,
+                replace: true,
+                duration_secs: 10,
+                log_source: crate::cli::LogSource::Logcat,
+                keep_alive: true,
+                artifacts_dir: None,
             })),
             1
         );

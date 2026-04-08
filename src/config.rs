@@ -113,6 +113,9 @@ impl RuntimeConfig {
     pub fn load(cli: &Cli) -> Result<Self> {
         let mut config = Self::from_path(&cli.config)?;
         apply_env_overrides(&mut config)?;
+        if let Some(profile) = cli.profile.as_deref() {
+            apply_named_profile(&mut config, profile)?;
+        }
         let default_image = Self::default().image;
         let serial_explicit = cli.adb_serial.is_some();
         let host_port_explicit = cli.host_emulator_port.is_some();
@@ -605,6 +608,29 @@ mod tests {
 
         let config = RuntimeConfig::load(&cli).expect("fast local config should load");
         assert_eq!(config.image, "budtmo/docker-android:emulator_12.0");
+    }
+
+    #[test]
+    fn cli_profile_applies_before_explicit_flag_overrides() {
+        let _guard = env_lock().lock().expect("env lock should be available");
+        clear_env();
+        let cli = Cli::parse_from([
+            "rustdroid",
+            "--config",
+            "/tmp/rustdroid-nonexistent.toml",
+            "--profile",
+            "host-fast",
+            "--headless",
+            "true",
+            "start",
+            "--wait",
+            "false",
+        ]);
+
+        let config = RuntimeConfig::load(&cli).expect("profile config should load");
+        assert_eq!(config.runtime_backend, RuntimeBackend::Host);
+        assert!(config.headless);
+        assert_eq!(config.ui_backend, UiBackend::Scrcpy);
     }
 
     #[test]

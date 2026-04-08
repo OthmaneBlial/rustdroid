@@ -33,6 +33,7 @@ install -m 0755 "target/$TARGET/release/rustdroid" "$STAGE_DIR/rustdroid"
 install -m 0644 README.md "$STAGE_DIR/README.md"
 install -m 0644 LICENSE "$STAGE_DIR/LICENSE"
 install -m 0755 install.sh "$STAGE_DIR/install.sh"
+install -m 0755 run.sh "$STAGE_DIR/run.sh"
 install -m 0755 uninstall.sh "$STAGE_DIR/uninstall.sh"
 printf '%s\n' "$VERSION" > "$STAGE_DIR/VERSION"
 

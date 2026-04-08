@@ -16,6 +16,7 @@ fn release_assets_exist_in_repo() {
         "docs/releases/v0.1.0.md",
         "docs/version-bump-checklist.md",
         "install.sh",
+        "run.sh",
         "uninstall.sh",
         "scripts/ci-host-check.sh",
         "scripts/ci-package-check.sh",
@@ -40,6 +41,7 @@ fn release_assets_exist_in_repo() {
 fn install_and_package_scripts_are_executable() {
     for path in [
         "install.sh",
+        "run.sh",
         "uninstall.sh",
         "scripts/ci-host-check.sh",
         "scripts/ci-package-check.sh",
@@ -65,7 +67,11 @@ fn install_and_package_scripts_are_executable() {
 
 #[test]
 fn install_and_uninstall_help_commands_work() {
-    for (script, arg) in [("install.sh", "--help"), ("uninstall.sh", "--help")] {
+    for (script, arg) in [
+        ("install.sh", "--help"),
+        ("run.sh", "help"),
+        ("uninstall.sh", "--help"),
+    ] {
         let output = Command::new("bash")
             .arg(script)
             .arg(arg)

@@ -46,6 +46,37 @@ const GOOGLE_PLAY_PACKAGES_TO_DISABLE: &[&str] = &[
     "com.google.android.gms.supervision",
 ];
 
+const THREE_BUTTON_NAVIGATION_COMMANDS: &[&[&str]] = &[
+    &["shell", "settings", "put", "secure", "navigation_mode", "0"],
+    &[
+        "shell",
+        "cmd",
+        "overlay",
+        "enable-exclusive",
+        "--user",
+        "0",
+        "com.android.internal.systemui.navbar.threebutton",
+    ],
+    &[
+        "shell",
+        "cmd",
+        "overlay",
+        "enable",
+        "--user",
+        "0",
+        "com.android.internal.systemui.navbar.threebutton",
+    ],
+    &[
+        "shell",
+        "cmd",
+        "overlay",
+        "disable",
+        "--user",
+        "0",
+        "com.android.internal.systemui.navbar.gestural",
+    ],
+];
+
 #[derive(Debug, Clone)]
 pub struct AdbClient {
     serial: String,
@@ -490,6 +521,12 @@ impl AdbClient {
         args
     }
 
+    fn adb_command_slice(&self, command: &[&str]) -> Vec<String> {
+        let mut args = vec!["adb".to_owned(), "-s".to_owned(), self.serial.clone()];
+        args.extend(command.iter().copied().map(str::to_owned));
+        args
+    }
+
     pub async fn stabilize_device(&self, runtime: &Runtime, config: &RuntimeConfig) -> Result<()> {
         for attempt in 0..6 {
             let focus = self.current_focus(runtime, config).await?;
@@ -690,6 +727,10 @@ impl AdbClient {
 
         for command in runtime_commands {
             let _ = runtime.exec(config, self.adb_command(command)).await;
+        }
+
+        for command in THREE_BUTTON_NAVIGATION_COMMANDS {
+            let _ = runtime.exec(config, self.adb_command_slice(command)).await;
         }
 
         let size = format!("{}x{}", self.device_width_px, self.device_height_px);
@@ -995,7 +1036,7 @@ fn looks_like_failed_activity_launch(output: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_badging;
+    use super::{parse_badging, THREE_BUTTON_NAVIGATION_COMMANDS};
 
     #[test]
     fn parse_badging_extracts_package_and_activity() {
@@ -1042,5 +1083,15 @@ mod tests {
 
         assert_eq!(metadata.native_abis, vec!["x86_64"]);
         assert!(!metadata.uses_arm_translation_on_x86_emulator());
+    }
+
+    #[test]
+    fn three_button_navigation_commands_are_present() {
+        assert!(THREE_BUTTON_NAVIGATION_COMMANDS.iter().any(|command| {
+            *command == ["shell", "settings", "put", "secure", "navigation_mode", "0"]
+        }));
+        assert!(THREE_BUTTON_NAVIGATION_COMMANDS.iter().any(|command| {
+            command.contains(&"com.android.internal.systemui.navbar.threebutton")
+        }));
     }
 }
