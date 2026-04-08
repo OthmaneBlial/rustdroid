@@ -140,6 +140,30 @@ ensure_checksum_prereqs() {
   have_command sha256sum || fail "sha256sum is required to verify RustDroid release checksums"
 }
 
+source_release_binary_path() {
+  local source_dir="$1"
+  printf '%s/target/release/rustdroid' "$source_dir"
+}
+
+source_release_binary_is_fresh() {
+  local source_dir="$1"
+  local binary_path
+  local path
+
+  binary_path="$(source_release_binary_path "$source_dir")"
+  [[ -x "$binary_path" ]] || return 1
+
+  for path in "$source_dir/Cargo.toml" "$source_dir/Cargo.lock" "$source_dir/build.rs"; do
+    [[ -e "$path" && "$path" -nt "$binary_path" ]] && return 1
+  done
+
+  while IFS= read -r path; do
+    [[ "$path" -nt "$binary_path" ]] && return 1
+  done < <(find "$source_dir/src" -type f 2>/dev/null)
+
+  return 0
+}
+
 verify_checksum() {
   local archive="$1"
   local checksum_file="$2"
@@ -169,6 +193,7 @@ build_from_source() {
   ensure_source_prereqs
 
   local source_dir="$PWD"
+  local binary_path
   if [[ ! -f "$source_dir/Cargo.toml" ]]; then
     have_command git || fail "git is required to clone RustDroid for source installation"
     source_dir="$TMP_DIR/rustdroid"
@@ -176,9 +201,14 @@ build_from_source() {
     git clone --depth 1 "https://github.com/${REPO}.git" "$source_dir" >/dev/null 2>&1
   fi
 
-  log "building rustdroid from source"
-  (cd "$source_dir" && cargo build --release --locked)
-  install_runtime_artifacts "$source_dir/target/release/rustdroid" "$source_dir/run.sh"
+  binary_path="$(source_release_binary_path "$source_dir")"
+  if source_release_binary_is_fresh "$source_dir"; then
+    log "using existing rustdroid release build"
+  else
+    log "building rustdroid from source"
+    (cd "$source_dir" && cargo build --release --locked)
+  fi
+  install_runtime_artifacts "$binary_path" "$source_dir/run.sh"
 }
 
 install_from_release() {
