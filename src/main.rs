@@ -47,6 +47,7 @@ async fn run(cli: Cli, command: Command) -> Result<()> {
             let config = RuntimeConfig::load(&cli)?;
             diagnostics::run_doctor(&config, cli.json).await?;
         }
+        Command::Setup(args) => diagnostics::print_setup(&args, cli.json)?,
         Command::Avds(_args) => {
             let config = RuntimeConfig::load(&cli)?;
             diagnostics::run_avds(&config, cli.json).await?;
@@ -161,6 +162,7 @@ fn exit_code_for_command(command: &Command) -> i32 {
         Command::Profile(_) => 14,
         Command::Clean(_) => 15,
         Command::Devices(_) | Command::Avds(_) => 16,
+        Command::Setup(_) => 17,
         _ => 1,
     }
 }
@@ -187,6 +189,9 @@ fn error_hint(command: &Command, message: &str) -> Option<&'static str> {
         Command::Doctor(_) | Command::SelfTest(_) => Some(
             "Review the failing checks above and rerun the command once the environment is fixed.",
         ),
+        Command::Setup(_) => Some(
+            "The setup plan is informational; run the displayed commands only after reviewing them.",
+        ),
         Command::Config(_) | Command::Profile(_) => {
             Some("Use `--config <path>` to target a different config file if needed.")
         }
@@ -200,7 +205,7 @@ mod tests {
     use crate::cli::{
         BackendScope, BenchArgs, CleanArgs, ClearDataArgs, Command, ConfigArgs, ConfigCommand,
         ConfigInitArgs, DoctorArgs, HelperRunArgs, ProfileArgs, ProfileCommand, ProfileUseArgs,
-        RunArgs, SelfTestArgs, StopArgs, UninstallArgs,
+        RunArgs, SelfTestArgs, SetupArgs, SetupDistro, StopArgs, UninstallArgs,
     };
 
     #[test]
@@ -231,6 +236,12 @@ mod tests {
                 }),
             })),
             13
+        );
+        assert_eq!(
+            exit_code_for_command(&Command::Setup(SetupArgs {
+                distro: SetupDistro::Auto,
+            })),
+            17
         );
         assert_eq!(
             exit_code_for_command(&Command::Profile(ProfileArgs {

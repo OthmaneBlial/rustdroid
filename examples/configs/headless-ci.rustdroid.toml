@@ -1,0 +1,8 @@
+# Host-backed CI receipt. The runner must provide KVM and the test_avd AVD.
+profile = "host-fast"
+host_avd_name = "test_avd"
+headless = true
+emulator_gpu_mode = "swiftshader_indirect"
+boot_timeout_secs = 360
+logcat_filters = ["*:W"]
+artifacts_dir = "artifacts/rustdroid"

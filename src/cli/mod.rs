@@ -147,6 +147,8 @@ pub struct Cli {
 pub enum Command {
     #[command(about = "Check host and runtime prerequisites")]
     Doctor(DoctorArgs),
+    #[command(about = "Print a non-destructive Linux setup plan")]
+    Setup(SetupArgs),
     #[command(about = "Run a quick RustDroid backend smoke check")]
     SelfTest(SelfTestArgs),
     #[command(about = "List adb-visible devices")]
@@ -195,6 +197,12 @@ pub enum Command {
 
 #[derive(Debug, Clone, clap::Args, Default)]
 pub struct DoctorArgs {}
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct SetupArgs {
+    #[arg(long, value_enum, default_value_t = SetupDistro::Auto)]
+    pub distro: SetupDistro,
+}
 
 #[derive(Debug, Clone, clap::Args)]
 pub struct SelfTestArgs {
@@ -464,6 +472,16 @@ pub enum BackendScope {
     Both,
 }
 
+#[derive(Debug, Clone, Copy, Default, Eq, Hash, PartialEq, ValueEnum)]
+#[value(rename_all = "kebab-case")]
+pub enum SetupDistro {
+    #[default]
+    Auto,
+    Ubuntu,
+    Debian,
+    Fedora,
+}
+
 #[derive(Debug, Clone, Copy, Default, Eq, Hash, PartialEq, Serialize, Deserialize, ValueEnum)]
 #[serde(rename_all = "snake_case")]
 pub enum BootMode {
@@ -483,7 +501,7 @@ pub enum CompletionShell {
 mod tests {
     use clap::Parser;
 
-    use super::{BootMode, Cli, Command};
+    use super::{BootMode, Cli, Command, SetupDistro};
 
     #[test]
     fn run_command_parses_multiple_apks_and_artifacts() {
@@ -632,6 +650,16 @@ mod tests {
                 assert_eq!(args.max_cycles, Some(1));
             }
             other => panic!("expected watch command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn setup_command_parses_an_explicit_distro() {
+        let cli = Cli::parse_from(["rustdroid", "setup", "--distro", "fedora"]);
+
+        match cli.command {
+            Command::Setup(args) => assert_eq!(args.distro, SetupDistro::Fedora),
+            other => panic!("expected setup command, got {other:?}"),
         }
     }
 }

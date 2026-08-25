@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     fs::{self, OpenOptions},
     os::unix::fs::PermissionsExt,
     path::Path,
@@ -15,7 +16,9 @@ use serde::Serialize;
 use tokio::process::Command;
 
 use crate::{
-    cli::{BackendScope, Cli, CompletionShell, SelfTestArgs},
+    cli::{
+        BackendScope, Cli, CompletionShell, RuntimeBackend, SelfTestArgs, SetupArgs, SetupDistro,
+    },
     config::RuntimeConfig,
     docker::DockerRuntime,
     host::{android_sdk_root, list_host_avds, resolve_host_tool},
@@ -33,10 +36,13 @@ enum CheckState {
 
 #[derive(Debug, Clone, Serialize)]
 struct CheckResult {
+    id: &'static str,
     name: String,
+    required: bool,
     state: CheckState,
     summary: String,
     hint: Option<String>,
+    remediation: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -62,7 +68,26 @@ struct VersionInfo {
 
 #[derive(Debug, Clone, Serialize)]
 struct DoctorReport {
+    schema_version: u8,
+    selected_backend: String,
     checks: Vec<CheckResult>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct SetupStep {
+    title: String,
+    reason: String,
+    commands: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct SetupPlan {
+    schema_version: u8,
+    distro: String,
+    detected_from: String,
+    changes_applied: bool,
+    steps: Vec<SetupStep>,
+    notes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -100,9 +125,208 @@ pub fn print_completions(shell: CompletionShell) {
     }
 }
 
+pub fn print_setup(args: &SetupArgs, json: bool) -> Result<()> {
+    let plan = setup_plan(args.distro);
+
+    if json {
+        return print_json(&plan);
+    }
+
+    println!("RustDroid setup plan ({})", plan.distro);
+    println!("No changes have been applied. Review each command before running it.");
+    for (index, step) in plan.steps.iter().enumerate() {
+        println!("{}. {} — {}", index + 1, step.title, step.reason);
+        for command in &step.commands {
+            println!("   {command}");
+        }
+    }
+    for note in &plan.notes {
+        println!("note: {note}");
+    }
+
+    Ok(())
+}
+
+fn setup_plan(requested: SetupDistro) -> SetupPlan {
+    let (detected, detected_from) = detected_setup_distro();
+    let distro = match requested {
+        SetupDistro::Auto => detected,
+        explicit => Some(explicit),
+    };
+
+    let Some(distro) = distro else {
+        return SetupPlan {
+            schema_version: 1,
+            distro: "unsupported".to_owned(),
+            detected_from,
+            changes_applied: false,
+            steps: Vec::new(),
+            notes: vec![
+                "Automatic setup plans are available for Ubuntu/Debian and Fedora Linux only."
+                    .to_owned(),
+                "Use --distro ubuntu, --distro debian, or --distro fedora to preview a supported plan."
+                    .to_owned(),
+            ],
+        };
+    };
+
+    let (label, packages, install_command, scrcpy_command) = match distro {
+        SetupDistro::Ubuntu => (
+            "ubuntu",
+            "openjdk-17-jdk unzip wget curl qemu-kvm",
+            "sudo apt-get install --yes openjdk-17-jdk unzip wget curl qemu-kvm",
+            "sudo apt-get install --yes scrcpy",
+        ),
+        SetupDistro::Debian => (
+            "debian",
+            "openjdk-17-jdk unzip wget curl qemu-kvm",
+            "sudo apt-get install --yes openjdk-17-jdk unzip wget curl qemu-kvm",
+            "sudo apt-get install --yes scrcpy",
+        ),
+        SetupDistro::Fedora => (
+            "fedora",
+            "java-17-openjdk-devel unzip wget curl qemu-kvm",
+            "sudo dnf install --assumeyes java-17-openjdk-devel unzip wget curl qemu-kvm",
+            "sudo dnf install --assumeyes scrcpy",
+        ),
+        SetupDistro::Auto => unreachable!("auto is resolved before building a setup plan"),
+    };
+
+    let update_command = match distro {
+        SetupDistro::Ubuntu | SetupDistro::Debian => "sudo apt-get update",
+        SetupDistro::Fedora => "sudo dnf makecache",
+        SetupDistro::Auto => unreachable!("auto is resolved before building a setup plan"),
+    };
+
+    SetupPlan {
+        schema_version: 1,
+        distro: label.to_owned(),
+        detected_from,
+        changes_applied: false,
+        steps: vec![
+            setup_step(
+                "Install system prerequisites",
+                format!("Installs Java, archive tools, and KVM support ({packages})."),
+                vec![update_command, install_command],
+            ),
+            setup_step(
+                "Grant KVM access",
+                "Adds the current user to the KVM group; start a new login session afterwards.",
+                vec!["sudo usermod -aG kvm \"$USER\"", "newgrp kvm"],
+            ),
+            setup_step(
+                "Install Android command-line tools",
+                "Download the current Linux command-line tools archive from developer.android.com, then unpack it under $ANDROID_SDK_ROOT/cmdline-tools/latest.",
+                vec![
+                    "export ANDROID_SDK_ROOT=\"${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}\"",
+                    "mkdir -p \"$ANDROID_SDK_ROOT/cmdline-tools/latest\"",
+                    "# https://developer.android.com/studio#command-tools",
+                ],
+            ),
+            setup_step(
+                "Expose Android tools in this shell",
+                "Makes sdkmanager, adb, and emulator discoverable; add these exports to your shell profile after verifying them.",
+                vec![
+                    "export ANDROID_SDK_ROOT=\"${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}\"",
+                    "export PATH=\"$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/emulator:$PATH\"",
+                ],
+            ),
+            setup_step(
+                "Install the reproducible Android SDK set",
+                "Uses API 35 and an x86_64 Google APIs image, the documented RustDroid host-fixture baseline.",
+                vec![
+                    "sdkmanager --licenses",
+                    "sdkmanager \"platform-tools\" \"emulator\" \"build-tools;35.0.0\" \"platforms;android-35\" \"system-images;android-35;google_apis;x86_64\"",
+                ],
+            ),
+            setup_step(
+                "Create the documented AVD",
+                "Creates the test_avd used by the demo and CI commands.",
+                vec![
+                    "echo no | avdmanager create avd --force --name test_avd --package \"system-images;android-35;google_apis;x86_64\" --device pixel_5",
+                    "emulator -list-avds",
+                ],
+            ),
+            setup_step(
+                "Optionally install the native emulator UI",
+                "scrcpy is optional; RustDroid can remain headless without it.",
+                vec![scrcpy_command],
+            ),
+            setup_step(
+                "Verify before running an APK",
+                "Checks the selected host backend and then exercises the checked-in fixture.",
+                vec![
+                    "rustdroid --runtime-backend host doctor",
+                    "rustdroid --profile host-fast --host-avd-name test_avd run tests/fixtures/apks/launch-success.apk --duration-secs 2 --keep-alive false --artifacts-dir artifacts/rustdroid-demo",
+                ],
+            ),
+        ],
+        notes: vec![
+            "This command never executes the plan, writes config, accepts Android licenses, or runs sudo."
+                .to_owned(),
+            "Use `rustdroid --json setup` when a provisioning script needs the same reviewable plan."
+                .to_owned(),
+        ],
+    }
+}
+
+fn setup_step(
+    title: impl Into<String>,
+    reason: impl Into<String>,
+    commands: Vec<impl Into<String>>,
+) -> SetupStep {
+    SetupStep {
+        title: title.into(),
+        reason: reason.into(),
+        commands: commands.into_iter().map(Into::into).collect(),
+    }
+}
+
+fn detected_setup_distro() -> (Option<SetupDistro>, String) {
+    if std::env::consts::OS != "linux" {
+        return (None, format!("current platform: {}", std::env::consts::OS));
+    }
+
+    let Ok(raw) = fs::read_to_string("/etc/os-release") else {
+        return (None, "could not read /etc/os-release".to_owned());
+    };
+    let values = parse_os_release(&raw);
+    let id = values.get("ID").map(String::as_str).unwrap_or_default();
+    let id_like = values
+        .get("ID_LIKE")
+        .map(String::as_str)
+        .unwrap_or_default();
+    let distro = match id {
+        "ubuntu" => Some(SetupDistro::Ubuntu),
+        "debian" => Some(SetupDistro::Debian),
+        "fedora" => Some(SetupDistro::Fedora),
+        _ if id_like.split_whitespace().any(|value| value == "debian") => Some(SetupDistro::Debian),
+        _ if id_like.split_whitespace().any(|value| value == "fedora") => Some(SetupDistro::Fedora),
+        _ => None,
+    };
+
+    (distro, format!("/etc/os-release ID={id}"))
+}
+
+fn parse_os_release(raw: &str) -> BTreeMap<String, String> {
+    raw.lines()
+        .filter_map(|line| line.split_once('='))
+        .map(|(key, value)| {
+            (
+                key.trim().to_owned(),
+                value.trim().trim_matches('"').to_owned(),
+            )
+        })
+        .collect()
+}
+
 pub async fn run_doctor(config: &RuntimeConfig, json: bool) -> Result<()> {
     let checks = collect_doctor_checks(config).await;
-    let report = DoctorReport { checks };
+    let report = DoctorReport {
+        schema_version: 1,
+        selected_backend: format_backend(config.runtime_backend).to_owned(),
+        checks,
+    };
 
     if json {
         print_json(&report)?;
@@ -241,19 +465,21 @@ fn print_self_test_results(results: &[SelfTestResult]) {
 }
 
 async fn collect_doctor_checks(config: &RuntimeConfig) -> Vec<CheckResult> {
+    let host_required = matches!(config.runtime_backend, RuntimeBackend::Host);
+    let docker_required = matches!(config.runtime_backend, RuntimeBackend::Docker);
     let mut checks = vec![
-        check_kvm_device(),
-        check_kvm_permissions(),
+        check_kvm_device(host_required),
+        check_kvm_permissions(host_required),
         check_gpu_passthrough(),
     ];
-    checks.push(check_docker().await);
-    checks.push(check_android_sdk_root());
+    checks.push(check_docker(docker_required).await);
+    checks.push(check_android_sdk_root(host_required));
 
     for program in ["emulator", "adb", "aapt", "apkanalyzer", "scrcpy"] {
-        checks.push(check_host_tool(program));
+        checks.push(check_host_tool(program, host_required));
     }
 
-    checks.push(check_host_avds(&config.host_emulator_binary).await);
+    checks.push(check_host_avds(&config.host_emulator_binary, host_required).await);
     checks
 }
 
@@ -265,68 +491,97 @@ fn print_doctor_checks(checks: &[CheckResult]) {
             CheckState::Warn => "WARN",
             CheckState::Fail => "FAIL",
         };
-        println!("[{status}] {}: {}", check.name, check.summary);
+        let requirement = if check.required {
+            "required"
+        } else {
+            "optional"
+        };
+        println!(
+            "[{status}] {} ({}, {requirement}): {}",
+            check.name, check.id, check.summary
+        );
         if let Some(hint) = &check.hint {
             println!("  hint: {hint}");
+        }
+        for command in &check.remediation {
+            println!("  fix: {command}");
         }
     }
 }
 
-fn check_kvm_device() -> CheckResult {
+fn check_kvm_device(required: bool) -> CheckResult {
     match fs::metadata("/dev/kvm") {
-        Ok(metadata) => CheckResult {
-            name: "kvm".to_owned(),
-            state: CheckState::Pass,
-            summary: format!(
+        Ok(metadata) => check_result(
+            "host.kvm.device",
+            "kvm",
+            required,
+            CheckState::Pass,
+            format!(
                 "found /dev/kvm (mode {:o})",
                 metadata.permissions().mode() & 0o777
             ),
-            hint: None,
-        },
-        Err(_) => CheckResult {
-            name: "kvm".to_owned(),
-            state: CheckState::Fail,
-            summary: "missing /dev/kvm".to_owned(),
-            hint: Some("enable KVM or run on a Linux host with hardware virtualization".to_owned()),
-        },
+            None,
+            &[],
+        ),
+        Err(_) => check_result(
+            "host.kvm.device",
+            "kvm",
+            required,
+            unavailable_state(required),
+            "missing /dev/kvm",
+            Some("enable KVM or run on a Linux host with hardware virtualization"),
+            &["rustdroid setup --distro ubuntu"],
+        ),
     }
 }
 
-fn check_kvm_permissions() -> CheckResult {
+fn check_kvm_permissions(required: bool) -> CheckResult {
     if !Path::new("/dev/kvm").exists() {
-        return CheckResult {
-            name: "kvm_permissions".to_owned(),
-            state: CheckState::Warn,
-            summary: "skipped because /dev/kvm is missing".to_owned(),
-            hint: None,
-        };
+        return check_result(
+            "host.kvm.permissions",
+            "kvm_permissions",
+            required,
+            CheckState::Warn,
+            "skipped because /dev/kvm is missing",
+            None,
+            &[],
+        );
     }
 
     match OpenOptions::new().read(true).write(true).open("/dev/kvm") {
-        Ok(_) => CheckResult {
-            name: "kvm_permissions".to_owned(),
-            state: CheckState::Pass,
-            summary: "current user can open /dev/kvm".to_owned(),
-            hint: None,
-        },
-        Err(error) => CheckResult {
-            name: "kvm_permissions".to_owned(),
-            state: CheckState::Fail,
-            summary: format!("cannot access /dev/kvm: {error}"),
-            hint: Some("add your user to the kvm group or fix /dev/kvm permissions".to_owned()),
-        },
+        Ok(_) => check_result(
+            "host.kvm.permissions",
+            "kvm_permissions",
+            required,
+            CheckState::Pass,
+            "current user can open /dev/kvm",
+            None,
+            &[],
+        ),
+        Err(error) => check_result(
+            "host.kvm.permissions",
+            "kvm_permissions",
+            required,
+            unavailable_state(required),
+            format!("cannot access /dev/kvm: {error}"),
+            Some("add your user to the kvm group or fix /dev/kvm permissions"),
+            &["sudo usermod -aG kvm \"$USER\"", "newgrp kvm"],
+        ),
     }
 }
 
 fn check_gpu_passthrough() -> CheckResult {
     let dri_path = Path::new("/dev/dri");
     if !dri_path.exists() {
-        return CheckResult {
-            name: "gpu_passthrough".to_owned(),
-            state: CheckState::Warn,
-            summary: "missing /dev/dri".to_owned(),
-            hint: Some("Docker GPU passthrough is limited without /dev/dri".to_owned()),
-        };
+        return check_result(
+            "docker.gpu_passthrough",
+            "gpu_passthrough",
+            false,
+            CheckState::Warn,
+            "missing /dev/dri",
+            Some("Docker GPU passthrough is limited without /dev/dri"),
+            &[],
+        );
     }
 
     let mut entries: Vec<String> = fs::read_dir(dri_path)
@@ -337,72 +592,91 @@ fn check_gpu_passthrough() -> CheckResult {
         .collect();
     entries.sort();
 
-    CheckResult {
-        name: "gpu_passthrough".to_owned(),
-        state: CheckState::Pass,
-        summary: format!("found /dev/dri ({})", entries.join(", ")),
-        hint: None,
-    }
+    check_result(
+        "docker.gpu_passthrough",
+        "gpu_passthrough",
+        false,
+        CheckState::Pass,
+        format!("found /dev/dri ({})", entries.join(", ")),
+        None,
+        &[],
+    )
 }
 
-async fn check_docker() -> CheckResult {
+async fn check_docker(required: bool) -> CheckResult {
     match DockerRuntime::connect() {
         Ok(runtime) => match runtime.ping().await {
-            Ok(()) => CheckResult {
-                name: "docker".to_owned(),
-                state: CheckState::Pass,
-                summary: "Docker daemon is reachable".to_owned(),
-                hint: None,
-            },
-            Err(error) => CheckResult {
-                name: "docker".to_owned(),
-                state: CheckState::Warn,
-                summary: format!("Docker is installed but not ready: {error}"),
-                hint: Some("start the Docker daemon if you want the Docker backend".to_owned()),
-            },
-        },
-        Err(error) => CheckResult {
-            name: "docker".to_owned(),
-            state: CheckState::Warn,
-            summary: format!("Docker client not available: {error}"),
-            hint: Some("install Docker only if you plan to use the Docker backend".to_owned()),
-        },
-    }
-}
-
-fn check_android_sdk_root() -> CheckResult {
-    match android_sdk_root() {
-        Some(path) => CheckResult {
-            name: "android_sdk".to_owned(),
-            state: CheckState::Pass,
-            summary: format!("found Android SDK at {}", path.display()),
-            hint: None,
-        },
-        None => CheckResult {
-            name: "android_sdk".to_owned(),
-            state: CheckState::Warn,
-            summary: "Android SDK root was not detected".to_owned(),
-            hint: Some(
-                "set ANDROID_HOME or ANDROID_SDK_ROOT if you want the host backend".to_owned(),
+            Ok(()) => check_result(
+                "docker.daemon",
+                "docker",
+                required,
+                CheckState::Pass,
+                "Docker daemon is reachable",
+                None,
+                &[],
+            ),
+            Err(error) => check_result(
+                "docker.daemon",
+                "docker",
+                required,
+                unavailable_state(required),
+                format!("Docker is installed but not ready: {error}"),
+                Some("start the Docker daemon if you want the Docker backend"),
+                &["sudo systemctl enable --now docker"],
             ),
         },
+        Err(error) => check_result(
+            "docker.daemon",
+            "docker",
+            required,
+            unavailable_state(required),
+            format!("Docker client not available: {error}"),
+            Some("install Docker only if you plan to use the Docker backend"),
+            &["rustdroid setup --distro ubuntu"],
+        ),
     }
 }
 
-fn check_host_tool(program: &str) -> CheckResult {
+fn check_android_sdk_root(required: bool) -> CheckResult {
+    match android_sdk_root() {
+        Some(path) => check_result(
+            "host.android_sdk.root",
+            "android_sdk",
+            required,
+            CheckState::Pass,
+            format!("found Android SDK at {}", path.display()),
+            None,
+            &[],
+        ),
+        None => check_result(
+            "host.android_sdk.root",
+            "android_sdk",
+            required,
+            unavailable_state(required),
+            "Android SDK root was not detected",
+            Some("set ANDROID_HOME or ANDROID_SDK_ROOT if you want the host backend"),
+            &[
+                "export ANDROID_SDK_ROOT=\"$HOME/Android/Sdk\"",
+                "rustdroid setup --distro ubuntu",
+            ],
+        ),
+    }
+}
+
+fn check_host_tool(program: &str, host_required: bool) -> CheckResult {
     match resolve_host_tool(program) {
-        Ok(path) => CheckResult {
-            name: program.to_owned(),
-            state: CheckState::Pass,
-            summary: format!("resolved to {}", path.display()),
-            hint: None,
-        },
+        Ok(path) => check_result(
+            host_tool_id(program),
+            program,
+            host_required && program != "scrcpy",
+            CheckState::Pass,
+            format!("resolved to {}", path.display()),
+            None,
+            &[],
+        ),
         Err(error) => {
-            let state = if program == "scrcpy" {
-                CheckState::Warn
-            } else {
-                CheckState::Fail
-            };
+            let required = host_required && program != "scrcpy";
+            let state = unavailable_state(required);
             let hint = match program {
                 "scrcpy" => Some("install scrcpy if you want the native desktop UI".to_owned()),
                 "emulator" | "adb" => Some(
@@ -412,36 +686,90 @@ fn check_host_tool(program: &str) -> CheckResult {
                 _ => Some("install Android SDK build-tools or expose them on PATH".to_owned()),
             };
 
-            CheckResult {
-                name: program.to_owned(),
+            check_result(
+                host_tool_id(program),
+                program,
+                required,
                 state,
-                summary: error.to_string(),
-                hint,
-            }
+                error.to_string(),
+                hint.as_deref(),
+                &["rustdroid setup --distro ubuntu"],
+            )
         }
     }
 }
 
-async fn check_host_avds(emulator_binary: &str) -> CheckResult {
+async fn check_host_avds(emulator_binary: &str, required: bool) -> CheckResult {
     match list_host_avds(emulator_binary).await {
-        Ok(avds) if avds.is_empty() => CheckResult {
-            name: "avds".to_owned(),
-            state: CheckState::Warn,
-            summary: "no Android Virtual Devices found".to_owned(),
-            hint: Some("create an AVD in Android Studio to use the host backend".to_owned()),
-        },
-        Ok(avds) => CheckResult {
-            name: "avds".to_owned(),
-            state: CheckState::Pass,
-            summary: format!("found {} AVD(s): {}", avds.len(), avds.join(", ")),
-            hint: None,
-        },
-        Err(error) => CheckResult {
-            name: "avds".to_owned(),
-            state: CheckState::Warn,
-            summary: error.to_string(),
-            hint: Some("create an AVD or fix the host emulator install".to_owned()),
-        },
+        Ok(avds) if avds.is_empty() => check_result(
+            "host.avds",
+            "avds",
+            required,
+            unavailable_state(required),
+            "no Android Virtual Devices found",
+            Some("create an AVD in Android Studio to use the host backend"),
+            &["rustdroid setup --distro ubuntu", "emulator -list-avds"],
+        ),
+        Ok(avds) => check_result(
+            "host.avds",
+            "avds",
+            required,
+            CheckState::Pass,
+            format!("found {} AVD(s): {}", avds.len(), avds.join(", ")),
+            None,
+            &[],
+        ),
+        Err(error) => check_result(
+            "host.avds",
+            "avds",
+            required,
+            unavailable_state(required),
+            error.to_string(),
+            Some("create an AVD or fix the host emulator install"),
+            &["rustdroid setup --distro ubuntu", "emulator -list-avds"],
+        ),
+    }
+}
+
+fn check_result(
+    id: &'static str,
+    name: impl Into<String>,
+    required: bool,
+    state: CheckState,
+    summary: impl Into<String>,
+    hint: Option<&str>,
+    remediation: &[&str],
+) -> CheckResult {
+    CheckResult {
+        id,
+        name: name.into(),
+        required,
+        state,
+        summary: summary.into(),
+        hint: hint.map(str::to_owned),
+        remediation: remediation
+            .iter()
+            .map(|command| (*command).to_owned())
+            .collect(),
+    }
+}
+
+fn unavailable_state(required: bool) -> CheckState {
+    if required {
+        CheckState::Fail
+    } else {
+        CheckState::Warn
+    }
+}
+
+fn host_tool_id(program: &str) -> &'static str {
+    match program {
+        "emulator" => "host.tool.emulator",
+        "adb" => "host.tool.adb",
+        "aapt" => "host.tool.aapt",
+        "apkanalyzer" => "host.tool.apkanalyzer",
+        "scrcpy" => "host.tool.scrcpy",
+        _ => "host.tool.unknown",
     }
 }
 

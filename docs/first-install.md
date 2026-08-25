@@ -2,6 +2,8 @@
 
 This guide is for a clean Linux machine.
 
+For the supported Ubuntu/Debian and Fedora commands, KVM setup, Android command-line tools, fixed API 35 AVD, and a verified fixture, follow the [Linux quickstart](quickstart-linux.md). `rustdroid setup` prints the same reviewed plan without changing the machine.
+
 ## Fast Path
 
 Install from the latest release:
@@ -16,6 +18,8 @@ If the release asset is unavailable, the installer falls back to a local source 
 It installs both `rustdroid` and `rustdroid-run`.
 
 See the [support matrix](support-matrix.md) before choosing a backend or package channel.
+
+For checked-in project defaults and precedence, read [configuration ownership](configuration.md).
 
 ## Host Requirements
 

@@ -1,0 +1,5 @@
+# Checked-in host loop. Use with: rustdroid --config .rustdroid.toml run app-debug.apk
+profile = "host-fast"
+host_avd_name = "test_avd"
+boot_mode = "warm"
+artifacts_dir = "artifacts/rustdroid"

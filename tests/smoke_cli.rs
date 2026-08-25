@@ -31,6 +31,22 @@ fn doctor_json_returns_check_array() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert_output_contains(&output, "\"checks\"");
+    assert_output_contains(&output, "\"schema_version\"");
+    assert_output_contains(&output, "\"selected_backend\"");
+    assert_output_contains(&output, "\"required\"");
+    assert_output_contains(&output, "\"remediation\"");
+}
+
+#[test]
+fn setup_json_is_a_reviewable_non_destructive_plan() {
+    let context = TestContext::new();
+    let output =
+        run_command(rustdroid_command(&context).args(["--json", "setup", "--distro", "ubuntu"]));
+
+    assert_success(&output);
+    assert_output_contains(&output, "\"schema_version\"");
+    assert_output_contains(&output, "\"changes_applied\": false");
+    assert_output_contains(&output, "test_avd");
 }
 
 #[test]

@@ -1,0 +1,4 @@
+# Constrained Docker host. This intentionally inherits the low-ram profile.
+profile = "low-ram"
+boot_timeout_secs = 420
+artifacts_dir = "artifacts/rustdroid"

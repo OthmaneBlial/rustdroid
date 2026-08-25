@@ -1,0 +1,55 @@
+name: fresh-machine-contract
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 1 * *"
+
+concurrency:
+  group: fresh-machine-contract-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  host-fixture-from-clean-runner:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Print the reviewed Ubuntu setup plan
+        run: cargo run --locked -- --json setup --distro ubuntu > "$RUNNER_TEMP/rustdroid-setup-plan.json"
+
+      - name: Provision an Android 35 test AVD and run the fixture contract
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          avd-name: test_avd
+          profile: pixel_5
+          target: google_apis
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
+          script: |
+            export RUSTDROID_RUN_HOST_RUNTIME_TESTS=1
+            export RUSTDROID_HOST_TEST_SERIAL=emulator-5554
+            cargo test --locked --test integration_host_runtime -- --nocapture
+
+      - name: Upload setup plan
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fresh-machine-setup-plan
+          path: ${{ runner.temp }}/rustdroid-setup-plan.json
+          if-no-files-found: error

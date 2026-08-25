@@ -93,6 +93,7 @@ For source-only installation:
 ```
 
 Read the [first-install guide](docs/first-install.md) for KVM, Android SDK, AVD, ADB, APK inspection, and optional `scrcpy` setup.
+The [Linux quickstart](docs/quickstart-linux.md) has Ubuntu/Debian and Fedora commands plus the verified fixture path; [configuration ownership](docs/configuration.md) explains checked-in project settings.
 
 ## Choose the right backend
 
@@ -154,6 +155,8 @@ The deterministic fixture suite covers a launchable APK, a missing launcher, x86
 
 - [Demo receipt](docs/demo.md)
 - [First install](docs/first-install.md)
+- [Linux quickstart](docs/quickstart-linux.md)
+- [Configuration ownership](docs/configuration.md)
 - [Host backend](docs/host-backend.md)
 - [Support matrix](docs/support-matrix.md)
 - [Troubleshooting](docs/troubleshooting.md)
