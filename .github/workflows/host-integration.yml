@@ -6,7 +6,9 @@ on:
     - cron: "0 6 * * 1"
 
 concurrency:
-  group: host-integration-${{ github.workflow }}-${{ github.ref }}
+  # v2 isolates current runs from the stale v1 GitHub queue lock while keeping
+  # scheduled and manual host validation mutually exclusive going forward.
+  group: host-integration-v2-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
