@@ -30,7 +30,7 @@ The implementation has been consolidated into [`v0.3.1`](https://github.com/Othm
 
 | Roadmap scope | Current state | Evidence and remaining gate |
 | --- | --- | --- |
-| P0 host trust | Implemented and manually verified | The host runner is isolated, schedules every Monday at 06:00 UTC, emits classified failure artifacts, and passed a full manual host/smoke/performance run. Do not add a reliability badge until four consecutive scheduled runs pass. |
+| P0 host trust | Implemented and manually verified | The host runner is isolated, schedules every Monday at 06:00 UTC, emits classified failure artifacts, and passed three full manual host/smoke/performance runs. Do not add a reliability badge until four consecutive scheduled runs pass. |
 | P0 release and proof | Released, with one external metadata action pending | [`v0.3.1`](https://github.com/OthmaneBlial/rustdroid/releases/tag/v0.3.1) ships the x86_64 Linux archive, portable checksum, clean-container installation proof, and provenance. The generated social-preview asset is ready; it still needs an explicit repository-settings upload confirmation. |
 | P1 onboarding and CI receipts | Implemented and verified | Reviewable `setup`, stable `doctor --json`, Linux quickstart/config examples, fresh-machine Android 35 fixture proof, schema v1 JSON/HTML/JUnit/Markdown receipts, and a pinned reusable action are present. |
 | P2 adoption and speed evidence | Implemented and verified | Gradle, Flutter, and React Native/Expo templates now boot a persistent AVD before invoking the pinned action; recipes, generated support matrix, dry-run plans, and benchmark receipts are checked into the repository. |
@@ -39,7 +39,7 @@ The implementation has been consolidated into [`v0.3.1`](https://github.com/Othm
 
 ### Current evidence links
 
-- [Host integration proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32905475830), [fresh-machine proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32905479252), and [pinned action proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32907241889).
+- [Three manual host proofs](https://github.com/OthmaneBlial/rustdroid/actions/runs/32905475830) and [the final rerun](https://github.com/OthmaneBlial/rustdroid/actions/runs/32907975602/attempts/2), [fresh-machine proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32905479252), and [pinned action proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32907241889).
 - [v0.3.1 release workflow](https://github.com/OthmaneBlial/rustdroid/actions/runs/32906999443): archive, checksum, clean-container install, and provenance all passed. The published archive and checksum were downloaded into a clean directory and verified with `sha256sum --check`; the provenance attestation verified the release workflow and tag.
 - The starter-work issues for doctor remediation, fixture documentation, and workflow contracts were implemented and closed in `5c0674b`.
 
