@@ -18,7 +18,7 @@ cat >"$EXPECTED_PATH" <<'JSON'
       "android_api": "30",
       "abi": "x86_64",
       "ui_mode": "headless",
-      "evidence": "host-integration",
+      "evidence": "host-integration-runtime",
       "verification_state": "pending"
     },
     {

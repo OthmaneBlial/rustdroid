@@ -19,7 +19,7 @@ The generated [support matrix](support-matrix.json) names the backend/API/ABI/UI
 
 | Backend | Runner contract | API | ABI | UI | Evidence workflow |
 | --- | --- | ---: | --- | --- | --- |
-| Host | GitHub-hosted Ubuntu 22.04 with KVM | 30 | x86_64 | Headless | `host-integration` |
+| Host | GitHub-hosted Ubuntu 22.04 with KVM | 30 | x86_64 | Headless | `host-integration-runtime` |
 | Host | Fresh Ubuntu contract | 35 | x86_64 | Headless | `fresh-machine-contract` |
 | Host | Pinned action contract | 35 | x86_64 | Headless | `action-contract` |
 

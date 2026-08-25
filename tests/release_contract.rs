@@ -8,7 +8,7 @@ fn release_assets_exist_in_repo() {
         ".github/workflows/codeql.yml",
         ".github/workflows/dependency-security.yml",
         ".github/workflows/action-contract.yml",
-        ".github/workflows/host-integration.yml",
+        ".github/workflows/host-integration-runtime.yml",
         ".github/workflows/crates-io-readiness.yml",
         ".github/workflows/release.yml",
         "docs/performance-baselines.json",
