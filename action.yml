@@ -1,0 +1,76 @@
+name: RustDroid APK receipt
+description: Run an APK smoke check on a prepared Linux/KVM Android emulator and emit inspectable receipts.
+
+inputs:
+  apk-path:
+    description: APK, .apks, or .xapk path available in the caller workspace.
+    required: true
+  profile:
+    description: RustDroid profile to apply before explicit action settings.
+    required: false
+    default: host-fast
+  runtime-backend:
+    description: Runtime backend. The documented action contract uses host on a KVM runner.
+    required: false
+    default: host
+  host-avd-name:
+    description: Existing AVD name supplied by the caller's emulator provisioning step.
+    required: false
+    default: test_avd
+  artifacts-dir:
+    description: Directory where JSON, HTML, JUnit, Markdown, and logs are written.
+    required: false
+    default: artifacts/rustdroid
+  duration-secs:
+    description: Log collection duration after launch.
+    required: false
+    default: "2"
+  keep-alive:
+    description: Whether RustDroid should leave a managed runtime alive after the receipt.
+    required: false
+    default: "false"
+
+outputs:
+  receipt-dir:
+    description: Directory containing the canonical RustDroid receipt and derived reports.
+    value: ${{ steps.receipt.outputs.receipt-dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install stable Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Build RustDroid from this pinned action source
+      shell: bash
+      run: |
+        set -euo pipefail
+        cargo build --locked --release --manifest-path "$GITHUB_ACTION_PATH/Cargo.toml"
+
+    - id: receipt
+      name: Run APK receipt
+      shell: bash
+      env:
+        RUSTDROID_ACTION_APK: ${{ inputs.apk-path }}
+        RUSTDROID_ACTION_PROFILE: ${{ inputs.profile }}
+        RUSTDROID_ACTION_BACKEND: ${{ inputs.runtime-backend }}
+        RUSTDROID_ACTION_AVD: ${{ inputs.host-avd-name }}
+        RUSTDROID_ACTION_ARTIFACTS: ${{ inputs.artifacts-dir }}
+        RUSTDROID_ACTION_DURATION: ${{ inputs.duration-secs }}
+        RUSTDROID_ACTION_KEEP_ALIVE: ${{ inputs.keep-alive }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$RUSTDROID_ACTION_ARTIFACTS"
+        "$GITHUB_ACTION_PATH/target/release/rustdroid" \
+          --profile "$RUSTDROID_ACTION_PROFILE" \
+          --runtime-backend "$RUSTDROID_ACTION_BACKEND" \
+          --host-avd-name "$RUSTDROID_ACTION_AVD" \
+          --headless true \
+          run "$RUSTDROID_ACTION_APK" \
+          --duration-secs "$RUSTDROID_ACTION_DURATION" \
+          --keep-alive "$RUSTDROID_ACTION_KEEP_ALIVE" \
+          --artifacts-dir "$RUSTDROID_ACTION_ARTIFACTS" \
+          --junit-path "$RUSTDROID_ACTION_ARTIFACTS/junit.xml" \
+          --markdown-summary-path "$RUSTDROID_ACTION_ARTIFACTS/run-summary.md"
+        cat "$RUSTDROID_ACTION_ARTIFACTS/run-summary.md" >> "$GITHUB_STEP_SUMMARY"
+        printf 'receipt-dir=%s\n' "$RUSTDROID_ACTION_ARTIFACTS" >> "$GITHUB_OUTPUT"

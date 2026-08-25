@@ -40,6 +40,26 @@ fn release_assets_exist_in_repo() {
 }
 
 #[test]
+fn composite_action_declares_the_receipt_contract() {
+    let action = std::fs::read_to_string("action.yml").expect("read action.yml");
+
+    for snippet in [
+        "name: RustDroid APK receipt",
+        "apk-path:",
+        "artifacts-dir:",
+        "receipt-dir:",
+        "junit.xml",
+        "run-summary.md",
+        "cargo build --locked --release",
+    ] {
+        assert!(
+            action.contains(snippet),
+            "expected action.yml to contain {snippet}"
+        );
+    }
+}
+
+#[test]
 fn install_and_package_scripts_are_executable() {
     for path in [
         "install.sh",
