@@ -41,6 +41,10 @@ jobs:
           target: google_apis
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
           script: |
+            sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+            export PATH="$sdk_root/emulator:$sdk_root/platform-tools:$PATH"
+            command -v emulator
+            command -v adb
             export RUSTDROID_HOST_TEST_SERIAL=emulator-5554
             export RUSTDROID_HOST_TEST_AVD=test_avd
             export RUSTDROID_CI_HOST_ARTIFACTS_DIR="$GITHUB_WORKSPACE/ci-artifacts/host"

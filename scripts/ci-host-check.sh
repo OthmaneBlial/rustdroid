@@ -74,6 +74,9 @@ record_failure_classification() {
     if log_contains '(/dev/kvm|kvm).*([Pp]ermission denied|unavailable|not accessible)|hardware acceleration'; then
       printf -- '- `kvm-access`: the runner cannot use hardware virtualization.\n'
     fi
+    if log_contains 'emulator.*(not found|required)|android sdk.*(not found|missing)'; then
+      printf -- '- `android-sdk-path`: the emulator binary is absent from the invoking shell PATH.\n'
+    fi
     if log_contains 'no host avd|no available avds|avd.*not found'; then
       printf -- '- `avd-setup`: the requested AVD is missing or unreadable.\n'
     fi
