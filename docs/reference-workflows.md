@@ -17,11 +17,11 @@ The templates now have deliberately small, public source counterparts in
 above without using an unpublished application, and they keep generated SDK,
 Gradle, Flutter, and JavaScript directories out of Git.
 
-| Stack | Source fixture | Reproducible build entrypoint | APK path |
-| --- | --- | --- | --- |
-| Gradle Android | [`gradle-android`](../examples/apps/gradle-android/) | `./scripts/build-debug-apk.sh` | `app/build/outputs/apk/debug/app-debug.apk` |
-| Flutter | [`flutter`](../examples/apps/flutter/) | `./scripts/build-debug-apk.sh` | `build/app/outputs/flutter-apk/app-debug.apk` |
-| React Native / Expo prebuild | [`expo-prebuild`](../examples/apps/expo-prebuild/) | `./scripts/build-debug-apk.sh` | `android/app/build/outputs/apk/debug/app-debug.apk` |
+| Stack | Source fixture | Reproducible build entrypoint | APK path | First full receipt proof |
+| --- | --- | --- | --- | --- |
+| Gradle Android | [`gradle-android`](../examples/apps/gradle-android/) | `./scripts/build-debug-apk.sh` | `app/build/outputs/apk/debug/app-debug.apk` | [passed Gradle run](https://github.com/OthmaneBlial/rustdroid/actions/runs/32911691564/job/98006995324) |
+| Flutter | [`flutter`](../examples/apps/flutter/) | `./scripts/build-debug-apk.sh` | `build/app/outputs/flutter-apk/app-debug.apk` | [passed Flutter run](https://github.com/OthmaneBlial/rustdroid/actions/runs/32911691564/job/98006995435) |
+| React Native / Expo prebuild | [`expo-prebuild`](../examples/apps/expo-prebuild/) | `./scripts/build-debug-apk.sh` | `android/app/build/outputs/apk/debug/app-debug.apk` | [passed Expo run](https://github.com/OthmaneBlial/rustdroid/actions/runs/32911691564/job/98006995501) |
 
 [`reference-stack-fixtures`](../.github/workflows/reference-stack-fixtures.yml)
 builds these three sources, checks that the documented APK exists, boots the
@@ -29,3 +29,7 @@ same Android 35 AVD, invokes the immutable receipt action, and uploads each
 receipt. It runs on the first day of every month and supports manual dispatch;
 use its run history as proof for a specific stack rather than assuming a copied
 template will work in every application.
+
+The [first manual matrix run](https://github.com/OthmaneBlial/rustdroid/actions/runs/32911691564)
+completed successfully on 2026-08-26. It produced all three receipts and
+verified the package/activity launch path for every public source fixture.

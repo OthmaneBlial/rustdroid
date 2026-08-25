@@ -144,6 +144,7 @@ fn roadmap_distinguishes_delivery_from_external_evidence() {
         "External adoption and public maturity",
         "success measures, not build artifacts",
         "prepared social preview only after explicit approval",
+        "32911691564",
     ] {
         assert!(
             roadmap.contains(snippet),
@@ -241,4 +242,9 @@ fn executable_stack_fixtures_preserve_their_documented_build_contracts() {
             "reference stack fixture workflow must contain {snippet}"
         );
     }
+
+    assert!(
+        guide.contains("32911691564"),
+        "reference-workflows guide must link the first successful full stack proof"
+    );
 }
