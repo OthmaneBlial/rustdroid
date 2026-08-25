@@ -38,7 +38,12 @@ install -m 0755 uninstall.sh "$STAGE_DIR/uninstall.sh"
 printf '%s\n' "$VERSION" > "$STAGE_DIR/VERSION"
 
 tar -czf "$ARCHIVE_PATH" -C "$DIST_DIR" "$(basename "$STAGE_DIR")"
-sha256sum "$ARCHIVE_PATH" > "$CHECKSUM_PATH"
+# Release assets are downloaded into a fresh directory by consumers. Keep the
+# checksum manifest portable instead of embedding this CI runner's absolute path.
+(
+  cd "$DIST_DIR"
+  sha256sum "$(basename "$ARCHIVE_PATH")" > "$(basename "$CHECKSUM_PATH")"
+)
 
 echo "created $ARCHIVE_PATH"
 echo "created $CHECKSUM_PATH"

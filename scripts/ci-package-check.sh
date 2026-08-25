@@ -11,6 +11,9 @@ DIST_DIR="$ROOT_DIR/dist"
 ARCHIVE_PATH="$DIST_DIR/rustdroid-$TARGET.tar.gz"
 CHECKSUM_PATH="$ARCHIVE_PATH.sha256"
 LISTING_PATH="$DIST_DIR/rustdroid-$TARGET.contents"
+CHECKSUM_VERIFY_DIR="$(mktemp -d)"
+
+trap 'rm -rf "$CHECKSUM_VERIFY_DIR"' EXIT
 
 ./scripts/check-cargo-distribution.sh "$DIST_DIR/cargo-install-root"
 ./scripts/package-release.sh "$TARGET" "$VERSION"
@@ -22,5 +25,9 @@ grep -q '/LICENSE$' "$LISTING_PATH"
 grep -q '/install.sh$' "$LISTING_PATH"
 grep -q '/run.sh$' "$LISTING_PATH"
 grep -q '/uninstall.sh$' "$LISTING_PATH"
-sha256sum --check "$CHECKSUM_PATH"
+cp "$ARCHIVE_PATH" "$CHECKSUM_PATH" "$CHECKSUM_VERIFY_DIR/"
+(
+  cd "$CHECKSUM_VERIFY_DIR"
+  sha256sum --check "$(basename "$CHECKSUM_PATH")"
+)
 ./scripts/verify-release-install-container.sh "$TARGET" "$VERSION"

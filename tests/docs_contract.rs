@@ -21,6 +21,7 @@ fn contributor_and_guide_docs_exist() {
         "docs/support-matrix.md",
         "docs/troubleshooting.md",
         "docs/releases/v0.3.0.md",
+        "docs/releases/v0.3.1.md",
         "docs/versioning-policy.md",
         "docs/ci-examples.md",
         "docs/fixture-testing.md",

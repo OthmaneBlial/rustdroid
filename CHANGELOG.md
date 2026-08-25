@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.3.1
+
+- Fixed the release checksum manifest so downloaded assets can be verified from any directory. The v0.3.0 archive itself is valid, but its attached checksum file is not portable; use v0.3.1 for verified installs.
+
 ## v0.3.0
 
 - Receipt-first v0.3.0 release preparation: guided Linux setup, stable diagnostics, dry-run plans, reusable CI receipts, and reproducible benchmark artifacts.

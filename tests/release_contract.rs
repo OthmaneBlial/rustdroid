@@ -111,6 +111,19 @@ fn android_emulator_runner_keeps_host_environment_in_one_shell() {
 }
 
 #[test]
+fn package_checksum_contract_is_portable_for_downloaded_assets() {
+    let package_script =
+        std::fs::read_to_string("scripts/package-release.sh").expect("read package release script");
+    let package_check =
+        std::fs::read_to_string("scripts/ci-package-check.sh").expect("read package check script");
+
+    assert!(package_script.contains("cd \"$DIST_DIR\""));
+    assert!(package_script.contains("sha256sum \"$(basename \"$ARCHIVE_PATH\")\""));
+    assert!(package_check.contains("CHECKSUM_VERIFY_DIR=\"$(mktemp -d)\""));
+    assert!(package_check.contains("sha256sum --check \"$(basename \"$CHECKSUM_PATH\")\""));
+}
+
+#[test]
 fn install_and_package_scripts_are_executable() {
     for path in [
         "install.sh",
