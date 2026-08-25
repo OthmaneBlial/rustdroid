@@ -168,6 +168,7 @@ The deterministic fixture suite covers a launchable APK, a missing launcher, x86
 - [APK loop recipes](docs/recipes.md)
 - [Stack-specific reference workflows](docs/reference-workflows.md)
 - [Reproducible benchmarks](docs/benchmarking.md)
+- [Host-fast versus Docker](docs/host-fast-vs-docker.md)
 - [Package distribution](docs/package-distribution.md)
 - [Release process](docs/release-process.md)
 - [1.0 checklist](docs/1.0-checklist.md)
@@ -180,6 +181,7 @@ The deterministic fixture suite covers a launchable APK, a missing launcher, x86
 - [Security policy](SECURITY.md)
 - [Support](SUPPORT.md)
 - [Changelog](CHANGELOG.md)
+- [v0.3.0 release draft](docs/releases/v0.3.0.md)
 
 ## License
 
