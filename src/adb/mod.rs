@@ -515,6 +515,23 @@ impl AdbClient {
         )
     }
 
+    pub async fn get_property(
+        &self,
+        runtime: &Runtime,
+        config: &RuntimeConfig,
+        property: &str,
+    ) -> Option<String> {
+        let outcome = runtime
+            .exec(config, self.adb_command(["shell", "getprop", property]))
+            .await
+            .ok()?;
+        if outcome.exit_code != 0 {
+            return None;
+        }
+        let value = outcome.stdout.trim();
+        (!value.is_empty()).then(|| value.to_owned())
+    }
+
     fn adb_command<const N: usize>(&self, command: [&str; N]) -> Vec<String> {
         let mut args = vec!["adb".to_owned(), "-s".to_owned(), self.serial.clone()];
         args.extend(command.into_iter().map(str::to_owned));

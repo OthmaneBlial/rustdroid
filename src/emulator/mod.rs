@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeSet,
-    fs,
+    fs::{self, File},
+    io::Read,
     path::{Path, PathBuf},
     time::Instant,
 };
@@ -9,6 +10,7 @@ use anyhow::{bail, Result};
 use bollard::container::LogsOptions;
 use futures_util::StreamExt;
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use tokio::time::sleep;
 
 use crate::{
@@ -47,9 +49,13 @@ pub struct BenchResult {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RunSummary {
+    pub schema_version: u8,
+    pub tool_version: String,
+    pub status: String,
+    pub failure_classification: String,
+    pub profile: Option<String>,
     pub runtime_backend: String,
-    pub container_name: String,
-    pub adb_serial: String,
+    pub emulator: ReceiptEmulator,
     pub package_name: String,
     pub launchable_activity: Option<String>,
     pub native_abis: Vec<String>,
@@ -63,7 +69,35 @@ pub struct RunSummary {
     pub kept_alive: bool,
     pub crash_summary: Option<String>,
     pub anr_summary: Option<String>,
-    pub apk_paths: Vec<String>,
+    pub inputs: Vec<ReceiptInput>,
+    pub artifacts: Option<ReceiptArtifacts>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReceiptInput {
+    pub file_name: String,
+    pub sha256: String,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReceiptEmulator {
+    pub adb_serial: String,
+    pub avd_name: Option<String>,
+    pub api_level: Option<String>,
+    pub device: String,
+    pub headless: bool,
+    pub gpu_mode: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ReceiptArtifacts {
+    pub json: String,
+    pub html: String,
+    pub junit: String,
+    pub markdown_summary: String,
+    pub logcat: Option<String>,
+    pub emulator_process_log: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -185,6 +219,12 @@ impl EmulatorOrchestrator {
 
     pub async fn run(&self, args: RunArgs) -> Result<()> {
         let prepared = PreparedApkSet::from_inputs(&args.apks)?;
+        let inputs = build_receipt_inputs(&args.apks)?;
+        let artifacts_dir = args
+            .artifacts_dir
+            .as_ref()
+            .cloned()
+            .or_else(|| self.config.artifacts_dir.as_ref().map(PathBuf::from));
         let total_started = Instant::now();
 
         eprintln!("==> starting emulator on {}", self.runtime_backend_name());
@@ -224,7 +264,7 @@ impl EmulatorOrchestrator {
             .unwrap_or((None, None));
 
         let mut artifacts = RunArtifacts::default();
-        if args.artifacts_dir.is_some() {
+        if artifacts_dir.is_some() {
             artifacts = self.collect_run_artifacts().await?;
         }
 
@@ -241,10 +281,39 @@ impl EmulatorOrchestrator {
                 .and_then(extract_logcat_anr_summary)
         });
 
-        let summary = RunSummary {
-            runtime_backend: self.runtime_backend_name().to_owned(),
-            container_name: self.config.container_name.clone(),
+        let emulator = ReceiptEmulator {
             adb_serial: self.config.adb_serial.clone(),
+            avd_name: self.config.host_avd_name.clone(),
+            api_level: self
+                .adb
+                .get_property(&self.runtime, &self.config, "ro.build.version.sdk")
+                .await,
+            device: self.config.device.clone(),
+            headless: self.config.effective_emulator_headless(),
+            gpu_mode: self.config.emulator_gpu_mode.clone(),
+        };
+        let receipt_artifacts = artifacts_dir.as_ref().map(|_| ReceiptArtifacts {
+            json: "run-summary.json".to_owned(),
+            html: "run-report.html".to_owned(),
+            junit: "junit.xml".to_owned(),
+            markdown_summary: "run-summary.md".to_owned(),
+            logcat: artifacts
+                .logcat_dump
+                .as_ref()
+                .map(|_| "logcat.txt".to_owned()),
+            emulator_process_log: artifacts
+                .process_logs
+                .as_ref()
+                .map(|_| "emulator-process.log".to_owned()),
+        });
+        let summary = RunSummary {
+            schema_version: 1,
+            tool_version: env!("CARGO_PKG_VERSION").to_owned(),
+            status: "passed".to_owned(),
+            failure_classification: "none".to_owned(),
+            profile: self.config.active_profile.clone(),
+            runtime_backend: self.runtime_backend_name().to_owned(),
+            emulator,
             package_name: install.metadata.package_name.clone(),
             launchable_activity: install.metadata.launchable_activity.clone(),
             native_abis: install.metadata.native_abis.clone(),
@@ -262,18 +331,9 @@ impl EmulatorOrchestrator {
             kept_alive: args.keep_alive,
             crash_summary,
             anr_summary,
-            apk_paths: args
-                .apks
-                .iter()
-                .map(|path| path.display().to_string())
-                .collect(),
+            inputs,
+            artifacts: receipt_artifacts,
         };
-
-        let artifacts_dir = args
-            .artifacts_dir
-            .as_ref()
-            .cloned()
-            .or_else(|| self.config.artifacts_dir.as_ref().map(PathBuf::from));
 
         if let Some(artifacts_dir) = artifacts_dir.as_ref() {
             write_run_artifacts(
@@ -285,6 +345,13 @@ impl EmulatorOrchestrator {
                     ..artifacts
                 },
             )?;
+        }
+
+        if let Some(path) = args.junit_path.as_ref() {
+            write_optional_report(path, &build_junit_report(&summary))?;
+        }
+        if let Some(path) = args.markdown_summary_path.as_ref() {
+            write_optional_report(path, &build_markdown_summary(&summary))?;
         }
 
         print_run_summary(&summary);
@@ -829,10 +896,48 @@ fn print_bench_result(result: &BenchResult) {
     println!("total_ms: {}", result.total_duration_ms);
 }
 
+fn build_receipt_inputs(paths: &[PathBuf]) -> Result<Vec<ReceiptInput>> {
+    paths.iter().map(|path| receipt_input(path)).collect()
+}
+
+fn receipt_input(path: &Path) -> Result<ReceiptInput> {
+    let metadata = fs::metadata(path)?;
+    let mut file = File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 16 * 1024];
+
+    loop {
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+
+    Ok(ReceiptInput {
+        file_name: path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("input.apk")
+            .to_owned(),
+        sha256: format!("{:x}", hasher.finalize()),
+        size_bytes: metadata.len(),
+    })
+}
+
+fn write_optional_report(path: &Path, contents: &str) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, contents)?;
+    Ok(())
+}
+
 fn print_run_summary(summary: &RunSummary) {
     println!(
-        "summary: backend={} package={} boot_ms={} install_ms={} launch_ms={} total_ms={} kept_alive={}",
+        "summary: backend={} status={} package={} boot_ms={} install_ms={} launch_ms={} total_ms={} kept_alive={}",
         summary.runtime_backend,
+        summary.status,
         summary.package_name,
         summary.boot_duration_ms,
         summary.install_duration_ms,
@@ -930,6 +1035,8 @@ fn write_run_artifacts(
 
     let summary_json = serde_json::to_string_pretty(summary)?;
     let report_html = build_html_report(summary);
+    let junit_xml = build_junit_report(summary);
+    let markdown_summary = build_markdown_summary(summary);
 
     for summary_path in [
         artifacts_dir.join("run-summary.json"),
@@ -942,6 +1049,18 @@ fn write_run_artifacts(
         reports_dir.join("run-report.html"),
     ] {
         fs::write(report_path, &report_html)?;
+    }
+    for junit_path in [
+        artifacts_dir.join("junit.xml"),
+        reports_dir.join("junit.xml"),
+    ] {
+        fs::write(junit_path, &junit_xml)?;
+    }
+    for markdown_path in [
+        artifacts_dir.join("run-summary.md"),
+        reports_dir.join("run-summary.md"),
+    ] {
+        fs::write(markdown_path, &markdown_summary)?;
     }
 
     if let Some(process_logs) = artifacts.process_logs.as_deref() {
@@ -975,12 +1094,120 @@ fn write_run_artifacts(
     Ok(())
 }
 
-fn build_html_report(summary: &RunSummary) -> String {
+fn build_junit_report(summary: &RunSummary) -> String {
+    let duration_seconds = summary.total_duration_ms as f64 / 1000.0;
     format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\"><title>RustDroid Run Report</title><style>body{{font-family:system-ui,sans-serif;margin:2rem;background:#f4f1ea;color:#111}}main{{max-width:900px;margin:0 auto;background:#fff;padding:2rem;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.08)}}h1{{margin-top:0}}dl{{display:grid;grid-template-columns:220px 1fr;gap:.75rem 1rem}}dt{{font-weight:700}}dd{{margin:0}}.badge{{display:inline-block;padding:.3rem .6rem;border-radius:999px;background:#111;color:#fff;font-size:.85rem}}.panel{{margin-top:1.5rem;padding:1rem 1.25rem;border-radius:12px;background:#f7f3ea}}code{{background:#f1ede4;padding:.1rem .35rem;border-radius:6px}}</style></head><body><main><h1>RustDroid Run Report</h1><p><span class=\"badge\">{backend}</span></p><dl><dt>Package</dt><dd>{package}</dd><dt>ADB Serial</dt><dd>{serial}</dd><dt>Boot</dt><dd>{boot} ms</dd><dt>Install</dt><dd>{install} ms</dd><dt>Launch</dt><dd>{launch} ms</dd><dt>Total</dt><dd>{total} ms</dd><dt>ABIs</dt><dd>{abis}</dd><dt>x86 Ready</dt><dd>{x86_ready}</dd><dt>ARM Translation</dt><dd>{arm_translation}</dd><dt>GPS Disabled</dt><dd>{gps_disabled}</dd><dt>Kept Alive</dt><dd>{kept_alive}</dd><dt>Crash</dt><dd>{crash}</dd><dt>ANR</dt><dd>{anr}</dd></dl><section class=\"panel\"><h2>Artifact Layout</h2><p><code>reports/</code> contains the HTML and JSON run summary. <code>logs/</code> contains emulator and logcat output. <code>forensics/</code> contains crash, ANR, tombstone, and trace captures when available.</p></section></main></body></html>",
-        backend = summary.runtime_backend,
-        package = summary.package_name,
-        serial = summary.adb_serial,
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<testsuite name=\"RustDroid APK receipt\" tests=\"1\" failures=\"0\" errors=\"0\" time=\"{duration_seconds:.3}\">\n  <properties>\n    <property name=\"schema_version\" value=\"{}\"/>\n    <property name=\"tool_version\" value=\"{}\"/>\n    <property name=\"runtime_backend\" value=\"{}\"/>\n    <property name=\"input_sha256\" value=\"{}\"/>\n  </properties>\n  <testcase classname=\"rustdroid.launch\" name=\"{}\" time=\"{duration_seconds:.3}\"/>\n</testsuite>\n",
+        summary.schema_version,
+        escape_xml(&summary.tool_version),
+        escape_xml(&summary.runtime_backend),
+        escape_xml(&input_digests(summary)),
+        escape_xml(&summary.package_name),
+    )
+}
+
+fn build_markdown_summary(summary: &RunSummary) -> String {
+    let profile = summary.profile.as_deref().unwrap_or("custom");
+    let api_level = summary.emulator.api_level.as_deref().unwrap_or("unknown");
+    let activity = summary
+        .launchable_activity
+        .as_deref()
+        .unwrap_or("not declared");
+    format!(
+        "## RustDroid APK receipt\n\n| Field | Value |\n| --- | --- |\n| Status | `{}` |\n| Package | `{}` |\n| Activity | `{}` |\n| Backend / profile | `{}` / `{}` |\n| Emulator API / serial | `{}` / `{}` |\n| Input SHA-256 | `{}` |\n| Boot / install / launch / total | {} ms / {} ms / {} ms / {} ms |\n| Classification | `{}` |\n\nArtifacts: `run-summary.json`, `run-report.html`, `junit.xml`, `run-summary.md`, plus available logs under `logs/`.\n",
+        summary.status,
+        summary.package_name,
+        activity,
+        summary.runtime_backend,
+        profile,
+        api_level,
+        summary.emulator.adb_serial,
+        input_digests(summary),
+        summary.boot_duration_ms,
+        summary.install_duration_ms,
+        summary.launch_duration_ms,
+        summary.total_duration_ms,
+        summary.failure_classification,
+    )
+}
+
+fn input_digests(summary: &RunSummary) -> String {
+    summary
+        .inputs
+        .iter()
+        .map(|input| input.sha256.as_str())
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn escape_xml(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
+fn build_html_report(summary: &RunSummary) -> String {
+    let profile = summary.profile.as_deref().unwrap_or("custom");
+    let avd_name = summary
+        .emulator
+        .avd_name
+        .as_deref()
+        .unwrap_or("not reported");
+    let api_level = summary
+        .emulator
+        .api_level
+        .as_deref()
+        .unwrap_or("not reported");
+    let activity = summary
+        .launchable_activity
+        .as_deref()
+        .unwrap_or("not declared");
+    let inputs = if summary.inputs.is_empty() {
+        "<li>no input metadata recorded</li>".to_owned()
+    } else {
+        summary
+            .inputs
+            .iter()
+            .map(|input| {
+                format!(
+                    "<li><code>{}</code> — SHA-256 <code>{}</code> — {} bytes</li>",
+                    escape_xml(&input.file_name),
+                    escape_xml(&input.sha256),
+                    input.size_bytes,
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("")
+    };
+    let artifact_links = summary.artifacts.as_ref().map_or_else(
+        || "Artifacts were not requested for this run.".to_owned(),
+        |artifacts| {
+            format!(
+                "<a href=\"{}\">JSON</a> · <a href=\"{}\">HTML</a> · <a href=\"{}\">JUnit</a> · <a href=\"{}\">Markdown</a>",
+                escape_xml(&artifacts.json),
+                escape_xml(&artifacts.html),
+                escape_xml(&artifacts.junit),
+                escape_xml(&artifacts.markdown_summary),
+            )
+        },
+    );
+    format!(
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>RustDroid Run Receipt</title><style>body{{font-family:system-ui,sans-serif;margin:2rem;background:#f4f1ea;color:#111}}main{{max-width:900px;margin:0 auto;background:#fff;padding:2rem;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.08)}}h1{{margin-top:0}}dl{{display:grid;grid-template-columns:220px 1fr;gap:.75rem 1rem}}dt{{font-weight:700}}dd{{margin:0}}.badge{{display:inline-block;padding:.3rem .6rem;border-radius:999px;background:#111;color:#fff;font-size:.85rem}}.panel{{margin-top:1.5rem;padding:1rem 1.25rem;border-radius:12px;background:#f7f3ea}}code{{background:#f1ede4;padding:.1rem .35rem;border-radius:6px}}a{{color:#0b5fff}}</style></head><body><main><h1>RustDroid Run Receipt</h1><p><span class=\"badge\">{status}</span></p><dl><dt>Schema / tool version</dt><dd>{schema_version} / {tool_version}</dd><dt>Backend / profile</dt><dd>{backend} / {profile}</dd><dt>Package / activity</dt><dd>{package} / {activity}</dd><dt>AVD / API</dt><dd>{avd} / {api_level}</dd><dt>ADB serial</dt><dd>{serial}</dd><dt>Headless / GPU</dt><dd>{headless} / {gpu_mode}</dd><dt>Boot</dt><dd>{boot} ms</dd><dt>Install</dt><dd>{install} ms</dd><dt>Launch</dt><dd>{launch} ms</dd><dt>Total</dt><dd>{total} ms</dd><dt>ABIs</dt><dd>{abis}</dd><dt>x86 Ready</dt><dd>{x86_ready}</dd><dt>ARM Translation</dt><dd>{arm_translation}</dd><dt>GPS Disabled</dt><dd>{gps_disabled}</dd><dt>Kept Alive</dt><dd>{kept_alive}</dd><dt>Classification</dt><dd>{classification}</dd><dt>Crash</dt><dd>{crash}</dd><dt>ANR</dt><dd>{anr}</dd></dl><section class=\"panel\"><h2>Input digest</h2><ul>{inputs}</ul><p>Only file names and SHA-256 digests are recorded; local input paths are intentionally excluded.</p></section><section class=\"panel\"><h2>Artifacts</h2><p>{artifact_links}</p><p><code>reports/</code> mirrors the summary files. <code>logs/</code> contains emulator and logcat output. <code>forensics/</code> contains crash, ANR, tombstone, and trace captures when available.</p></section></main></body></html>",
+        status = escape_xml(&summary.status),
+        schema_version = summary.schema_version,
+        tool_version = escape_xml(&summary.tool_version),
+        backend = escape_xml(&summary.runtime_backend),
+        profile = escape_xml(profile),
+        package = escape_xml(&summary.package_name),
+        activity = escape_xml(activity),
+        avd = escape_xml(avd_name),
+        api_level = escape_xml(api_level),
+        serial = escape_xml(&summary.emulator.adb_serial),
+        headless = summary.emulator.headless,
+        gpu_mode = escape_xml(&summary.emulator.gpu_mode),
         boot = summary.boot_duration_ms,
         install = summary.install_duration_ms,
         launch = summary.launch_duration_ms,
@@ -994,8 +1221,11 @@ fn build_html_report(summary: &RunSummary) -> String {
         arm_translation = summary.uses_arm_translation,
         gps_disabled = summary.gps_disabled,
         kept_alive = summary.kept_alive,
-        crash = summary.crash_summary.as_deref().unwrap_or("none"),
-        anr = summary.anr_summary.as_deref().unwrap_or("none"),
+        classification = escape_xml(&summary.failure_classification),
+        crash = escape_xml(summary.crash_summary.as_deref().unwrap_or("none")),
+        anr = escape_xml(summary.anr_summary.as_deref().unwrap_or("none")),
+        inputs = inputs,
+        artifact_links = artifact_links,
     )
 }
 
@@ -1069,15 +1299,26 @@ mod tests {
 
     use super::{
         build_html_report, extract_logcat_anr_summary, extract_logcat_crash_summary,
-        parse_failure_summary, resolve_watch_candidate, write_run_artifacts, RunArtifacts,
-        RunSummary,
+        parse_failure_summary, receipt_input, resolve_watch_candidate, write_run_artifacts,
+        ReceiptArtifacts, ReceiptEmulator, ReceiptInput, RunArtifacts, RunSummary,
     };
 
     fn sample_summary() -> RunSummary {
         RunSummary {
+            schema_version: 1,
+            tool_version: "0.2.0".to_owned(),
+            status: "passed".to_owned(),
+            failure_classification: "none".to_owned(),
+            profile: Some("host-fast".to_owned()),
             runtime_backend: "host".to_owned(),
-            container_name: "rustdroid-emulator".to_owned(),
-            adb_serial: "emulator-5554".to_owned(),
+            emulator: ReceiptEmulator {
+                adb_serial: "emulator-5554".to_owned(),
+                avd_name: Some("test_avd".to_owned()),
+                api_level: Some("35".to_owned()),
+                device: "Pixel 5".to_owned(),
+                headless: true,
+                gpu_mode: "swiftshader_indirect".to_owned(),
+            },
             package_name: "com.example.app".to_owned(),
             launchable_activity: Some("com.example.app.MainActivity".to_owned()),
             native_abis: vec!["x86_64".to_owned()],
@@ -1091,7 +1332,19 @@ mod tests {
             kept_alive: false,
             crash_summary: Some("fatal exception".to_owned()),
             anr_summary: Some("input dispatching timed out".to_owned()),
-            apk_paths: vec!["app.apk".to_owned()],
+            inputs: vec![ReceiptInput {
+                file_name: "app.apk".to_owned(),
+                sha256: "0123456789abcdef".to_owned(),
+                size_bytes: 42,
+            }],
+            artifacts: Some(ReceiptArtifacts {
+                json: "run-summary.json".to_owned(),
+                html: "run-report.html".to_owned(),
+                junit: "junit.xml".to_owned(),
+                markdown_summary: "run-summary.md".to_owned(),
+                logcat: Some("logcat.txt".to_owned()),
+                emulator_process_log: Some("emulator-process.log".to_owned()),
+            }),
         }
     }
 
@@ -1128,6 +1381,9 @@ mod tests {
         let summary_json =
             fs::read_to_string(dir.path().join("run-summary.json")).expect("summary json");
         assert!(summary_json.contains("\"package_name\": \"com.example.app\""));
+        assert!(summary_json.contains("\"schema_version\": 1"));
+        assert!(summary_json.contains("\"sha256\": \"0123456789abcdef\""));
+        assert!(!summary_json.contains("apk_paths"));
         assert_eq!(
             fs::read_to_string(dir.path().join("emulator-process.log")).expect("process log"),
             "process logs"
@@ -1151,18 +1407,50 @@ mod tests {
             dir.path().join("run-report.html").is_file(),
             "expected html report to be written"
         );
+        assert!(
+            dir.path().join("junit.xml").is_file(),
+            "expected JUnit report to be written"
+        );
+        assert!(
+            dir.path().join("run-summary.md").is_file(),
+            "expected Markdown summary to be written"
+        );
+        assert!(
+            fs::read_to_string(dir.path().join("junit.xml"))
+                .expect("JUnit report")
+                .contains("RustDroid APK receipt"),
+            "expected JUnit receipt contents"
+        );
     }
 
     #[test]
     fn html_report_includes_core_summary_fields() {
         let report = build_html_report(&sample_summary());
 
-        assert!(report.contains("RustDroid Run Report"));
+        assert!(report.contains("RustDroid Run Receipt"));
         assert!(report.contains("com.example.app"));
         assert!(report.contains("x86_64"));
+        assert!(report.contains("0123456789abcdef"));
         assert!(report.contains("fatal exception"));
         assert!(report.contains("input dispatching timed out"));
-        assert!(report.contains("Artifact Layout"));
+        assert!(report.contains("Artifacts"));
+    }
+
+    #[test]
+    fn receipt_input_uses_a_digest_without_exposing_parent_paths() {
+        let dir = tempdir().expect("tempdir");
+        let apk_path = dir.path().join("private-build.apk");
+        fs::write(&apk_path, b"abc").expect("fixture input");
+
+        let input = receipt_input(&apk_path).expect("receipt input");
+
+        assert_eq!(input.file_name, "private-build.apk");
+        assert_eq!(
+            input.sha256,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert_eq!(input.size_bytes, 3);
+        assert!(!input.file_name.contains(&dir.path().display().to_string()));
     }
 
     #[test]

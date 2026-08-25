@@ -10,6 +10,8 @@ use crate::profiles::apply_named_profile;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RuntimeConfig {
+    #[serde(skip)]
+    pub active_profile: Option<String>,
     pub runtime_backend: RuntimeBackend,
     pub image: String,
     pub container_name: String,
@@ -62,6 +64,7 @@ impl Default for RuntimeConfig {
         let emulator_vm_heap_mb = default_emulator_vm_heap_mb(emulator_ram_mb);
 
         Self {
+            active_profile: None,
             runtime_backend: RuntimeBackend::Docker,
             image: "budtmo/docker-android:emulator_14.0".to_owned(),
             container_name: "rustdroid-emulator".to_owned(),
@@ -115,6 +118,7 @@ impl RuntimeConfig {
         apply_env_overrides(&mut config)?;
         if let Some(profile) = cli.profile.as_deref() {
             apply_named_profile(&mut config, profile)?;
+            config.active_profile = Some(profile.to_owned());
         }
         let default_image = Self::default().image;
         let serial_explicit = cli.adb_serial.is_some();
@@ -377,14 +381,15 @@ showDeviceFrame = no\n",
             .with_context(|| format!("failed to parse config file {}", path.display()))?;
         let mut config = Self::default();
 
-        if let Some(table) = parsed.as_table() {
-            if let Some(profile) = table
+        let selected_profile = parsed.as_table().and_then(|table| {
+            table
                 .get("profile")
                 .or_else(|| table.get("extends"))
                 .and_then(Value::as_str)
-            {
-                apply_named_profile(&mut config, profile)?;
-            }
+                .map(str::to_owned)
+        });
+        if let Some(profile) = selected_profile.as_deref() {
+            apply_named_profile(&mut config, profile)?;
         }
 
         let mut merged = Value::try_from(config)
@@ -399,9 +404,11 @@ showDeviceFrame = no\n",
             }
         }
 
-        merged
+        let mut result: Self = merged
             .try_into()
-            .with_context(|| format!("failed to build config from {}", path.display()))
+            .with_context(|| format!("failed to build config from {}", path.display()))?;
+        result.active_profile = selected_profile;
+        Ok(result)
     }
 }
 
@@ -457,6 +464,7 @@ fn apply_env_overrides(config: &mut RuntimeConfig) -> Result<()> {
     if let Ok(profile) = std::env::var("RUSTDROID_PROFILE") {
         if !profile.trim().is_empty() {
             apply_named_profile(config, profile.trim())?;
+            config.active_profile = Some(profile.trim().to_owned());
         }
     }
 

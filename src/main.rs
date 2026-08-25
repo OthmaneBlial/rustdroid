@@ -268,6 +268,8 @@ mod tests {
                 log_source: crate::cli::LogSource::Logcat,
                 keep_alive: true,
                 artifacts_dir: None,
+                junit_path: None,
+                markdown_summary_path: None,
             })),
             1
         );
@@ -286,6 +288,8 @@ mod tests {
                 log_source: crate::cli::LogSource::Logcat,
                 keep_alive: true,
                 artifacts_dir: None,
+                junit_path: None,
+                markdown_summary_path: None,
             })),
             1
         );
@@ -314,6 +318,8 @@ mod tests {
             log_source: crate::cli::LogSource::Logcat,
             keep_alive: true,
             artifacts_dir: None,
+            junit_path: None,
+            markdown_summary_path: None,
         });
 
         assert_eq!(

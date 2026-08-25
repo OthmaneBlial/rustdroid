@@ -349,6 +349,12 @@ pub struct RunArgs {
 
     #[arg(long)]
     pub artifacts_dir: Option<PathBuf>,
+
+    #[arg(long)]
+    pub junit_path: Option<PathBuf>,
+
+    #[arg(long)]
+    pub markdown_summary_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, clap::Args)]
@@ -369,6 +375,12 @@ pub struct HelperRunArgs {
 
     #[arg(long)]
     pub artifacts_dir: Option<PathBuf>,
+
+    #[arg(long)]
+    pub junit_path: Option<PathBuf>,
+
+    #[arg(long)]
+    pub markdown_summary_path: Option<PathBuf>,
 }
 
 impl HelperRunArgs {
@@ -380,6 +392,8 @@ impl HelperRunArgs {
             log_source: self.log_source,
             keep_alive: self.keep_alive,
             artifacts_dir: self.artifacts_dir,
+            junit_path: self.junit_path,
+            markdown_summary_path: self.markdown_summary_path,
         }
     }
 }
@@ -516,6 +530,10 @@ mod tests {
             "config.en.apk",
             "--artifacts-dir",
             "artifacts",
+            "--junit-path",
+            "artifacts/junit.xml",
+            "--markdown-summary-path",
+            "artifacts/summary.md",
             "--keep-alive",
             "false",
         ]);
@@ -534,6 +552,14 @@ mod tests {
                     Some("artifacts".into())
                 );
                 assert!(!args.keep_alive);
+                assert_eq!(
+                    args.junit_path.as_deref(),
+                    Some(std::path::Path::new("artifacts/junit.xml"))
+                );
+                assert_eq!(
+                    args.markdown_summary_path.as_deref(),
+                    Some(std::path::Path::new("artifacts/summary.md"))
+                );
             }
             other => panic!("expected run command, got {other:?}"),
         }

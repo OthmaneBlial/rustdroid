@@ -23,7 +23,7 @@ RustDroid is for the local step before a device cloud: the moment you need to kn
 APK path -> preflight -> boot or reuse -> install -> launch -> logs + receipt
 ```
 
-`rustdroid run` does more than start an emulator. It inspects the APK, resolves the package/activity, waits for the launch path, streams logs, and can write `run-summary.json`, `run-report.html`, and `logcat.txt`. A failed run should leave enough context to distinguish emulator, ADB, install, launch, and log-capture problems.
+`rustdroid run` does more than start an emulator. It inspects the APK, resolves the package/activity, waits for the launch path, streams logs, and can write a versioned `run-summary.json`, `run-report.html`, `junit.xml`, `run-summary.md`, and `logcat.txt`. A failed run should leave enough context to distinguish emulator, ADB, install, launch, and log-capture problems.
 
 The image above is a recorded cold host-fixture reference run from April 2, 2026. Its timings are reproducible context, not a promise for every host; see the [demo receipt](docs/demo.md) and [performance notes](docs/performance-notes/v0.1.0.md).
 
@@ -162,6 +162,7 @@ The deterministic fixture suite covers a launchable APK, a missing launcher, x86
 - [Troubleshooting](docs/troubleshooting.md)
 - [CI examples](docs/ci-examples.md)
 - [Fixture testing](docs/fixture-testing.md)
+- [Run receipt schema](docs/receipt-schema-v1.md)
 - [Package distribution](docs/package-distribution.md)
 - [Release process](docs/release-process.md)
 - [1.0 checklist](docs/1.0-checklist.md)
