@@ -44,7 +44,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         if: matrix.id == 'expo'
         with:
           node-version: "22.13.1"
