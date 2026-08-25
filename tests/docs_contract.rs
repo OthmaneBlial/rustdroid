@@ -46,6 +46,11 @@ fn contributor_and_guide_docs_exist() {
         "examples/workflows/gradle-android-receipt.yml",
         "examples/workflows/flutter-receipt.yml",
         "examples/workflows/react-native-expo-receipt.yml",
+        "examples/apps/README.md",
+        "examples/apps/gradle-android/scripts/build-debug-apk.sh",
+        "examples/apps/flutter/scripts/build-debug-apk.sh",
+        "examples/apps/expo-prebuild/scripts/build-debug-apk.sh",
+        ".github/workflows/reference-stack-fixtures.yml",
     ] {
         assert!(Path::new(path).is_file(), "missing required doc: {path}");
     }
@@ -72,6 +77,7 @@ fn readme_links_to_the_main_guides() {
         "docs/operation-plans.md",
         "docs/recipes.md",
         "docs/reference-workflows.md",
+        "examples/apps/README.md",
         "CONTRIBUTING.md",
         "SECURITY.md",
         "SUPPORT.md",
@@ -173,4 +179,66 @@ fn support_matrix_only_marks_linked_successful_contracts_as_verified() {
         3,
         "the matrix must mark only its three linked contract combinations as verified"
     );
+}
+
+#[test]
+fn executable_stack_fixtures_preserve_their_documented_build_contracts() {
+    let guide = std::fs::read_to_string("docs/reference-workflows.md")
+        .expect("read reference-workflows guide");
+    let workflow = std::fs::read_to_string(".github/workflows/reference-stack-fixtures.yml")
+        .expect("read reference stack fixtures workflow");
+
+    for (fixture, apk_path) in [
+        (
+            "examples/apps/gradle-android",
+            "app/build/outputs/apk/debug/app-debug.apk",
+        ),
+        (
+            "examples/apps/flutter",
+            "build/app/outputs/flutter-apk/app-debug.apk",
+        ),
+        (
+            "examples/apps/expo-prebuild",
+            "android/app/build/outputs/apk/debug/app-debug.apk",
+        ),
+    ] {
+        let script = format!("{fixture}/scripts/build-debug-apk.sh");
+        assert!(
+            Path::new(&script).is_file(),
+            "missing executable fixture script {script}"
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let permissions = std::fs::metadata(&script)
+                .unwrap_or_else(|error| panic!("read {script} metadata: {error}"))
+                .permissions();
+            assert_ne!(
+                permissions.mode() & 0o111,
+                0,
+                "fixture script {script} must be executable"
+            );
+        }
+        assert!(
+            guide.contains(fixture) && guide.contains(apk_path),
+            "reference-workflows guide must document {fixture} and its APK path"
+        );
+        assert!(
+            workflow.contains(fixture) && workflow.contains(apk_path),
+            "fixture workflow must build {fixture} and check its APK path"
+        );
+    }
+
+    for snippet in [
+        "workflow_dispatch:",
+        "cron: \"0 10 1 * *\"",
+        "api-level: 35",
+        "OthmaneBlial/rustdroid@964ed16d32d4fa12b52dea21b95484a7b96e9854",
+        "Create the immutable RustDroid receipt",
+    ] {
+        assert!(
+            workflow.contains(snippet),
+            "reference stack fixture workflow must contain {snippet}"
+        );
+    }
 }

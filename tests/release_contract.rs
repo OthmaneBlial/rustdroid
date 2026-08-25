@@ -78,8 +78,11 @@ fn security_automation_declares_the_expected_controls() {
     assert!(codeql.contains("github/codeql-action/init@v4"));
     assert!(codeql.contains("languages: rust"));
     assert!(dependency_security.contains("cargo deny check"));
+    assert!(dependency_security.contains("npm audit --omit=dev --audit-level=moderate"));
     assert!(dependabot.contains("package-ecosystem: cargo"));
     assert!(dependabot.contains("package-ecosystem: github-actions"));
+    assert!(dependabot.contains("package-ecosystem: npm"));
+    assert!(dependabot.contains("directory: \"/examples/apps/expo-prebuild\""));
 }
 
 #[test]

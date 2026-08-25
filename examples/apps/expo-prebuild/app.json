@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "RustDroid Expo prebuild fixture",
+    "slug": "rustdroid-expo-prebuild-fixture",
+    "version": "1.0.0",
+    "android": {
+      "package": "dev.rustdroid.examples.expoprebuild"
+    }
+  }
+}

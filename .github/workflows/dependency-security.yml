@@ -21,3 +21,19 @@ jobs:
         run: cargo install cargo-deny --locked
       - name: Check licenses, advisories, bans, and sources
         run: cargo deny check
+
+  expo-fixture-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.1"
+          cache: npm
+          cache-dependency-path: examples/apps/expo-prebuild/package-lock.json
+      - name: Install the locked Expo fixture dependencies
+        working-directory: examples/apps/expo-prebuild
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Audit the Expo fixture dependency graph
+        working-directory: examples/apps/expo-prebuild
+        run: npm audit --omit=dev --audit-level=moderate

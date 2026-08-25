@@ -17,6 +17,9 @@ scripts=(
   scripts/generate-fixture-apks.sh
   scripts/generate-support-matrix.sh
   scripts/run-smoke-matrix.sh
+  examples/apps/gradle-android/scripts/build-debug-apk.sh
+  examples/apps/flutter/scripts/build-debug-apk.sh
+  examples/apps/expo-prebuild/scripts/build-debug-apk.sh
 )
 
 for script in "${scripts[@]}"; do

@@ -171,6 +171,7 @@ The deterministic fixture suite covers a launchable APK, a missing launcher, x86
 - [Operation plans and dry runs](docs/operation-plans.md)
 - [APK loop recipes](docs/recipes.md)
 - [Stack-specific reference workflows](docs/reference-workflows.md)
+- [Executable Gradle, Flutter, and Expo fixtures](examples/apps/README.md)
 - [Reproducible benchmarks](docs/benchmarking.md)
 - [Host-fast versus Docker](docs/host-fast-vs-docker.md)
 - [Package distribution](docs/package-distribution.md)

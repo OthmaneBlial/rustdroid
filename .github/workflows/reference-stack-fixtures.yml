@@ -1,0 +1,133 @@
+name: reference-stack-fixtures
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 10 1 * *"
+
+concurrency:
+  group: reference-stack-fixtures-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  receipt-from-public-source-fixture:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: gradle
+            name: Gradle Android fixture
+            fixture: examples/apps/gradle-android
+            build_command: ./scripts/build-debug-apk.sh
+            apk_path: app/build/outputs/apk/debug/app-debug.apk
+          - id: flutter
+            name: Flutter fixture
+            fixture: examples/apps/flutter
+            build_command: ./scripts/build-debug-apk.sh
+            apk_path: build/app/outputs/flutter-apk/app-debug.apk
+          - id: expo
+            name: Expo prebuild fixture
+            fixture: examples/apps/expo-prebuild
+            build_command: ./scripts/build-debug-apk.sh
+            apk_path: android/app/build/outputs/apk/debug/app-debug.apk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-node@v4
+        if: matrix.id == 'expo'
+        with:
+          node-version: "22.13.1"
+          cache: npm
+          cache-dependency-path: examples/apps/expo-prebuild/package-lock.json
+
+      - uses: subosito/flutter-action@v2
+        if: matrix.id == 'flutter'
+        with:
+          flutter-version: "3.44.1"
+          channel: stable
+
+      - name: Build the public ${{ matrix.name }} APK
+        working-directory: ${{ matrix.fixture }}
+        run: ${{ matrix.build_command }}
+
+      - name: Confirm the documented APK path exists
+        run: test -s "${{ matrix.fixture }}/${{ matrix.apk_path }}"
+
+      - name: Enable KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Provision the documented Android 35 AVD
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          avd-name: test_avd
+          profile: pixel_5
+          target: google_apis
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
+          # The provisioner owns a short-lived emulator. Leave only the AVD
+          # definition, then start the persistent process below for RustDroid.
+          script: "true"
+
+      - name: Start the provisioned Android 35 AVD
+        run: |
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          emulator="$sdk_root/emulator/emulator"
+          adb="$sdk_root/platform-tools/adb"
+          test -x "$emulator"
+          test -x "$adb"
+          echo "$sdk_root/emulator" >> "$GITHUB_PATH"
+          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
+          "$emulator" -avd test_avd -no-snapshot -no-window -gpu swiftshader_indirect \
+            -no-audio -no-boot-anim -read-only > "$RUNNER_TEMP/rustdroid-${{ matrix.id }}-emulator.log" 2>&1 &
+          for attempt in $(seq 1 90); do
+            if "$adb" -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | grep -qx '1'; then
+              "$adb" -s emulator-5554 shell input keyevent 82
+              exit 0
+            fi
+            sleep 2
+          done
+          "$adb" devices || true
+          tail -n 120 "$RUNNER_TEMP/rustdroid-${{ matrix.id }}-emulator.log" || true
+          exit 1
+
+      - id: receipt
+        name: Create the immutable RustDroid receipt
+        uses: OthmaneBlial/rustdroid@964ed16d32d4fa12b52dea21b95484a7b96e9854
+        with:
+          apk-path: ${{ matrix.fixture }}/${{ matrix.apk_path }}
+          profile: host-fast
+          runtime-backend: host
+          host-avd-name: test_avd
+          artifacts-dir: artifacts/reference-${{ matrix.id }}
+          duration-secs: "2"
+          keep-alive: "false"
+
+      - name: Upload the ${{ matrix.name }} receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-${{ matrix.id }}-receipt
+          path: ${{ steps.receipt.outputs.receipt-dir || format('artifacts/reference-{0}', matrix.id) }}
+          if-no-files-found: warn
+
+      - name: Stop the fixture emulator
+        if: always()
+        run: |
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          "$sdk_root/platform-tools/adb" -s emulator-5554 emu kill || true
