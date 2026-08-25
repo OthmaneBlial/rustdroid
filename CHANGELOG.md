@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.3.0
+
 - Receipt-first v0.3.0 release preparation: guided Linux setup, stable diagnostics, dry-run plans, reusable CI receipts, and reproducible benchmark artifacts.
 - Trust and contributor foundations: public support/security paths, community templates, CodeQL, Dependabot, and `cargo deny` checks.
 - Distribution clarity: x86_64 Linux release artifacts, source-only ARM fallback, and an explicit non-publishing crates.io readiness gate.

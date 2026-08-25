@@ -181,7 +181,7 @@ The deterministic fixture suite covers a launchable APK, a missing launcher, x86
 - [Security policy](SECURITY.md)
 - [Support](SUPPORT.md)
 - [Changelog](CHANGELOG.md)
-- [v0.3.0 release draft](docs/releases/v0.3.0.md)
+- [v0.3.0 release notes](docs/releases/v0.3.0.md)
 
 ## License
 
