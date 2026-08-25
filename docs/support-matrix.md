@@ -2,7 +2,7 @@
 
 This table records what RustDroid verifies today. It is not a promise that every Android image or host setup will behave identically.
 
-The generated [support matrix](support-matrix.json) names the backend/API/ABI/UI combinations covered by repository contracts. A row is evidence only after its `verification_state` is green; it is never a promise that every related setup behaves identically.
+The generated [support matrix](support-matrix.json) names the backend/API/ABI/UI combinations covered by repository contracts. A row is evidence only after its `verification_state` is `verified` and its `evidence_url` points to a successful run; it is never a promise that every related setup behaves identically.
 
 | Area | Supported and verified | Notes |
 | --- | --- | --- |
@@ -19,11 +19,11 @@ The generated [support matrix](support-matrix.json) names the backend/API/ABI/UI
 
 | Backend | Runner contract | API | ABI | UI | Evidence workflow |
 | --- | --- | ---: | --- | --- | --- |
-| Host | GitHub-hosted Ubuntu 22.04 with KVM | 30 | x86_64 | Headless | `host-integration-runtime` |
-| Host | Fresh Ubuntu contract | 35 | x86_64 | Headless | `fresh-machine-contract` |
-| Host | Pinned action contract | 35 | x86_64 | Headless | `action-contract` |
+| Host | GitHub-hosted Ubuntu 22.04 with KVM | 30 | x86_64 | Headless | [`host-integration-runtime` run](https://github.com/OthmaneBlial/rustdroid/actions/runs/32907975602/attempts/2) |
+| Host | Fresh Ubuntu contract | 35 | x86_64 | Headless | [`fresh-machine-contract` run](https://github.com/OthmaneBlial/rustdroid/actions/runs/32905479252) |
+| Host | Pinned action contract | 35 | x86_64 | Headless | [`action-contract` run](https://github.com/OthmaneBlial/rustdroid/actions/runs/32907241889) |
 
-The contracts become release proof only once their linked Actions run completes successfully.
+The contracts below have linked successful runs. A future failing run is handled as an operational failure to investigate; it does not turn a historical proof into a blanket compatibility promise.
 
 ## Release contract
 

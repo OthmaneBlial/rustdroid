@@ -145,3 +145,32 @@ fn roadmap_distinguishes_delivery_from_external_evidence() {
         );
     }
 }
+
+#[test]
+fn support_matrix_only_marks_linked_successful_contracts_as_verified() {
+    let matrix =
+        std::fs::read_to_string("docs/support-matrix.json").expect("read generated support matrix");
+
+    for (workflow, run_id) in [
+        ("host-integration-runtime", "32907975602/attempts/2"),
+        ("fresh-machine-contract", "32905479252"),
+        ("action-contract", "32907241889"),
+    ] {
+        assert!(
+            matrix.contains(workflow),
+            "support matrix must name the verified {workflow} contract"
+        );
+        assert!(
+            matrix.contains(run_id),
+            "support matrix must link the successful {workflow} run"
+        );
+    }
+
+    assert_eq!(
+        matrix
+            .matches("\"verification_state\": \"verified\"")
+            .count(),
+        3,
+        "the matrix must mark only its three linked contract combinations as verified"
+    );
+}

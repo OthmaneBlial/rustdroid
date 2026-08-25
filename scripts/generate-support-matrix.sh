@@ -19,7 +19,8 @@ cat >"$EXPECTED_PATH" <<'JSON'
       "abi": "x86_64",
       "ui_mode": "headless",
       "evidence": "host-integration-runtime",
-      "verification_state": "pending"
+      "evidence_url": "https://github.com/OthmaneBlial/rustdroid/actions/runs/32907975602/attempts/2",
+      "verification_state": "verified"
     },
     {
       "backend": "host",
@@ -28,7 +29,8 @@ cat >"$EXPECTED_PATH" <<'JSON'
       "abi": "x86_64",
       "ui_mode": "headless",
       "evidence": "fresh-machine-contract",
-      "verification_state": "pending"
+      "evidence_url": "https://github.com/OthmaneBlial/rustdroid/actions/runs/32905479252",
+      "verification_state": "verified"
     },
     {
       "backend": "host",
@@ -37,7 +39,8 @@ cat >"$EXPECTED_PATH" <<'JSON'
       "abi": "x86_64",
       "ui_mode": "headless",
       "evidence": "action-contract",
-      "verification_state": "pending"
+      "evidence_url": "https://github.com/OthmaneBlial/rustdroid/actions/runs/32907241889",
+      "verification_state": "verified"
     }
   ],
   "source_only": ["aarch64 Linux release archives"],
