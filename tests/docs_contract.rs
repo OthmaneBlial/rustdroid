@@ -125,3 +125,22 @@ fn troubleshooting_and_fixture_guides_preserve_their_public_contracts() {
     }
     assert!(fixtures.contains("do not replace it with an application APK"));
 }
+
+#[test]
+fn roadmap_distinguishes_delivery_from_external_evidence() {
+    let roadmap = std::fs::read_to_string("ROADMAP.md").expect("read roadmap");
+
+    for snippet in [
+        "## Delivery status -- 2026-08-26",
+        "v0.3.1",
+        "Do not add a reliability badge until four consecutive scheduled runs pass.",
+        "External adoption and public maturity",
+        "success measures, not build artifacts",
+        "prepared social preview only after explicit approval",
+    ] {
+        assert!(
+            roadmap.contains(snippet),
+            "roadmap delivery status must contain {snippet}"
+        );
+    }
+}

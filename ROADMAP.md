@@ -4,7 +4,9 @@
 
 RustDroid should earn attention because it removes a painful step from everyday Android work, not because it imitates a device farm or chases empty star metrics. The product boundary remains deliberate: fast, local, Linux-first APK validation with a host-emulator fast path; Docker, browser, and VNC are supporting paths.
 
-## Audit snapshot -- 2026-08-25
+## Baseline audit snapshot -- 2026-08-25
+
+This was the pre-delivery audit. The delivery status below supersedes its claims about missing workflows, metadata, documentation, and community health; it remains here to preserve the prioritisation rationale.
 
 ### What is already genuinely strong
 
@@ -21,6 +23,25 @@ RustDroid should earn attention because it removes a painful step from everyday 
 4. **Discovery and community are almost empty.** At this snapshot the public repository has 2 stars, 0 forks, 0 open issues, no GitHub topics, no Discussions, and a 57% GitHub community-health profile. It lacks issue and pull-request templates, a code of conduct, a security policy, contribution labels, and a clearly maintained public feedback path.
 5. **The repository contains distracting material.** `sample-pdfs/` and its helper scripts are unrelated to Android APK testing. They make a small repository look less intentional and reduce confidence in the project story.
 6. **The product surface is already broad enough.** Adding modes, flags, or a full UI-test DSL before proving activation would make the CLI harder to understand. The next gains must come from trust, activation, evidence, and reuse.
+
+## Delivery status -- 2026-08-26
+
+The implementation has been consolidated into [`v0.3.1`](https://github.com/OthmaneBlial/rustdroid/releases/tag/v0.3.1) rather than creating empty `v0.4.0` and `v0.5.0` tags. This status deliberately separates completed engineering work from external or time-based evidence that cannot honestly be manufactured.
+
+| Roadmap scope | Current state | Evidence and remaining gate |
+| --- | --- | --- |
+| P0 host trust | Implemented and manually verified | The host runner is isolated, schedules every Monday at 06:00 UTC, emits classified failure artifacts, and passed a full manual host/smoke/performance run. Do not add a reliability badge until four consecutive scheduled runs pass. |
+| P0 release and proof | Released, with one external metadata action pending | [`v0.3.1`](https://github.com/OthmaneBlial/rustdroid/releases/tag/v0.3.1) ships the x86_64 Linux archive, portable checksum, clean-container installation proof, and provenance. The generated social-preview asset is ready; it still needs an explicit repository-settings upload confirmation. |
+| P1 onboarding and CI receipts | Implemented and verified | Reviewable `setup`, stable `doctor --json`, Linux quickstart/config examples, fresh-machine Android 35 fixture proof, schema v1 JSON/HTML/JUnit/Markdown receipts, and a pinned reusable action are present. |
+| P2 adoption and speed evidence | Implemented and verified | Gradle, Flutter, and React Native/Expo templates now boot a persistent AVD before invoking the pinned action; recipes, generated support matrix, dry-run plans, and benchmark receipts are checked into the repository. |
+| P3 contributor and security loop | Implemented and configured | Community health is 100%, Discussions and private vulnerability reporting are enabled, issue/PR templates and labelled starter work exist, and CodeQL, Dependabot, `cargo deny`, and release-security checks run in CI. |
+| External adoption and public maturity | Intentionally unclaimed | Four weekly host runs, independent adopters, organic stars, community sharing, and user quotes require time and consent. They are success measures, not build artifacts, and remain tracked operating work. |
+
+### Current evidence links
+
+- [Host integration proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32905475830), [fresh-machine proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32905479252), and [pinned action proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32907241889).
+- [v0.3.1 release workflow](https://github.com/OthmaneBlial/rustdroid/actions/runs/32906999443): archive, checksum, clean-container install, and provenance all passed. The published archive and checksum were downloaded into a clean directory and verified with `sha256sum --check`; the provenance attestation verified the release workflow and tag.
+- The starter-work issues for doctor remediation, fixture documentation, and workflow contracts were implemented and closed in `5c0674b`.
 
 ## Product thesis
 
@@ -159,23 +180,22 @@ This is the release blocker.
 
 **Done when:** discovery brings people to a verified use case, and each new user can produce feedback that makes the next user's path shorter.
 
-## Release gates
+## Release and maturity gates
 
 | Release | Purpose | Required proof |
 | --- | --- | --- |
-| `v0.3.0` | Trust reset and product proof | Host failure fixed or explicitly bounded; aligned architecture claims; green verified release; 45-second demo; README/metadata cleanup |
-| `v0.4.0` | Activation and CI adoption | Fresh-machine quickstart passes; stable diagnostic contract; receipt schema; tested GitHub Action or CI recipe |
-| `v0.5.0` | Reference workflows | Stack-specific recipes, generated/verified support matrix, reproducible benchmark evidence |
+| `v0.3.1` | Consolidated trust, activation, and reference-workflow release | Green verified release; aligned x86_64/source-only ARM claims; fixture proof; fresh-machine proof; receipt action; stack-specific templates; portable checksum and provenance |
+| Next feature release, if warranted | Improvements driven by real feedback | A scoped user problem, testable acceptance criteria, and updated evidence; do not cut a version merely to match a roadmap label |
 | `v1.0.0` | Public maturity | Four healthy host runs, supported install matrix, durable release/security process, external use evidence, no known P0 activation or data-loss defect |
 
 Do not cut `v1.0.0` because the feature list feels long. Cut it only when a new user can install, run, understand a failure, and adopt RustDroid in CI with public evidence.
 
-## What to do first
+## Operating cadence from here
 
-1. Open and fix the failing host-integration run; attach the resulting artifacts and wait for the reliability gate.
-2. Decide and implement the binary architecture policy, then correct the installer and public metadata.
-3. Replace the README top with a tested three-command path and a real run-receipt recording.
-4. Remove the unrelated PDF artifacts and add community templates/labels.
-5. Release `v0.3.0` only after its proof is visible; then build the onboarding and CI-receipt work from real user feedback.
+1. Let the scheduled host lane collect four healthy weekly runs; investigate any failure through its uploaded taxonomy before changing product claims.
+2. Keep `v0.3.1` as the verified install target. Do not publish crates.io until a separately reviewed live publication decision and name-availability check.
+3. Upload the prepared social preview only after explicit approval, then verify the GitHub sidebar shows it.
+4. Share the reproducible release proof where community rules permit, and record only independently verifiable adoption, quotes, and workflow links.
+5. Cut the next release only in response to a concrete, reproduced user problem.
 
-This order intentionally postpones new emulator modes and “viral” features. A small Android developer tool becomes recommendable when its first run is obvious, its failures are explainable, and its evidence is trustworthy.
+This order still postpones new emulator modes and “viral” features. A small Android developer tool becomes recommendable when its first run is obvious, its failures are explainable, and its evidence is trustworthy.
