@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "generated_by": "scripts/generate-support-matrix.sh",
+  "contract_combinations": [
+    {
+      "backend": "host",
+      "runner": "GitHub-hosted Ubuntu 22.04 with KVM",
+      "android_api": "30",
+      "abi": "x86_64",
+      "ui_mode": "headless",
+      "evidence": "host-integration",
+      "verification_state": "pending"
+    },
+    {
+      "backend": "host",
+      "runner": "fresh Ubuntu 22.04 contract",
+      "android_api": "35",
+      "abi": "x86_64",
+      "ui_mode": "headless",
+      "evidence": "fresh-machine-contract",
+      "verification_state": "pending"
+    },
+    {
+      "backend": "host",
+      "runner": "pinned action contract",
+      "android_api": "35",
+      "abi": "x86_64",
+      "ui_mode": "headless",
+      "evidence": "action-contract",
+      "verification_state": "pending"
+    }
+  ],
+  "source_only": ["aarch64 Linux release archives"],
+  "not_supported": ["iOS", "remote device farms"]
+}

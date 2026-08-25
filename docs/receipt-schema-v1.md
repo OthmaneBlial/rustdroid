@@ -31,3 +31,7 @@ When artifacts are requested, RustDroid also writes:
 Use `--junit-path path/to/report.xml` or `--markdown-summary-path path/to/summary.md` to copy either derived report to a CI-specific location. These flags do not change the canonical JSON receipt.
 
 The schema records only evidence needed to reproduce or compare an APK run. Treat generated logs as potentially sensitive and upload them only to the CI audience that is allowed to inspect application output.
+
+## Benchmark receipt
+
+`rustdroid bench app.apk --artifacts-dir artifacts/bench` writes `bench-summary.json` and `bench-summary.md`. The benchmark receipt records the tool version, host OS/architecture/CPU count, runner image when supplied by CI, AVD/API, boot mode, emulator CPU/RAM/GPU configuration, safe input digest, and stage timings. It does not send machine data anywhere.

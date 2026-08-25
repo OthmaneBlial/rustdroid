@@ -39,6 +39,12 @@ async fn main() {
 }
 
 async fn run(cli: Cli, command: Command) -> Result<()> {
+    if cli.dry_run && command_needs_runtime_plan(&command) {
+        let config = RuntimeConfig::load(&cli)?;
+        diagnostics::print_runtime_plan(&config, &command, cli.json)?;
+        return Ok(());
+    }
+
     match command {
         Command::Version => diagnostics::print_version(cli.json)?,
         Command::Completions(args) => diagnostics::print_completions(args.shell),
@@ -72,7 +78,7 @@ async fn run(cli: Cli, command: Command) -> Result<()> {
         Command::Config(args) => match args.command {
             ConfigCommand::Init(args) => tooling::init_config(&cli.config, &args, cli.json)?,
         },
-        Command::Clean(args) => tooling::clean(args.dry_run, cli.json).await?,
+        Command::Clean(_args) => tooling::clean(cli.dry_run, cli.json).await?,
         Command::Stop(args) if args.all => tooling::stop_all(args.timeout_secs).await?,
         command => {
             let config = RuntimeConfig::load(&cli)?;
@@ -96,6 +102,24 @@ async fn run(cli: Cli, command: Command) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn command_needs_runtime_plan(command: &Command) -> bool {
+    matches!(
+        command,
+        Command::Bench(_)
+            | Command::FastLocal(_)
+            | Command::Start(_)
+            | Command::Open(_)
+            | Command::Install(_)
+            | Command::Launch(_)
+            | Command::Uninstall(_)
+            | Command::ClearData(_)
+            | Command::Run(_)
+            | Command::Watch(_)
+            | Command::Logs(_)
+            | Command::Stop(_)
+    )
 }
 
 async fn run_fast_local(mut cli: Cli, args: HelperRunArgs) -> Result<()> {
@@ -201,7 +225,7 @@ fn error_hint(command: &Command, message: &str) -> Option<&'static str> {
 
 #[cfg(test)]
 mod tests {
-    use super::{error_hint, exit_code_for_command};
+    use super::{command_needs_runtime_plan, error_hint, exit_code_for_command};
     use crate::cli::{
         BackendScope, BenchArgs, CleanArgs, ClearDataArgs, Command, ConfigArgs, ConfigCommand,
         ConfigInitArgs, DoctorArgs, HelperRunArgs, ProfileArgs, ProfileCommand, ProfileUseArgs,
@@ -225,6 +249,7 @@ mod tests {
             exit_code_for_command(&Command::Bench(BenchArgs {
                 apk: None,
                 replace: true,
+                artifacts_dir: None,
             })),
             12
         );
@@ -252,10 +277,7 @@ mod tests {
             })),
             14
         );
-        assert_eq!(
-            exit_code_for_command(&Command::Clean(CleanArgs { dry_run: true })),
-            15
-        );
+        assert_eq!(exit_code_for_command(&Command::Clean(CleanArgs {})), 15);
     }
 
     #[test]
@@ -330,6 +352,23 @@ mod tests {
             error_hint(&run_command, "docker daemon is unavailable"),
             Some("Start Docker or switch to `--runtime-backend host` for the host emulator path.")
         );
+    }
+
+    #[test]
+    fn dry_run_only_intercepts_commands_that_touch_runtime_state() {
+        assert!(command_needs_runtime_plan(&Command::Run(RunArgs {
+            apks: Vec::new(),
+            replace: true,
+            duration_secs: None,
+            log_source: crate::cli::LogSource::Logcat,
+            keep_alive: true,
+            artifacts_dir: None,
+            junit_path: None,
+            markdown_summary_path: None,
+        })));
+        assert!(!command_needs_runtime_plan(&Command::Doctor(
+            DoctorArgs::default()
+        )));
     }
 
     #[test]

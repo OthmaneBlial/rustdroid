@@ -15,9 +15,12 @@ scripts=(
   scripts/ci-host-check.sh
   scripts/ci-package-check.sh
   scripts/generate-fixture-apks.sh
+  scripts/generate-support-matrix.sh
   scripts/run-smoke-matrix.sh
 )
 
 for script in "${scripts[@]}"; do
   bash -n "$script"
 done
+
+./scripts/generate-support-matrix.sh --check

@@ -19,6 +19,9 @@ pub struct Cli {
     #[arg(long, global = true, default_value_t = false)]
     pub json: bool,
 
+    #[arg(long, global = true, default_value_t = false)]
+    pub dry_run: bool,
+
     #[arg(long, global = true)]
     pub image: Option<String>,
 
@@ -231,6 +234,9 @@ pub struct BenchArgs {
 
     #[arg(long, default_value_t = true, action = ArgAction::Set)]
     pub replace: bool,
+
+    #[arg(long)]
+    pub artifacts_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Subcommand)]
@@ -277,10 +283,7 @@ pub struct ConfigInitArgs {
 }
 
 #[derive(Debug, Clone, clap::Args, Default)]
-pub struct CleanArgs {
-    #[arg(long, default_value_t = false)]
-    pub dry_run: bool,
-}
+pub struct CleanArgs {}
 
 #[derive(Debug, Clone, clap::Args)]
 pub struct StartArgs {
@@ -523,6 +526,7 @@ mod tests {
             "rustdroid",
             "--profile",
             "fast-local",
+            "--dry-run",
             "--boot-mode",
             "cold",
             "run",
@@ -539,6 +543,7 @@ mod tests {
         ]);
 
         assert_eq!(cli.profile.as_deref(), Some("fast-local"));
+        assert!(cli.dry_run);
         assert_eq!(cli.boot_mode, Some(BootMode::Cold));
         match cli.command {
             Command::Run(args) => {

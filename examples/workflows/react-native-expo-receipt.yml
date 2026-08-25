@@ -1,0 +1,38 @@
+name: react-native-expo-rustdroid-receipt
+on: { workflow_dispatch: }
+jobs:
+  apk-receipt:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - run: |
+          npm ci
+          npx expo prebuild --platform android --no-install
+          cd android
+          ./gradlew assembleDebug
+      - name: Enable KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          avd-name: test_avd
+          profile: pixel_5
+          target: google_apis
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
+          script: emulator -list-avds
+      - id: receipt
+        uses: OthmaneBlial/rustdroid@3f4184ce1117591f9b06cafec48f2ffad1809ecc
+        with:
+          apk-path: android/app/build/outputs/apk/debug/app-debug.apk
+          artifacts-dir: artifacts/rustdroid
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rustdroid-receipt
+          path: ${{ steps.receipt.outputs.receipt-dir }}

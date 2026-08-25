@@ -44,7 +44,37 @@ pub struct BenchResult {
     pub launch_duration_ms: Option<u128>,
     pub total_duration_ms: u128,
     pub package_name: Option<String>,
-    pub apk_paths: Vec<String>,
+    pub input_files: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct BenchmarkReceipt {
+    schema_version: u8,
+    tool_version: String,
+    status: String,
+    runtime_backend: String,
+    profile: Option<String>,
+    environment: BenchmarkEnvironment,
+    inputs: Vec<ReceiptInput>,
+    package_name: Option<String>,
+    boot_duration_ms: u128,
+    install_duration_ms: Option<u128>,
+    launch_duration_ms: Option<u128>,
+    total_duration_ms: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct BenchmarkEnvironment {
+    host_os: String,
+    host_arch: String,
+    host_cpu_cores: Option<usize>,
+    runner_image: Option<String>,
+    avd_name: Option<String>,
+    android_api_level: Option<String>,
+    boot_mode: String,
+    emulator_cpu_cores: u16,
+    emulator_ram_mb: u64,
+    emulator_gpu_mode: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -456,6 +486,12 @@ impl EmulatorOrchestrator {
     }
 
     pub async fn bench(&self, args: BenchArgs, json: bool) -> Result<()> {
+        let inputs = args
+            .apk
+            .as_ref()
+            .map(|apk| build_receipt_inputs(std::slice::from_ref(apk)))
+            .transpose()?
+            .unwrap_or_default();
         let total_started = Instant::now();
 
         eprintln!("==> boot benchmark");
@@ -472,10 +508,16 @@ impl EmulatorOrchestrator {
             launch_duration_ms: None,
             total_duration_ms: 0,
             package_name: None,
-            apk_paths: args
+            input_files: args
                 .apk
                 .as_ref()
-                .map(|path| vec![path.display().to_string()])
+                .map(|path| {
+                    path.file_name()
+                        .and_then(|name| name.to_str())
+                        .map(str::to_owned)
+                        .into_iter()
+                        .collect()
+                })
                 .unwrap_or_default(),
         };
 
@@ -497,6 +539,43 @@ impl EmulatorOrchestrator {
         }
 
         result.total_duration_ms = total_started.elapsed().as_millis();
+
+        if let Some(artifacts_dir) = args.artifacts_dir.as_ref() {
+            let receipt = BenchmarkReceipt {
+                schema_version: 1,
+                tool_version: env!("CARGO_PKG_VERSION").to_owned(),
+                status: "measured".to_owned(),
+                runtime_backend: self.runtime_backend_name().to_owned(),
+                profile: self.config.active_profile.clone(),
+                environment: BenchmarkEnvironment {
+                    host_os: std::env::consts::OS.to_owned(),
+                    host_arch: std::env::consts::ARCH.to_owned(),
+                    host_cpu_cores: std::thread::available_parallelism()
+                        .ok()
+                        .map(|value| value.get()),
+                    runner_image: std::env::var("ImageOS").ok(),
+                    avd_name: self.config.host_avd_name.clone(),
+                    android_api_level: self
+                        .adb
+                        .get_property(&self.runtime, &self.config, "ro.build.version.sdk")
+                        .await,
+                    boot_mode: match self.config.boot_mode {
+                        crate::cli::BootMode::Cold => "cold".to_owned(),
+                        crate::cli::BootMode::Warm => "warm".to_owned(),
+                    },
+                    emulator_cpu_cores: self.config.emulator_cpu_cores,
+                    emulator_ram_mb: self.config.emulator_ram_mb,
+                    emulator_gpu_mode: self.config.emulator_gpu_mode.clone(),
+                },
+                inputs,
+                package_name: result.package_name.clone(),
+                boot_duration_ms: result.boot_duration_ms,
+                install_duration_ms: result.install_duration_ms,
+                launch_duration_ms: result.launch_duration_ms,
+                total_duration_ms: result.total_duration_ms,
+            };
+            write_benchmark_artifacts(artifacts_dir, &receipt)?;
+        }
 
         if json {
             print_json(&result)?;
@@ -1106,6 +1185,47 @@ fn build_junit_report(summary: &RunSummary) -> String {
     )
 }
 
+fn write_benchmark_artifacts(artifacts_dir: &Path, receipt: &BenchmarkReceipt) -> Result<()> {
+    fs::create_dir_all(artifacts_dir)?;
+    fs::write(
+        artifacts_dir.join("bench-summary.json"),
+        serde_json::to_string_pretty(receipt)?,
+    )?;
+    let input_digests = receipt
+        .inputs
+        .iter()
+        .map(|input| input.sha256.as_str())
+        .collect::<Vec<_>>()
+        .join(",");
+    let markdown = format!(
+        "## RustDroid benchmark receipt\n\n| Field | Value |\n| --- | --- |\n| Schema / tool | `{}` / `{}` |\n| Backend / profile | `{}` / `{}` |\n| Host / architecture | `{}` / `{}` |\n| Runner image | `{}` |\n| AVD / Android API | `{}` / `{}` |\n| Boot mode | `{}` |\n| Emulator CPU / RAM / GPU | {} / {} MB / `{}` |\n| Input SHA-256 | `{}` |\n| Boot / install / launch / total | {} ms / {} ms / {} ms / {} ms |\n",
+        receipt.schema_version,
+        receipt.tool_version,
+        receipt.runtime_backend,
+        receipt.profile.as_deref().unwrap_or("custom"),
+        receipt.environment.host_os,
+        receipt.environment.host_arch,
+        receipt.environment.runner_image.as_deref().unwrap_or("not reported"),
+        receipt.environment.avd_name.as_deref().unwrap_or("not reported"),
+        receipt
+            .environment
+            .android_api_level
+            .as_deref()
+            .unwrap_or("not reported"),
+        receipt.environment.boot_mode,
+        receipt.environment.emulator_cpu_cores,
+        receipt.environment.emulator_ram_mb,
+        receipt.environment.emulator_gpu_mode,
+        input_digests,
+        receipt.boot_duration_ms,
+        receipt.install_duration_ms.unwrap_or_default(),
+        receipt.launch_duration_ms.unwrap_or_default(),
+        receipt.total_duration_ms,
+    );
+    fs::write(artifacts_dir.join("bench-summary.md"), markdown)?;
+    Ok(())
+}
+
 fn build_markdown_summary(summary: &RunSummary) -> String {
     let profile = summary.profile.as_deref().unwrap_or("custom");
     let api_level = summary.emulator.api_level.as_deref().unwrap_or("unknown");
@@ -1299,8 +1419,9 @@ mod tests {
 
     use super::{
         build_html_report, extract_logcat_anr_summary, extract_logcat_crash_summary,
-        parse_failure_summary, receipt_input, resolve_watch_candidate, write_run_artifacts,
-        ReceiptArtifacts, ReceiptEmulator, ReceiptInput, RunArtifacts, RunSummary,
+        parse_failure_summary, receipt_input, resolve_watch_candidate, write_benchmark_artifacts,
+        write_run_artifacts, BenchmarkEnvironment, BenchmarkReceipt, ReceiptArtifacts,
+        ReceiptEmulator, ReceiptInput, RunArtifacts, RunSummary,
     };
 
     fn sample_summary() -> RunSummary {
@@ -1345,6 +1466,38 @@ mod tests {
                 logcat: Some("logcat.txt".to_owned()),
                 emulator_process_log: Some("emulator-process.log".to_owned()),
             }),
+        }
+    }
+
+    fn sample_benchmark_receipt() -> BenchmarkReceipt {
+        BenchmarkReceipt {
+            schema_version: 1,
+            tool_version: "0.2.0".to_owned(),
+            status: "measured".to_owned(),
+            runtime_backend: "host".to_owned(),
+            profile: Some("host-fast".to_owned()),
+            environment: BenchmarkEnvironment {
+                host_os: "linux".to_owned(),
+                host_arch: "x86_64".to_owned(),
+                host_cpu_cores: Some(8),
+                runner_image: Some("ubuntu22".to_owned()),
+                avd_name: Some("test_avd".to_owned()),
+                android_api_level: Some("35".to_owned()),
+                boot_mode: "cold".to_owned(),
+                emulator_cpu_cores: 4,
+                emulator_ram_mb: 4096,
+                emulator_gpu_mode: "swiftshader_indirect".to_owned(),
+            },
+            inputs: vec![ReceiptInput {
+                file_name: "app.apk".to_owned(),
+                sha256: "0123456789abcdef".to_owned(),
+                size_bytes: 42,
+            }],
+            package_name: Some("com.example.app".to_owned()),
+            boot_duration_ms: 1000,
+            install_duration_ms: Some(200),
+            launch_duration_ms: Some(50),
+            total_duration_ms: 1400,
         }
     }
 
@@ -1451,6 +1604,20 @@ mod tests {
         );
         assert_eq!(input.size_bytes, 3);
         assert!(!input.file_name.contains(&dir.path().display().to_string()));
+    }
+
+    #[test]
+    fn benchmark_artifacts_include_reproducible_environment_fields() {
+        let dir = tempdir().expect("tempdir");
+
+        write_benchmark_artifacts(dir.path(), &sample_benchmark_receipt())
+            .expect("benchmark artifacts should write");
+
+        let json =
+            fs::read_to_string(dir.path().join("bench-summary.json")).expect("benchmark JSON");
+        assert!(json.contains("\"boot_mode\": \"cold\""));
+        assert!(json.contains("\"sha256\": \"0123456789abcdef\""));
+        assert!(dir.path().join("bench-summary.md").is_file());
     }
 
     #[test]

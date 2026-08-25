@@ -50,6 +50,24 @@ fn setup_json_is_a_reviewable_non_destructive_plan() {
 }
 
 #[test]
+fn dry_run_prints_a_runtime_plan_without_needing_an_emulator() {
+    let context = TestContext::new();
+    let output = run_command(rustdroid_command(&context).args([
+        "--json",
+        "--dry-run",
+        "--runtime-backend",
+        "host",
+        "run",
+        "tests/fixtures/apks/launch-success.apk",
+    ]));
+
+    assert_success(&output);
+    assert_output_contains(&output, "\"dry_run\": true");
+    assert_output_contains(&output, "\"host\"");
+    assert_output_contains(&output, "start or reuse an emulator");
+}
+
+#[test]
 fn smoke_matrix_entrypoint_lists_required_cases() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let script = root.join("scripts/run-smoke-matrix.sh");

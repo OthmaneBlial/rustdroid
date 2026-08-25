@@ -2,6 +2,8 @@
 
 This table records what RustDroid verifies today. It is not a promise that every Android image or host setup will behave identically.
 
+The generated [support matrix](support-matrix.json) names the backend/API/ABI/UI combinations covered by repository contracts. A row is evidence only after its `verification_state` is green; it is never a promise that every related setup behaves identically.
+
 | Area | Supported and verified | Notes |
 | --- | --- | --- |
 | Host OS | Linux with KVM | The host runtime is Linux-first. macOS can build and test the CLI, but is not a supported emulator host. |
@@ -12,6 +14,16 @@ This table records what RustDroid verifies today. It is not a promise that every
 | APK inputs | `.apk`, split APKs, `.apks`, `.xapk` | Deterministic fixtures cover normal launch, no launcher, ABI metadata, and a locale split. |
 | CI | GitHub-hosted Ubuntu/KVM shape | Fast checks, packaging, host integration, release installation, and artifacts are separate gates. |
 | Device clouds / iOS | Not supported | RustDroid is the local smoke-test step before a device cloud. |
+
+## Contract combinations
+
+| Backend | Runner contract | API | ABI | UI | Evidence workflow |
+| --- | --- | ---: | --- | --- | --- |
+| Host | GitHub-hosted Ubuntu 22.04 with KVM | 30 | x86_64 | Headless | `host-integration` |
+| Host | Fresh Ubuntu contract | 35 | x86_64 | Headless | `fresh-machine-contract` |
+| Host | Pinned action contract | 35 | x86_64 | Headless | `action-contract` |
+
+The contracts become release proof only once their linked Actions run completes successfully.
 
 ## Release contract
 

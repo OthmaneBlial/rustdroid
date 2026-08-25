@@ -2,7 +2,7 @@ use std::{
     collections::BTreeMap,
     fs::{self, OpenOptions},
     os::unix::fs::PermissionsExt,
-    path::Path,
+    path::{Path, PathBuf},
     time::Instant,
 };
 
@@ -17,7 +17,8 @@ use tokio::process::Command;
 
 use crate::{
     cli::{
-        BackendScope, Cli, CompletionShell, RuntimeBackend, SelfTestArgs, SetupArgs, SetupDistro,
+        BackendScope, Cli, Command as CliCommand, CompletionShell, RuntimeBackend, SelfTestArgs,
+        SetupArgs, SetupDistro,
     },
     config::RuntimeConfig,
     docker::DockerRuntime,
@@ -91,6 +92,19 @@ struct SetupPlan {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct RuntimePlan {
+    schema_version: u8,
+    dry_run: bool,
+    command: String,
+    runtime_backend: String,
+    profile: Option<String>,
+    adb_serial: String,
+    host_avd_name: Option<String>,
+    inputs: Vec<String>,
+    state_effects: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct DevicesReport {
     devices: Vec<DeviceEntry>,
 }
@@ -145,6 +159,186 @@ pub fn print_setup(args: &SetupArgs, json: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn print_runtime_plan(config: &RuntimeConfig, command: &CliCommand, json: bool) -> Result<()> {
+    let plan = runtime_plan(config, command);
+
+    if json {
+        return print_json(&plan);
+    }
+
+    println!("RustDroid dry-run: {}", plan.command);
+    println!(
+        "backend={} profile={} serial={} avd={}",
+        plan.runtime_backend,
+        plan.profile.as_deref().unwrap_or("custom"),
+        plan.adb_serial,
+        plan.host_avd_name.as_deref().unwrap_or("not selected"),
+    );
+    if !plan.inputs.is_empty() {
+        println!("inputs: {}", plan.inputs.join(", "));
+    }
+    for effect in plan.state_effects {
+        println!("- {effect}");
+    }
+    println!("No emulator, container, APK, process, or file was changed.");
+    Ok(())
+}
+
+fn runtime_plan(config: &RuntimeConfig, command: &CliCommand) -> RuntimePlan {
+    let (command_name, inputs, state_effects) = match command {
+        CliCommand::Bench(args) => (
+            "bench",
+            args.apk
+                .as_ref()
+                .map(|path| input_labels(std::slice::from_ref(path)))
+                .unwrap_or_default(),
+            vec![
+                "check runtime readiness".to_owned(),
+                "start or reuse an emulator".to_owned(),
+                "measure boot and optional install/launch stages".to_owned(),
+            ],
+        ),
+        CliCommand::FastLocal(args) => (
+            "fast-local",
+            args.apk
+                .as_ref()
+                .map(|path| input_labels(std::slice::from_ref(path)))
+                .unwrap_or_else(|| vec!["app-debug.apk".to_owned()]),
+            vec![
+                "check Docker runtime readiness".to_owned(),
+                "start or reuse an emulator".to_owned(),
+                "install and launch the APK".to_owned(),
+            ],
+        ),
+        CliCommand::Start(_) | CliCommand::Open(_) => (
+            if matches!(command, CliCommand::Open(_)) {
+                "open"
+            } else {
+                "start"
+            },
+            Vec::new(),
+            vec![
+                "check runtime readiness".to_owned(),
+                "start or reuse an emulator".to_owned(),
+                "record managed runtime state when RustDroid starts it".to_owned(),
+            ],
+        ),
+        CliCommand::Install(args) => (
+            "install",
+            input_labels(&args.apks),
+            vec![
+                "start or reuse an emulator".to_owned(),
+                "upload and inspect the APK input".to_owned(),
+                "install or replace the package".to_owned(),
+            ],
+        ),
+        CliCommand::Launch(args) => (
+            "launch",
+            args.input
+                .as_ref()
+                .map(|path| input_labels(std::slice::from_ref(path)))
+                .unwrap_or_else(|| args.package.clone().into_iter().collect()),
+            vec![
+                "start or reuse an emulator".to_owned(),
+                "resolve package and launch activity".to_owned(),
+                "bring the package to the foreground".to_owned(),
+            ],
+        ),
+        CliCommand::Uninstall(args) => (
+            "uninstall",
+            args.input
+                .as_ref()
+                .map(|path| input_labels(std::slice::from_ref(path)))
+                .unwrap_or_else(|| args.package.clone().into_iter().collect()),
+            vec![
+                "start or reuse an emulator".to_owned(),
+                "remove the selected package from the emulator".to_owned(),
+            ],
+        ),
+        CliCommand::ClearData(args) => (
+            "clear-data",
+            args.input
+                .as_ref()
+                .map(|path| input_labels(std::slice::from_ref(path)))
+                .unwrap_or_else(|| args.package.clone().into_iter().collect()),
+            vec![
+                "start or reuse an emulator".to_owned(),
+                "clear application data on the emulator".to_owned(),
+            ],
+        ),
+        CliCommand::Run(args) => (
+            "run",
+            input_labels(&args.apks),
+            vec![
+                "check runtime readiness".to_owned(),
+                "start or reuse an emulator".to_owned(),
+                "upload, inspect, and install the APK input".to_owned(),
+                "launch the resolved activity and collect logs".to_owned(),
+                "write a receipt when an artifacts directory is configured".to_owned(),
+                if args.keep_alive {
+                    "leave a RustDroid-managed runtime running".to_owned()
+                } else {
+                    "stop the managed runtime after the receipt".to_owned()
+                },
+            ],
+        ),
+        CliCommand::Watch(args) => (
+            "watch",
+            input_labels(std::slice::from_ref(&args.path)),
+            vec![
+                "watch the path for an APK, .apks, or .xapk change".to_owned(),
+                "start or reuse an emulator for each detected build".to_owned(),
+                "install and launch each selected input".to_owned(),
+            ],
+        ),
+        CliCommand::Logs(_) => (
+            "logs",
+            Vec::new(),
+            vec![
+                "start or reuse an emulator".to_owned(),
+                "stream the requested log source".to_owned(),
+            ],
+        ),
+        CliCommand::Stop(_) => (
+            "stop",
+            Vec::new(),
+            vec![
+                "find RustDroid-managed runtime state".to_owned(),
+                "stop managed emulator or container processes".to_owned(),
+            ],
+        ),
+        _ => unreachable!("runtime plans are only requested for runtime commands"),
+    };
+
+    RuntimePlan {
+        schema_version: 1,
+        dry_run: true,
+        command: command_name.to_owned(),
+        runtime_backend: format_backend(config.runtime_backend).to_owned(),
+        profile: if matches!(command, CliCommand::FastLocal(_)) {
+            Some("fast-local".to_owned())
+        } else {
+            config.active_profile.clone()
+        },
+        adb_serial: config.adb_serial.clone(),
+        host_avd_name: config.host_avd_name.clone(),
+        inputs,
+        state_effects,
+    }
+}
+
+fn input_labels(paths: &[PathBuf]) -> Vec<String> {
+    paths
+        .iter()
+        .map(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("input")
+                .to_owned()
+        })
+        .collect()
 }
 
 fn setup_plan(requested: SetupDistro) -> SetupPlan {
