@@ -25,6 +25,12 @@ The host integration workflow expects:
 That workflow uploads failure artifacts and performance artifacts.
 It is kept separate from the default PR CI so the emulator lane can fail without blocking the rest of the pipeline.
 
+## Adopt the Receipt Action
+
+For a repository-owned APK smoke check, provision KVM and an AVD in the job, then use the immutable [RustDroid action revision](github-action.md). It creates JSON, HTML, JUnit, Markdown, and log evidence in one directory and appends the short Markdown result to the job summary.
+
+The repository's [`action-contract.yml`](../.github/workflows/action-contract.yml) invokes the exact pinned snippet against `tests/fixtures/apks/launch-success.apk` each week. It is the reference shape to copy before replacing the fixture path with a Gradle output.
+
 ## Package Validation Shape
 
 The package validation job uses:

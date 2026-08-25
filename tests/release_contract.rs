@@ -5,6 +5,7 @@ use std::{env, fs, path::Path};
 fn release_assets_exist_in_repo() {
     for path in [
         ".github/workflows/ci.yml",
+        ".github/workflows/action-contract.yml",
         ".github/workflows/host-integration.yml",
         ".github/workflows/publish-crate.yml",
         ".github/workflows/release.yml",
@@ -57,6 +58,15 @@ fn composite_action_declares_the_receipt_contract() {
             "expected action.yml to contain {snippet}"
         );
     }
+}
+
+#[test]
+fn action_contract_uses_an_immutable_revision() {
+    let workflow = std::fs::read_to_string(".github/workflows/action-contract.yml")
+        .expect("read action contract workflow");
+
+    assert!(workflow.contains("OthmaneBlial/rustdroid@3f4184ce1117591f9b06cafec48f2ffad1809ecc"));
+    assert!(workflow.contains("tests/fixtures/apks/launch-success.apk"));
 }
 
 #[test]

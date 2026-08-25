@@ -11,6 +11,29 @@ The caller is responsible for:
 3. provisioning a compatible x86_64 Android AVD, such as `test_avd` with `reactivecircus/android-emulator-runner`;
 4. uploading the returned receipt directory with `actions/upload-artifact`.
 
-A pinned reference workflow is added after the action revision is committed. Use its exact immutable `uses:` revision rather than an unpinned branch when adopting the action.
+## Pinned reference workflow
+
+The repository tests the exact action revision below against its public `launch-success.apk` fixture in [`action-contract.yml`](../.github/workflows/action-contract.yml). Copy the shape, then replace the APK path and AVD name for your project.
+
+```yaml
+- id: receipt
+  uses: OthmaneBlial/rustdroid@3f4184ce1117591f9b06cafec48f2ffad1809ecc
+  with:
+    apk-path: app/build/outputs/apk/debug/app-debug.apk
+    profile: host-fast
+    runtime-backend: host
+    host-avd-name: test_avd
+    artifacts-dir: artifacts/rustdroid
+    duration-secs: "2"
+    keep-alive: "false"
+
+- uses: actions/upload-artifact@v4
+  if: always()
+  with:
+    name: rustdroid-receipt
+    path: ${{ steps.receipt.outputs.receipt-dir }}
+```
+
+The surrounding job must enable KVM and provision the AVD first, as shown in the reference workflow. The action appends its Markdown receipt to `$GITHUB_STEP_SUMMARY` and exposes `receipt-dir` for upload.
 
 The action accepts APK, `.apks`, and `.xapk` inputs. The generated receipt has the [schema v1 contract](receipt-schema-v1.md); logs can contain app output, so keep artifact retention and visibility appropriate for the application.

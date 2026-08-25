@@ -23,6 +23,7 @@ fn contributor_and_guide_docs_exist() {
         "docs/github-action.md",
         "docs/quickstart-linux.md",
         "docs/receipt-schema-v1.md",
+        ".github/workflows/action-contract.yml",
         "examples/configs/host-fast.rustdroid.toml",
         "examples/configs/headless-ci.rustdroid.toml",
         "examples/configs/low-ram.rustdroid.toml",
