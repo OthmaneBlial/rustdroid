@@ -27,7 +27,7 @@ The repository tests the exact action revision below against its public `launch-
     duration-secs: "2"
     keep-alive: "false"
 
-- uses: actions/upload-artifact@v4
+- uses: actions/upload-artifact@v7
   if: always()
   with:
     name: rustdroid-receipt

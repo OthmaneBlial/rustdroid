@@ -37,14 +37,14 @@ jobs:
             apk_path: android/app/build/outputs/apk/debug/app-debug.apk
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         if: matrix.id == 'expo'
         with:
           node-version: "22.13.1"
@@ -120,7 +120,7 @@ jobs:
 
       - name: Upload the ${{ matrix.name }} receipt
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reference-${{ matrix.id }}-receipt
           path: ${{ steps.receipt.outputs.receipt-dir || format('artifacts/reference-{0}', matrix.id) }}

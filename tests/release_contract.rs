@@ -86,6 +86,52 @@ fn security_automation_declares_the_expected_controls() {
 }
 
 #[test]
+fn official_actions_use_node24_ready_majors() {
+    let sources = [
+        ".github/workflows/ci.yml",
+        ".github/workflows/action-contract.yml",
+        ".github/workflows/crates-io-readiness.yml",
+        ".github/workflows/dependency-security.yml",
+        ".github/workflows/fresh-machine-contract.yml",
+        ".github/workflows/host-integration-runtime.yml",
+        ".github/workflows/reference-stack-fixtures.yml",
+        ".github/workflows/release.yml",
+        "examples/workflows/gradle-android-receipt.yml",
+        "examples/workflows/flutter-receipt.yml",
+        "examples/workflows/react-native-expo-receipt.yml",
+        "docs/github-action.md",
+    ]
+    .map(|path| {
+        std::fs::read_to_string(path).unwrap_or_else(|error| panic!("read {path}: {error}"))
+    });
+    let joined = sources.join("\n");
+
+    for deprecated in [
+        "actions/checkout@v4",
+        "actions/setup-java@v4",
+        "actions/setup-node@v4",
+        "actions/upload-artifact@v4",
+    ] {
+        assert!(
+            !joined.contains(deprecated),
+            "workflow and documentation sources must not retain deprecated {deprecated}"
+        );
+    }
+
+    for current in [
+        "actions/checkout@v6",
+        "actions/setup-java@v5",
+        "actions/setup-node@v6",
+        "actions/upload-artifact@v7",
+    ] {
+        assert!(
+            joined.contains(current),
+            "workflow and documentation sources must contain {current}"
+        );
+    }
+}
+
+#[test]
 fn action_contract_uses_an_immutable_revision() {
     let workflow = std::fs::read_to_string(".github/workflows/action-contract.yml")
         .expect("read action contract workflow");
