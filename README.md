@@ -1,234 +1,173 @@
 # RustDroid
 
-RustDroid is a Linux-first CLI for the boring but important APK loop:
+<p align="center">
+  <img src="assets/rustdroid-proof.svg" alt="A RustDroid host-fast fixture receipt showing boot, install, launch, and artifact evidence" width="100%">
+</p>
 
-1. Boot an emulator.
-2. Install an APK.
-3. Launch the app.
-4. Watch logs.
-5. Stop cleanly.
+<p align="center">
+  <strong>APK path in. Launch receipt out.</strong><br>
+  A Linux-first CLI for booting an emulator, installing an APK, verifying its launch, and leaving evidence you can inspect or upload to CI.
+</p>
 
-That loop should be quick. A lot of Android tooling makes it heavier than it needs to be. RustDroid keeps the local path tight and gives you two ways to run it:
+<p align="center">
+  <a href="docs/demo.md">See the reproducible demo</a> ·
+  <a href="docs/first-install.md">Install on Linux</a> ·
+  <a href="docs/support-matrix.md">Support matrix</a>
+</p>
 
-- host backend for the fastest local emulator workflow
-- Docker backend when you want containerized setup and browser or VNC access
+RustDroid is for the local step before a device cloud: the moment you need to know whether an APK, split APK, `.apks`, or `.xapk` will boot, install, launch, or leave a useful failure trail. It is intentionally narrower than a device farm and faster to reason about than manually wiring the Android emulator, ADB, logs, and cleanup every time.
 
-If you need a device farm, use a device farm. RustDroid is for the stage before that: local smoke tests, launch checks, crash triage, and repeatable APK validation on your own machine.
+## What a successful run proves
 
-## Why RustDroid Exists
+```text
+APK path -> preflight -> boot or reuse -> install -> launch -> logs + receipt
+```
 
-`budtmo/docker-android` is useful, but it solves a broader problem. RustDroid is narrower on purpose.
+`rustdroid run` does more than start an emulator. It inspects the APK, resolves the package/activity, waits for the launch path, streams logs, and can write `run-summary.json`, `run-report.html`, and `logcat.txt`. A failed run should leave enough context to distinguish emulator, ADB, install, launch, and log-capture problems.
 
-It is built for people who mostly want to:
+The image above is a recorded cold host-fixture reference run from April 2, 2026. Its timings are reproducible context, not a promise for every host; see the [demo receipt](docs/demo.md) and [performance notes](docs/performance-notes/v0.1.0.md).
 
-- open an emulator quickly
-- install an APK or APK set
-- launch the package
-- inspect logs
-- rerun the flow without fighting the environment
+## Start with the path you have
 
-That is the whole pitch. Less setup. Less ceremony. Faster feedback.
+### I already have an APK
 
-## What You Get
+```bash
+rustdroid \
+  --profile host-fast \
+  --host-avd-name test_avd \
+  run path/to/app-debug.apk \
+  --duration-secs 2 \
+  --keep-alive false \
+  --artifacts-dir artifacts/rustdroid
+```
 
-- one CLI for `open`, `install`, `run`, `launch`, `logs`, and `stop`
-- host and Docker emulator backends
-- support for `.apk`, split APK installs, `.apks`, and `.xapk`
-- `watch` mode for rebuild-install-launch loops
-- `clear-data` and `uninstall` flows for quick reset passes
-- `doctor`, `self-test`, `devices`, `avds`, `bench`, and `version`
-- `scrcpy`, browser, VNC, and headless UI paths
-- config profiles, config inheritance, and environment overrides
-- JSON output for setup and discovery commands
-- artifact capture for runs and smoke checks
-- install and uninstall scripts plus tag-driven release packaging
+### I build with Gradle
 
-## Pick The Right Backend
+```bash
+./gradlew assembleDebug
 
-### Host backend
+rustdroid \
+  --profile host-fast \
+  --host-avd-name test_avd \
+  run app/build/outputs/apk/debug/app-debug.apk \
+  --duration-secs 2 \
+  --keep-alive false \
+  --artifacts-dir artifacts/rustdroid
+```
 
-Use this when you care about raw local speed.
+### I need a CI-ready receipt
 
-- no Docker in the hot path
-- uses your local Android SDK emulator and AVDs
-- works well with `scrcpy`
-- usually the best option for day-to-day development
+```bash
+rustdroid \
+  --runtime-backend host \
+  --host-avd-name test_avd \
+  --headless true \
+  run path/to/app-debug.apk \
+  --duration-secs 2 \
+  --keep-alive false \
+  --artifacts-dir artifacts/rustdroid
+```
 
-### Docker backend
-
-Use this when you want the environment wrapped up in a container.
-
-- built around `budtmo/docker-android`
-- supports browser UI and VNC
-- supports Docker GPU passthrough
-- useful for reproducible local or CI-style runs
+Upload `artifacts/rustdroid/` from the job that runs this command. The [CI guide](docs/ci-examples.md) explains the hosted Linux/KVM shape; a reusable GitHub Action is tracked as the next adoption layer.
 
 ## Install
 
-Latest release:
+The prebuilt release archive currently targets **x86_64 Linux**. ARM/aarch64 Linux is supported through a source build until it has an equally tested release archive.
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/OthmaneBlial/rustdroid/main/install.sh)
 ```
 
-Tagged release:
+The installer writes `rustdroid`, `rustdroid-run`, and shell completions. On a supported Linux host, verify the environment before your first run:
 
 ```bash
-RUSTDROID_VERSION=v0.2.0 bash <(curl -fsSL https://raw.githubusercontent.com/OthmaneBlial/rustdroid/main/install.sh)
+rustdroid version
+rustdroid doctor
+rustdroid self-test --backend host
 ```
 
-Source-only install:
+For source-only installation:
 
 ```bash
 ./install.sh --source
 ```
 
-Remove a local install:
+Read the [first-install guide](docs/first-install.md) for KVM, Android SDK, AVD, ADB, APK inspection, and optional `scrcpy` setup.
+
+## Choose the right backend
+
+| Use this | When you need | What it keeps out of the hot path |
+| --- | --- | --- |
+| **Host backend** | The fastest daily Android SDK emulator loop | Docker; pairs well with `scrcpy` or headless mode |
+| **Docker backend** | A contained setup, browser, or VNC fallback | Direct host emulator ownership |
+| **A device cloud** | Shared, remote, or broad device coverage | RustDroid is not a device farm |
+
+The host backend is the default performance path. Docker remains useful for reproducibility and browser/VNC access, but it is not presented as the normal fast loop.
+
+## What RustDroid handles
+
+- Single APKs, split APK installs, `.apks`, and `.xapk` inputs.
+- `open`, `install`, `launch`, `run`, `watch`, `logs`, `clear-data`, `uninstall`, and safe cleanup.
+- Host and Docker runtimes, `scrcpy`, browser/VNC fallbacks, and headless execution.
+- `doctor`, `self-test`, `devices`, `avds`, `bench`, profiles, config inheritance, JSON output, and shell completions.
+- Artifact capture for run receipts, crash/ANR clues, and deterministic fixture-backed tests.
+
+The first documented fixture requires no Android project:
 
 ```bash
-./uninstall.sh
-./uninstall.sh --dry-run
+rustdroid \
+  --profile host-fast \
+  --host-avd-name test_avd \
+  run tests/fixtures/apks/launch-success.apk \
+  --duration-secs 2 \
+  --keep-alive false \
+  --artifacts-dir artifacts/rustdroid-demo
 ```
 
-## Requirements
-
-- Linux host with KVM available
-- Rust toolchain
-- `adb`
-- `aapt` or `apkanalyzer`
-- `scrcpy` if you want the desktop UI path
-- Docker if you want the Docker backend
-- Android SDK emulator and at least one AVD if you want the host backend
-
-## Quick Start
-
-Build locally:
+## Daily commands
 
 ```bash
-cargo build
-```
-
-Run the health checks:
-
-```bash
+# Find problems before a run
 rustdroid doctor
-rustdroid self-test
-```
+rustdroid avds
 
-Fast local host path:
+# Keep an emulator ready, then iterate on builds
+rustdroid --profile host-fast --host-avd-name test_avd open
+rustdroid watch build/outputs/apk/debug --duration-secs 2 --keep-alive true
 
-```bash
-rustdroid --profile host-fast --host-avd-name test_avd run app-debug.apk
-```
-
-Containerized fast path:
-
-```bash
-rustdroid fast-local app-debug.apk
-rustdroid-run fast-local app-debug.apk
-```
-
-Basic daily loop:
-
-```bash
-rustdroid --boot-mode warm open
-rustdroid install base.apk config.en.apk
+# Work with an installed app
 rustdroid launch --package com.example.app
 rustdroid logs --package com.example.app --since-start
+rustdroid clear-data --package com.example.app
 rustdroid stop --all
 ```
 
-Repeat the build-install-launch loop:
+Use `rustdroid --help` for the complete command surface and `rustdroid profile list --json` to inspect built-in profiles.
 
-```bash
-rustdroid watch build/outputs/apk/debug --duration-secs 2 --keep-alive true
-```
+## Evidence and limits
 
-## Common Workflows
+RustDroid validates the APK loop; it does not prove that every screen or business flow in your app is correct. Pair it with your existing UI-test framework when needed. RustDroid does not offer iOS support, remote device-farm management, a general Android automation DSL, hidden telemetry, or paid hosting.
 
-Host backend with `scrcpy`:
-
-```bash
-./run.sh host-local app-debug.apk
-rustdroid --runtime-backend host --host-avd-name test_avd run app-debug.apk
-```
-
-Docker backend with `scrcpy`:
-
-```bash
-./run.sh fast-local app-debug.apk
-rustdroid fast app-debug.apk
-rustdroid fast-local app-debug.apk
-```
-
-Browser UI:
-
-```bash
-./run.sh web app-debug.apk
-```
-
-Headless:
-
-```bash
-./run.sh headless app-debug.apk
-```
-
-Discovery commands:
-
-```bash
-rustdroid version
-rustdroid devices
-rustdroid avds
-```
-
-Release smoke matrix:
-
-```bash
-./scripts/run-smoke-matrix.sh
-```
-
-## Performance Notes
-
-If the emulator feels slow, start here:
-
-- prefer an APK that includes `x86_64`
-- use the host backend when you can
-- use `scrcpy` before you reach for browser UI or VNC
-- on Docker, try `--emulator-gpu-mode host` or `--emulator-gpu-mode auto`
-
-In plain English: if you want the fastest loop, start with the host backend or `fast-local`, not the browser.
-
-## Positioning
-
-RustDroid is a good fit when:
-
-- `docker-android` feels too heavy for your normal APK workflow
-- you want a scriptable local loop
-- you need quick smoke coverage before paying for hosted infrastructure
-- you care more about iteration speed than broad platform features
-
-RustDroid is a bad fit when:
-
-- you need a remote device cloud
-- you need a large shared device farm
-- browser or VNC access is your main workflow instead of an occasional fallback
+The deterministic fixture suite covers a launchable APK, a missing launcher, x86_64 and ARM-only metadata, and a split pair. The broader host integration and smoke matrix should be used on Linux with KVM; failure artifacts include the stage logs, ADB/KVM/AVD diagnostics, and a small classification file.
 
 ## Guides
 
+- [Demo receipt](docs/demo.md)
 - [First install](docs/first-install.md)
 - [Host backend](docs/host-backend.md)
 - [Support matrix](docs/support-matrix.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [CI examples](docs/ci-examples.md)
 - [Fixture testing](docs/fixture-testing.md)
+- [Package distribution](docs/package-distribution.md)
 - [Release process](docs/release-process.md)
 - [1.0 checklist](docs/1.0-checklist.md)
 - [Versioning policy](docs/versioning-policy.md)
 - [Support scope](docs/support-scope.md)
 - [Changelog policy](docs/changelog-policy.md)
-- [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
 
 ## License
 
-MIT. See [LICENSE](./LICENSE).
+MIT. See [LICENSE](LICENSE).

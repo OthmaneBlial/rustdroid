@@ -7,6 +7,7 @@ fn contributor_and_guide_docs_exist() {
         "CHANGELOG.md",
         "docs/1.0-checklist.md",
         "docs/changelog-policy.md",
+        "docs/demo.md",
         "docs/first-install.md",
         "docs/host-backend.md",
         "docs/support-scope.md",
@@ -27,6 +28,8 @@ fn readme_links_to_the_main_guides() {
 
     for snippet in [
         "watch build/outputs/apk/debug",
+        "assets/rustdroid-proof.svg",
+        "docs/demo.md",
         "docs/1.0-checklist.md",
         "docs/first-install.md",
         "docs/host-backend.md",
