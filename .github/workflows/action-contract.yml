@@ -64,7 +64,7 @@ jobs:
 
       - id: receipt
         name: Run the pinned public RustDroid action
-        uses: OthmaneBlial/rustdroid@3f4184ce1117591f9b06cafec48f2ffad1809ecc
+        uses: OthmaneBlial/rustdroid@d819b92f50d5576efb78ff980bd37502d473aa40
         with:
           apk-path: tests/fixtures/apks/launch-success.apk
           profile: host-fast
