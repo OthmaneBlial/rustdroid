@@ -2,6 +2,10 @@
 
 The repository contains a small signed APK fixture so that a new user can see the real APK loop without an Android Studio project or a private app.
 
+![A four-step RustDroid terminal walkthrough: doctor, a public fixture run, launch observation, and receipt artifacts](../assets/rustdroid-demo.gif)
+
+The walkthrough is a captioned replay of the exact documented flow. It intentionally shows no universal timing promise; use the receipt and benchmark documentation to compare a supported Linux host.
+
 The visual in [`assets/rustdroid-proof.svg`](../assets/rustdroid-proof.svg) is a reference cold host-fixture run measured on April 2, 2026. Its numbers are context, not a performance promise; reproduce the workflow on your own Linux host and AVD.
 
 ## Prerequisites

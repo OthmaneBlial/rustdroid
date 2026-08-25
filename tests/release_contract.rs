@@ -29,6 +29,7 @@ fn release_assets_exist_in_repo() {
         "scripts/check-cargo-distribution.sh",
         "scripts/check-performance-baseline.sh",
         "scripts/generate-release-notes.sh",
+        "scripts/generate-demo-gif.sh",
         "scripts/generate-support-matrix.sh",
         "scripts/package-release.sh",
         "scripts/verify-release-install.sh",

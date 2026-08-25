@@ -1,6 +1,10 @@
 # RustDroid
 
 <p align="center">
+  <a href="docs/demo.md"><img src="assets/rustdroid-demo.gif" alt="A four-step RustDroid terminal walkthrough: doctor, fixture run, launch verification, and receipt artifacts" width="100%"></a>
+</p>
+
+<p align="center">
   <img src="assets/rustdroid-proof.svg" alt="A RustDroid host-fast fixture receipt showing boot, install, launch, and artifact evidence" width="100%">
 </p>
 
@@ -25,7 +29,7 @@ APK path -> preflight -> boot or reuse -> install -> launch -> logs + receipt
 
 `rustdroid run` does more than start an emulator. It inspects the APK, resolves the package/activity, waits for the launch path, streams logs, and can write a versioned `run-summary.json`, `run-report.html`, `junit.xml`, `run-summary.md`, and `logcat.txt`. A failed run should leave enough context to distinguish emulator, ADB, install, launch, and log-capture problems.
 
-The image above is a recorded cold host-fixture reference run from April 2, 2026. Its timings are reproducible context, not a promise for every host; see the [demo receipt](docs/demo.md) and [performance notes](docs/performance-notes/v0.1.0.md).
+The walkthrough above is a captioned replay of the documented fixture path. The static receipt beneath it is a cold host-fixture reference run from April 2, 2026. Its timings are reproducible context, not a promise for every host; see the [demo receipt](docs/demo.md) and [performance notes](docs/performance-notes/v0.1.0.md).
 
 ## Start with the path you have
 

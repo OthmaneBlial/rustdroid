@@ -58,6 +58,7 @@ fn readme_links_to_the_main_guides() {
     for snippet in [
         "watch build/outputs/apk/debug",
         "assets/rustdroid-proof.svg",
+        "assets/rustdroid-demo.gif",
         "docs/demo.md",
         "docs/configuration.md",
         "docs/1.0-checklist.md",
