@@ -10,8 +10,12 @@ Install from the latest release:
 bash <(curl -fsSL https://raw.githubusercontent.com/OthmaneBlial/rustdroid/main/install.sh)
 ```
 
+The current prebuilt release target is **x86_64 Linux**. On `aarch64`/ARM Linux, the normal installer falls back to a local source build; use `--source` explicitly when you want that contract. `--release` intentionally refuses an architecture with no published archive.
+
 If the release asset is unavailable, the installer falls back to a local source build.
 It installs both `rustdroid` and `rustdroid-run`.
+
+See the [support matrix](support-matrix.md) before choosing a backend or package channel.
 
 ## Host Requirements
 

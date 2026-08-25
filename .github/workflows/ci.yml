@@ -94,7 +94,7 @@ jobs:
       - id: package
         name: Build and validate release archive
         continue-on-error: true
-        run: ./scripts/ci-package-check.sh x86_64-unknown-linux-musl ci
+        run: RUSTDROID_REQUIRE_CONTAINER=1 ./scripts/ci-package-check.sh x86_64-unknown-linux-musl ci
 
       - name: Upload packaging artifacts on failure
         if: steps.package.outcome != 'success'

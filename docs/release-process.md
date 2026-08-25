@@ -11,6 +11,7 @@ cargo test
 ./scripts/ci-shell-check.sh
 ./scripts/check-cargo-distribution.sh /tmp/rustdroid-cargo-install
 ./scripts/check-performance-baseline.sh
+RUSTDROID_REQUIRE_CONTAINER=1 ./scripts/verify-release-install-container.sh x86_64-unknown-linux-musl vX.Y.Z
 ```
 
 Then review:
@@ -41,5 +42,8 @@ The release flow is expected to publish:
 - checksum
 - install snippet
 - release notes
+- provenance attestation for the archive and checksum
+
+The currently published binary target is `x86_64-unknown-linux-musl`. Do not add an architecture until its archive, checksum, clean-container installation check, attestation, and support-matrix row exist.
 
 No silent tags. No mystery assets.

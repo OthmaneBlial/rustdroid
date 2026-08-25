@@ -10,6 +10,10 @@ scripts=(
   uninstall.sh
   run.sh
   scripts/package-release.sh
+  scripts/verify-release-install.sh
+  scripts/verify-release-install-container.sh
+  scripts/ci-host-check.sh
+  scripts/ci-package-check.sh
   scripts/generate-fixture-apks.sh
   scripts/run-smoke-matrix.sh
 )

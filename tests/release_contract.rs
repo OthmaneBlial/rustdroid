@@ -1,5 +1,5 @@
-use std::path::Path;
 use std::process::Command;
+use std::{env, fs, path::Path};
 
 #[test]
 fn release_assets_exist_in_repo() {
@@ -14,6 +14,7 @@ fn release_assets_exist_in_repo() {
         "docs/release-announcement-checklist.md",
         "docs/release-rollback.md",
         "docs/releases/v0.1.0.md",
+        "docs/support-matrix.md",
         "docs/version-bump-checklist.md",
         "install.sh",
         "run.sh",
@@ -26,6 +27,7 @@ fn release_assets_exist_in_repo() {
         "scripts/generate-release-notes.sh",
         "scripts/package-release.sh",
         "scripts/verify-release-install.sh",
+        "scripts/verify-release-install-container.sh",
         "README.md",
         "LICENSE",
     ] {
@@ -51,6 +53,7 @@ fn install_and_package_scripts_are_executable() {
         "scripts/generate-release-notes.sh",
         "scripts/package-release.sh",
         "scripts/verify-release-install.sh",
+        "scripts/verify-release-install-container.sh",
     ] {
         let metadata = std::fs::metadata(path).expect("script metadata should be readable");
         #[cfg(unix)]
@@ -87,4 +90,48 @@ fn install_and_uninstall_help_commands_work() {
             String::from_utf8_lossy(&output.stderr)
         );
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn release_installer_explains_the_source_only_arm_path() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let temp_dir = tempfile::tempdir().expect("tempdir should be available");
+    let bin_dir = temp_dir.path().join("bin");
+    fs::create_dir_all(&bin_dir).expect("wrapper directory should be created");
+    let uname_path = bin_dir.join("uname");
+    fs::write(&uname_path, "#!/usr/bin/env sh\nprintf 'aarch64\\n'\n")
+        .expect("uname wrapper should be written");
+    let mut permissions = fs::metadata(&uname_path)
+        .expect("uname wrapper metadata should be readable")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&uname_path, permissions).expect("uname wrapper should be executable");
+
+    let inherited_path = env::var("PATH").expect("PATH should be set for installer test");
+    let output = Command::new("bash")
+        .arg("install.sh")
+        .arg("--release")
+        .env("PATH", format!("{}:{inherited_path}", bin_dir.display()))
+        .output()
+        .expect("release installer should run");
+
+    assert!(
+        !output.status.success(),
+        "an ARM release-only install must not pretend an archive exists"
+    );
+    let combined = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        combined.contains("no prebuilt RustDroid release is published for aarch64"),
+        "installer should explain the missing ARM binary:\n{combined}"
+    );
+    assert!(
+        combined.contains("use --source"),
+        "installer should offer the supported source fallback:\n{combined}"
+    );
 }

@@ -217,6 +217,7 @@ RustDroid is a bad fit when:
 
 - [First install](docs/first-install.md)
 - [Host backend](docs/host-backend.md)
+- [Support matrix](docs/support-matrix.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [CI examples](docs/ci-examples.md)
 - [Fixture testing](docs/fixture-testing.md)

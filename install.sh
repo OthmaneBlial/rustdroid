@@ -29,7 +29,7 @@ Usage:
   ./install.sh [--release | --source] [--version TAG] [--install-dir PATH] [--archive PATH]
 
 Options:
-  --release           Only install from a GitHub release tarball
+  --release           Only install a prebuilt x86_64 Linux GitHub release tarball
   --source            Only build from source
   --version TAG       Release tag to install. Defaults to the latest release.
   --archive PATH      Install from a local release archive
@@ -95,13 +95,17 @@ release_asset_name() {
     x86_64)
       printf 'rustdroid-x86_64-unknown-linux-musl.tar.gz'
       ;;
-    aarch64)
-      printf 'rustdroid-aarch64-unknown-linux-musl.tar.gz'
-      ;;
     *)
       return 1
       ;;
   esac
+}
+
+prebuilt_release_unavailable_message() {
+  local detected_architecture
+  detected_architecture="$(host_architecture 2>/dev/null || printf 'unknown')"
+  printf 'no prebuilt RustDroid release is published for %s; use --source (Rust and git required)' \
+    "$detected_architecture"
 }
 
 install_runtime_artifacts() {
@@ -218,7 +222,10 @@ install_from_release() {
   local checksum
   local release_root
 
-  asset="$(release_asset_name)" || return 1
+  if ! asset="$(release_asset_name)"; then
+    log "$(prebuilt_release_unavailable_message)"
+    return 1
+  fi
   if [[ "$resolved_version" == "latest" ]]; then
     resolved_version="$(resolve_latest_release)"
   fi
@@ -343,7 +350,7 @@ case "$MODE" in
     install_from_archive
     ;;
   release)
-    install_from_release || fail "release installation failed"
+    install_from_release
     ;;
   source)
     build_from_source
