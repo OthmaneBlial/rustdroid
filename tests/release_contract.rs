@@ -91,6 +91,34 @@ fn action_contract_uses_an_immutable_revision() {
 }
 
 #[test]
+fn stack_reference_workflows_boot_and_upload_the_pinned_receipt_action() {
+    let pinned_action = "OthmaneBlial/rustdroid@964ed16d32d4fa12b52dea21b95484a7b96e9854";
+
+    for workflow in [
+        "examples/workflows/gradle-android-receipt.yml",
+        "examples/workflows/flutter-receipt.yml",
+        "examples/workflows/react-native-expo-receipt.yml",
+    ] {
+        let source = std::fs::read_to_string(workflow)
+            .unwrap_or_else(|error| panic!("read {workflow}: {error}"));
+        for snippet in [
+            pinned_action,
+            "script: \"true\"",
+            "Start the provisioned Android 35 AVD",
+            "-avd test_avd",
+            "artifacts-dir: artifacts/rustdroid",
+            "path: ${{ steps.receipt.outputs.receipt-dir }}",
+            "Stop the provisioned Android 35 AVD",
+        ] {
+            assert!(
+                source.contains(snippet),
+                "{workflow} must contain {snippet}"
+            );
+        }
+    }
+}
+
+#[test]
 fn android_emulator_runner_keeps_host_environment_in_one_shell() {
     let host_runtime = std::fs::read_to_string(".github/workflows/host-integration-runtime.yml")
         .expect("read host runtime workflow");

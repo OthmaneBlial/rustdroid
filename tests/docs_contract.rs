@@ -82,3 +82,46 @@ fn readme_links_to_the_main_guides() {
         );
     }
 }
+
+#[test]
+fn troubleshooting_and_fixture_guides_preserve_their_public_contracts() {
+    let troubleshooting =
+        std::fs::read_to_string("docs/troubleshooting.md").expect("read troubleshooting guide");
+    for check_id in [
+        "host.kvm.device",
+        "host.kvm.permissions",
+        "host.android_sdk.root",
+        "host.tool.emulator",
+        "host.tool.adb",
+        "host.tool.aapt",
+        "host.tool.apkanalyzer",
+        "host.tool.scrcpy",
+        "host.avds",
+        "docker.daemon",
+        "docker.gpu_passthrough",
+    ] {
+        assert!(
+            troubleshooting.contains(check_id),
+            "troubleshooting guide must document doctor ID {check_id}"
+        );
+    }
+    assert!(troubleshooting.contains("rustdroid --json doctor"));
+    assert!(troubleshooting.contains("rustdroid setup --distro ubuntu"));
+
+    let fixtures =
+        std::fs::read_to_string("docs/fixture-testing.md").expect("read fixture testing guide");
+    for fixture in [
+        "launch-success.apk",
+        "missing-launcher.apk",
+        "x86_64-native.apk",
+        "arm64-native.apk",
+        "split-base.apk",
+        "split-config.en.apk",
+    ] {
+        assert!(
+            fixtures.contains(fixture),
+            "fixture guide must document {fixture}"
+        );
+    }
+    assert!(fixtures.contains("do not replace it with an application APK"));
+}
