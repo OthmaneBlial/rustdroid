@@ -120,7 +120,7 @@ jobs:
 
       - name: Upload the ${{ matrix.name }} receipt
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reference-${{ matrix.id }}-receipt
           path: ${{ steps.receipt.outputs.receipt-dir || format('artifacts/reference-{0}', matrix.id) }}

@@ -98,7 +98,7 @@ jobs:
 
       - name: Upload packaging artifacts on failure
         if: steps.package.outcome != 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: package-validation-artifacts
           path: |
