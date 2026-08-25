@@ -1,6 +1,6 @@
 # CI Examples
 
-RustDroid already ships GitHub Actions workflows for fast checks, host integration, release packaging, and crates.io publication.
+RustDroid already ships GitHub Actions workflows for fast checks, host integration, release packaging, and a manual crates.io readiness check. Publication itself is intentionally not automated by default.
 
 These examples show the intended usage pattern.
 

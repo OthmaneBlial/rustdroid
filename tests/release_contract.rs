@@ -9,7 +9,7 @@ fn release_assets_exist_in_repo() {
         ".github/workflows/dependency-security.yml",
         ".github/workflows/action-contract.yml",
         ".github/workflows/host-integration.yml",
-        ".github/workflows/publish-crate.yml",
+        ".github/workflows/crates-io-readiness.yml",
         ".github/workflows/release.yml",
         "docs/performance-baselines.json",
         "docs/package-distribution.md",
