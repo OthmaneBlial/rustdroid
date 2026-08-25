@@ -33,12 +33,12 @@ jobs:
       - id: clippy
         name: Run clippy
         continue-on-error: true
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --all-targets --locked -- -D warnings
 
       - id: tests
         name: Run tests
         continue-on-error: true
-        run: cargo test
+        run: cargo test --locked
 
       - id: build
         name: Build debug binary

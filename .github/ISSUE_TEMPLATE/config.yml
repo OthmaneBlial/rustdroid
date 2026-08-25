@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Setup questions and workflow recipes
+    url: https://github.com/OthmaneBlial/rustdroid/discussions
+    about: Ask questions that are not reproducible defects in Discussions.
+  - name: Security reports
+    url: https://github.com/OthmaneBlial/rustdroid/security/advisories/new
+    about: Do not disclose vulnerabilities, tokens, or private APKs in public issues.

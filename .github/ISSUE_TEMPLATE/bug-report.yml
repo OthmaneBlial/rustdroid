@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a reproducible RustDroid defect.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not attach private APKs, credentials, or full local paths. Use SECURITY.md for vulnerabilities."
+  - type: input
+    id: version
+    attributes: { label: RustDroid version or commit, placeholder: "0.2.0 or abc1234" }
+    validations: { required: true }
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend
+      options: [host, docker]
+    validations: { required: true }
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Include a redacted command and expected versus actual result.
+    validations: { required: true }
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted receipt or logs
+      description: Include stable doctor IDs and relevant receipt/log excerpts, not private paths.
+    validations: { required: true }

@@ -35,7 +35,32 @@ jobs:
           profile: pixel_5
           target: google_apis
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
-          script: emulator -list-avds
+          # This action owns its emulator process and stops it at the end of
+          # the step. It leaves the AVD definition ready for the explicit
+          # persistent process below, where the composite action can use it.
+          script: "true"
+
+      - name: Start the provisioned Android 35 AVD
+        run: |
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          emulator="$sdk_root/emulator/emulator"
+          adb="$sdk_root/platform-tools/adb"
+          test -x "$emulator"
+          test -x "$adb"
+          echo "$sdk_root/emulator" >> "$GITHUB_PATH"
+          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
+          "$emulator" -avd test_avd -no-snapshot -no-window -gpu swiftshader_indirect \
+            -no-audio -no-boot-anim -read-only > "$RUNNER_TEMP/rustdroid-action-emulator.log" 2>&1 &
+          for attempt in $(seq 1 90); do
+            if "$adb" -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | grep -qx '1'; then
+              "$adb" -s emulator-5554 shell input keyevent 82
+              exit 0
+            fi
+            sleep 2
+          done
+          "$adb" devices || true
+          tail -n 120 "$RUNNER_TEMP/rustdroid-action-emulator.log" || true
+          exit 1
 
       - id: receipt
         name: Run the pinned public RustDroid action
@@ -54,5 +79,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: action-contract-receipt
-          path: ${{ steps.receipt.outputs.receipt-dir }}
+          path: ${{ steps.receipt.outputs.receipt-dir || 'artifacts/action-contract' }}
           if-no-files-found: warn
+
+      - name: Stop the contract emulator
+        if: always()
+        run: |
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          "$sdk_root/platform-tools/adb" -s emulator-5554 emu kill || true

@@ -5,6 +5,8 @@ use std::{env, fs, path::Path};
 fn release_assets_exist_in_repo() {
     for path in [
         ".github/workflows/ci.yml",
+        ".github/workflows/codeql.yml",
+        ".github/workflows/dependency-security.yml",
         ".github/workflows/action-contract.yml",
         ".github/workflows/host-integration.yml",
         ".github/workflows/publish-crate.yml",
@@ -14,6 +16,7 @@ fn release_assets_exist_in_repo() {
         "docs/performance-notes/v0.1.0.md",
         "docs/release-announcement-checklist.md",
         "docs/release-rollback.md",
+        "docs/release-security-checklist.md",
         "docs/releases/v0.1.0.md",
         "docs/support-matrix.md",
         "docs/version-bump-checklist.md",
@@ -31,6 +34,7 @@ fn release_assets_exist_in_repo() {
         "scripts/verify-release-install.sh",
         "scripts/verify-release-install-container.sh",
         "README.md",
+        "deny.toml",
         "LICENSE",
     ] {
         assert!(
@@ -59,6 +63,22 @@ fn composite_action_declares_the_receipt_contract() {
             "expected action.yml to contain {snippet}"
         );
     }
+}
+
+#[test]
+fn security_automation_declares_the_expected_controls() {
+    let codeql =
+        std::fs::read_to_string(".github/workflows/codeql.yml").expect("read CodeQL workflow");
+    let dependency_security = std::fs::read_to_string(".github/workflows/dependency-security.yml")
+        .expect("read dependency security workflow");
+    let dependabot =
+        std::fs::read_to_string(".github/dependabot.yml").expect("read Dependabot config");
+
+    assert!(codeql.contains("github/codeql-action/init@v4"));
+    assert!(codeql.contains("languages: rust"));
+    assert!(dependency_security.contains("cargo deny check"));
+    assert!(dependabot.contains("package-ecosystem: cargo"));
+    assert!(dependabot.contains("package-ecosystem: github-actions"));
 }
 
 #[test]

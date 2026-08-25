@@ -4,10 +4,14 @@ use std::path::Path;
 fn contributor_and_guide_docs_exist() {
     for path in [
         "CONTRIBUTING.md",
+        "CODE_OF_CONDUCT.md",
+        "SECURITY.md",
+        "SUPPORT.md",
         "CHANGELOG.md",
         "docs/1.0-checklist.md",
         "docs/benchmarking.md",
         "docs/changelog-policy.md",
+        "docs/community.md",
         "docs/demo.md",
         "docs/configuration.md",
         "docs/first-install.md",
@@ -20,6 +24,7 @@ fn contributor_and_guide_docs_exist() {
         "docs/fixture-testing.md",
         "docs/github-action.md",
         "docs/release-process.md",
+        "docs/release-security-checklist.md",
         "docs/receipt-schema-v1.md",
         "docs/quickstart-linux.md",
         "docs/operation-plans.md",
@@ -28,6 +33,10 @@ fn contributor_and_guide_docs_exist() {
         "docs/benchmarking.md",
         "docs/support-matrix.json",
         ".github/workflows/action-contract.yml",
+        ".github/ISSUE_TEMPLATE/bug-report.yml",
+        ".github/ISSUE_TEMPLATE/setup-failure.yml",
+        ".github/ISSUE_TEMPLATE/feature-request.yml",
+        ".github/PULL_REQUEST_TEMPLATE.md",
         "examples/configs/host-fast.rustdroid.toml",
         "examples/configs/headless-ci.rustdroid.toml",
         "examples/configs/low-ram.rustdroid.toml",
@@ -59,6 +68,8 @@ fn readme_links_to_the_main_guides() {
         "docs/recipes.md",
         "docs/reference-workflows.md",
         "CONTRIBUTING.md",
+        "SECURITY.md",
+        "SUPPORT.md",
         "CHANGELOG.md",
     ] {
         assert!(

@@ -68,7 +68,7 @@ rustdroid \
   --artifacts-dir artifacts/rustdroid
 ```
 
-Upload `artifacts/rustdroid/` from the job that runs this command. The [CI guide](docs/ci-examples.md) explains the hosted Linux/KVM shape; a reusable GitHub Action is tracked as the next adoption layer.
+Upload `artifacts/rustdroid/` from the job that runs this command. The [CI guide](docs/ci-examples.md) explains the hosted Linux/KVM shape, and the [reusable GitHub Action](docs/github-action.md) packages the same receipt contract for workflows.
 
 ## Install
 
@@ -161,6 +161,7 @@ The deterministic fixture suite covers a launchable APK, a missing launcher, x86
 - [Support matrix](docs/support-matrix.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [CI examples](docs/ci-examples.md)
+- [Reusable GitHub Action](docs/github-action.md)
 - [Fixture testing](docs/fixture-testing.md)
 - [Run receipt schema](docs/receipt-schema-v1.md)
 - [Operation plans and dry runs](docs/operation-plans.md)
@@ -173,7 +174,11 @@ The deterministic fixture suite covers a launchable APK, a missing launcher, x86
 - [Versioning policy](docs/versioning-policy.md)
 - [Support scope](docs/support-scope.md)
 - [Changelog policy](docs/changelog-policy.md)
+- [Community and contribution flow](docs/community.md)
 - [Contributing](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security policy](SECURITY.md)
+- [Support](SUPPORT.md)
 - [Changelog](CHANGELOG.md)
 
 ## License

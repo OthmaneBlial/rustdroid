@@ -1,0 +1,17 @@
+name: Feature proposal
+description: Propose a scoped improvement that keeps RustDroid an APK launch-receipt tool.
+title: "feature: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes: { label: User problem, description: "Describe the APK-loop problem before proposing an implementation." }
+    validations: { required: true }
+  - type: textarea
+    id: scope
+    attributes: { label: Proposed scope and non-goals }
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes: { label: Acceptance criteria and reproducible command }
+    validations: { required: true }

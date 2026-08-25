@@ -519,12 +519,12 @@ fn process_cmdline(pid: u32) -> Option<String> {
             return None;
         }
 
-        return Some(
+        Some(
             String::from_utf8_lossy(&bytes)
                 .replace('\0', " ")
                 .trim()
                 .to_owned(),
-        );
+        )
     }
 
     #[cfg(not(target_os = "linux"))]

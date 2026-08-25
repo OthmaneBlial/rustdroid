@@ -1,0 +1,23 @@
+name: Setup or environment failure
+description: Report a reproducible KVM, SDK, AVD, Docker, or install setup failure.
+title: "setup: "
+labels: ["host-runtime", "help wanted"]
+body:
+  - type: input
+    id: version
+    attributes: { label: RustDroid version or commit }
+    validations: { required: true }
+  - type: input
+    id: environment
+    attributes: { label: Linux distribution and runner or machine type, placeholder: "Ubuntu 22.04, GitHub-hosted runner" }
+    validations: { required: true }
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Redacted doctor JSON
+      description: Include check IDs, states, and remediation; remove private paths.
+    validations: { required: true }
+  - type: textarea
+    id: reproduce
+    attributes: { label: Command and observed failure }
+    validations: { required: true }
