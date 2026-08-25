@@ -17,7 +17,7 @@ The repository tests the exact action revision below against its public `launch-
 
 ```yaml
 - id: receipt
-  uses: OthmaneBlial/rustdroid@3f4184ce1117591f9b06cafec48f2ffad1809ecc
+  uses: OthmaneBlial/rustdroid@964ed16d32d4fa12b52dea21b95484a7b96e9854
   with:
     apk-path: app/build/outputs/apk/debug/app-debug.apk
     profile: host-fast

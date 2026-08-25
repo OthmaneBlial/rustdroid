@@ -25,7 +25,7 @@ jobs:
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
           script: emulator -list-avds
       - id: receipt
-        uses: OthmaneBlial/rustdroid@3f4184ce1117591f9b06cafec48f2ffad1809ecc
+        uses: OthmaneBlial/rustdroid@964ed16d32d4fa12b52dea21b95484a7b96e9854
         with:
           apk-path: build/app/outputs/flutter-apk/app-debug.apk
           artifacts-dir: artifacts/rustdroid

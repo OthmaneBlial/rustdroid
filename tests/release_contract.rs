@@ -86,7 +86,7 @@ fn action_contract_uses_an_immutable_revision() {
     let workflow = std::fs::read_to_string(".github/workflows/action-contract.yml")
         .expect("read action contract workflow");
 
-    assert!(workflow.contains("OthmaneBlial/rustdroid@3f4184ce1117591f9b06cafec48f2ffad1809ecc"));
+    assert!(workflow.contains("OthmaneBlial/rustdroid@964ed16d32d4fa12b52dea21b95484a7b96e9854"));
     assert!(workflow.contains("tests/fixtures/apks/launch-success.apk"));
 }
 
