@@ -479,7 +479,19 @@ fn host_config_hash(config: &RuntimeConfig) -> String {
 }
 
 fn process_alive(pid: u32) -> bool {
-    Path::new(&format!("/proc/{pid}")).exists()
+    #[cfg(target_os = "linux")]
+    {
+        Path::new(&format!("/proc/{pid}")).exists()
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        StdCommand::new("kill")
+            .args(["-0", &pid.to_string()])
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+    }
 }
 
 fn process_matches_emulator(pid: u32, host_emulator_port: Option<u16>) -> bool {
@@ -500,17 +512,34 @@ fn process_matches_emulator(pid: u32, host_emulator_port: Option<u16>) -> bool {
 }
 
 fn process_cmdline(pid: u32) -> Option<String> {
-    let bytes = fs::read(format!("/proc/{pid}/cmdline")).ok()?;
-    if bytes.is_empty() {
-        return None;
+    #[cfg(target_os = "linux")]
+    {
+        let bytes = fs::read(format!("/proc/{pid}/cmdline")).ok()?;
+        if bytes.is_empty() {
+            return None;
+        }
+
+        return Some(
+            String::from_utf8_lossy(&bytes)
+                .replace('\0', " ")
+                .trim()
+                .to_owned(),
+        );
     }
 
-    Some(
-        String::from_utf8_lossy(&bytes)
-            .replace('\0', " ")
-            .trim()
-            .to_owned(),
-    )
+    #[cfg(not(target_os = "linux"))]
+    {
+        let output = StdCommand::new("ps")
+            .args(["-p", &pid.to_string(), "-o", "command="])
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+
+        let command = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+        (!command.is_empty()).then_some(command)
+    }
 }
 
 fn cleanup_state_files(state: &HostStatePaths) -> Result<()> {

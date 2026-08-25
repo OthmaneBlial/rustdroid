@@ -31,6 +31,7 @@ jobs:
 
       - id: host_suite
         name: Run host runtime and smoke validation
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -42,19 +43,19 @@ jobs:
           script: |
             export RUSTDROID_HOST_TEST_SERIAL=emulator-5554
             export RUSTDROID_HOST_TEST_AVD=test_avd
-            export RUSTDROID_CI_HOST_ARTIFACTS_DIR="$RUNNER_TEMP/rustdroid-host"
+            export RUSTDROID_CI_HOST_ARTIFACTS_DIR="$GITHUB_WORKSPACE/ci-artifacts/host"
             export RUSTDROID_SMOKE_ENABLE_GUI=0
             export RUSTDROID_SMOKE_BOOT_TIMEOUT_SECS=360
             cargo build --locked
             ./scripts/ci-host-check.sh
 
       - name: Upload host artifacts on failure
-        if: steps.host_suite.outcome != 'success'
+        if: ${{ always() && steps.host_suite.outcome != 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: host-integration-artifacts
-          path: ${{ runner.temp }}/rustdroid-host
-          if-no-files-found: ignore
+          path: ci-artifacts/host
+          if-no-files-found: error
 
       - id: performance
         name: Check performance baseline
@@ -74,8 +75,8 @@ jobs:
       - name: Write job summary
         if: always()
         run: |
-          if [[ -f "${RUNNER_TEMP}/rustdroid-host/results.env" ]]; then
-            source "${RUNNER_TEMP}/rustdroid-host/results.env"
+          if [[ -f "ci-artifacts/host/results.env" ]]; then
+            source "ci-artifacts/host/results.env"
           fi
           if [[ -f "${RUNNER_TEMP}/rustdroid-performance/bench.json" ]]; then
             export PERF_BENCH_JSON="$(cat "${RUNNER_TEMP}/rustdroid-performance/bench.json")"
@@ -90,3 +91,11 @@ jobs:
             echo "- smoke_matrix: ${smoke_status:-not-run}"
             echo "- performance: ${{ steps.performance.outcome }}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce host validation result
+        if: always()
+        run: |
+          if [[ "${{ steps.host_suite.outcome }}" != "success" ]]; then
+            echo "host runtime and smoke validation failed; inspect host-integration-artifacts" >&2
+            exit 1
+          fi
