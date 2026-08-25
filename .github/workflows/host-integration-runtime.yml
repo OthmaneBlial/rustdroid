@@ -40,17 +40,16 @@ jobs:
           profile: Nexus 5
           target: google_apis
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
-          script: |
-            sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
-            export PATH="$sdk_root/emulator:$sdk_root/platform-tools:$PATH"
-            command -v emulator
-            command -v adb
-            export RUSTDROID_HOST_TEST_SERIAL=emulator-5554
-            export RUSTDROID_HOST_TEST_AVD=test_avd
-            export RUSTDROID_CI_HOST_ARTIFACTS_DIR="$GITHUB_WORKSPACE/ci-artifacts/host"
-            export RUSTDROID_SMOKE_ENABLE_GUI=0
-            export RUSTDROID_SMOKE_BOOT_TIMEOUT_SECS=360
-            cargo build --locked
+          # android-emulator-runner invokes each physical script line in a
+          # separate shell. The folded scalar keeps PATH and the smoke
+          # environment in one shell invocation.
+          script: >-
+            sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}";
+            export PATH="$sdk_root/emulator:$sdk_root/platform-tools:$PATH";
+            command -v emulator; command -v adb; cargo build --locked;
+            RUSTDROID_HOST_TEST_SERIAL=emulator-5554 RUSTDROID_HOST_TEST_AVD=test_avd
+            RUSTDROID_CI_HOST_ARTIFACTS_DIR="$GITHUB_WORKSPACE/ci-artifacts/host"
+            RUSTDROID_SMOKE_ENABLE_GUI=0 RUSTDROID_SMOKE_BOOT_TIMEOUT_SECS=360
             ./scripts/ci-host-check.sh
 
       - name: Upload host artifacts on failure

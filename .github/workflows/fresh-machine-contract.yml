@@ -41,9 +41,10 @@ jobs:
           profile: pixel_5
           target: google_apis
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
-          script: |
-            export RUSTDROID_RUN_HOST_RUNTIME_TESTS=1
-            export RUSTDROID_HOST_TEST_SERIAL=emulator-5554
+          # Keep the opt-in variables and test command in the same shell:
+          # android-emulator-runner executes physical script lines separately.
+          script: >-
+            RUSTDROID_RUN_HOST_RUNTIME_TESTS=1 RUSTDROID_HOST_TEST_SERIAL=emulator-5554
             cargo test --locked --test integration_host_runtime -- --nocapture
 
       - name: Upload setup plan

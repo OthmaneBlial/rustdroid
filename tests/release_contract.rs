@@ -91,6 +91,26 @@ fn action_contract_uses_an_immutable_revision() {
 }
 
 #[test]
+fn android_emulator_runner_keeps_host_environment_in_one_shell() {
+    let host_runtime = std::fs::read_to_string(".github/workflows/host-integration-runtime.yml")
+        .expect("read host runtime workflow");
+    let fresh_machine = std::fs::read_to_string(".github/workflows/fresh-machine-contract.yml")
+        .expect("read fresh-machine workflow");
+
+    assert!(host_runtime.contains("script: >-"));
+    assert!(host_runtime.contains("cargo build --locked;"));
+    assert!(host_runtime
+        .contains("RUSTDROID_HOST_TEST_SERIAL=emulator-5554 RUSTDROID_HOST_TEST_AVD=test_avd"));
+    assert!(host_runtime
+        .contains("RUSTDROID_SMOKE_BOOT_TIMEOUT_SECS=360\n            ./scripts/ci-host-check.sh"));
+
+    assert!(fresh_machine.contains("script: >-"));
+    assert!(fresh_machine.contains(
+        "RUSTDROID_RUN_HOST_RUNTIME_TESTS=1 RUSTDROID_HOST_TEST_SERIAL=emulator-5554\n            cargo test"
+    ));
+}
+
+#[test]
 fn install_and_package_scripts_are_executable() {
     for path in [
         "install.sh",
