@@ -62,6 +62,10 @@ fn readme_links_to_the_main_guides() {
     let readme = std::fs::read_to_string("README.md").expect("read README");
 
     for snippet in [
+        "actions/workflows/ci.yml/badge.svg?branch=main",
+        "img.shields.io/github/v/release/OthmaneBlial/rustdroid",
+        "img.shields.io/github/license/OthmaneBlial/rustdroid",
+        "Rust-stable",
         "watch build/outputs/apk/debug",
         "assets/rustdroid-proof.svg",
         "assets/rustdroid-demo.gif",

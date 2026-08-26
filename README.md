@@ -1,6 +1,13 @@
 # RustDroid
 
 <p align="center">
+  <a href="https://github.com/OthmaneBlial/rustdroid/actions/workflows/ci.yml"><img src="https://github.com/OthmaneBlial/rustdroid/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
+  <a href="https://github.com/OthmaneBlial/rustdroid/releases/latest"><img src="https://img.shields.io/github/v/release/OthmaneBlial/rustdroid?display_name=tag" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/OthmaneBlial/rustdroid" alt="MIT License"></a>
+  <a href="https://github.com/OthmaneBlial/rustdroid/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/Rust-stable-DEA584?logo=rust" alt="Rust toolchain stable"></a>
+</p>
+
+<p align="center">
   <a href="docs/demo.md"><img src="assets/rustdroid-demo.gif" alt="A four-step RustDroid terminal walkthrough: doctor, fixture run, launch verification, and receipt artifacts" width="100%"></a>
 </p>
 
