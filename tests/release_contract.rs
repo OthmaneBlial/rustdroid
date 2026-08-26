@@ -132,12 +132,15 @@ fn official_actions_use_node24_ready_majors() {
 }
 
 #[test]
-fn action_contract_uses_an_immutable_revision() {
+fn action_contract_exercises_checked_in_source_and_requires_api_level() {
     let workflow = std::fs::read_to_string(".github/workflows/action-contract.yml")
         .expect("read action contract workflow");
 
-    assert!(workflow.contains("OthmaneBlial/rustdroid@964ed16d32d4fa12b52dea21b95484a7b96e9854"));
+    assert!(workflow.contains("uses: ./"));
+    assert!(workflow.contains(".emulator.api_level | strings | select(length > 0)"));
     assert!(workflow.contains("tests/fixtures/apks/launch-success.apk"));
+    assert!(workflow.contains("push:"));
+    assert!(workflow.contains("src/**"));
 }
 
 #[test]

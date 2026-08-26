@@ -1,6 +1,14 @@
 name: action-contract
 
 on:
+  push:
+    paths:
+      - action.yml
+      - Cargo.toml
+      - Cargo.lock
+      - src/**
+      - tests/fixtures/**
+      - .github/workflows/action-contract.yml
   workflow_dispatch:
   schedule:
     - cron: "0 8 * * 3"
@@ -13,7 +21,7 @@ permissions:
   contents: read
 
 jobs:
-  pinned-action-runs-public-fixture:
+  checked-in-action-runs-public-fixture:
     runs-on: ubuntu-22.04
 
     steps:
@@ -63,8 +71,8 @@ jobs:
           exit 1
 
       - id: receipt
-        name: Run the pinned public RustDroid action
-        uses: OthmaneBlial/rustdroid@964ed16d32d4fa12b52dea21b95484a7b96e9854
+        name: Run the checked-in RustDroid action
+        uses: ./
         with:
           apk-path: tests/fixtures/apks/launch-success.apk
           profile: host-fast
@@ -73,6 +81,9 @@ jobs:
           artifacts-dir: artifacts/action-contract
           duration-secs: "2"
           keep-alive: "false"
+
+      - name: Require the receipt to identify the Android API
+        run: jq -e '.emulator.api_level | strings | select(length > 0)' artifacts/action-contract/run-summary.json
 
       - name: Upload action receipt
         if: always()
