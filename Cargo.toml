@@ -2,11 +2,11 @@
 name = "rustdroid"
 version = "0.3.1"
 edition = "2021"
-description = "Fast host-first Android APK testing CLI"
+description = "Fast local Android APK smoke testing with reproducible emulator receipts"
 license = "MIT"
 repository = "https://github.com/OthmaneBlial/rustdroid"
-homepage = "https://github.com/OthmaneBlial/rustdroid"
-documentation = "https://github.com/OthmaneBlial/rustdroid#readme"
+homepage = "https://othmaneblial.github.io/rustdroid/"
+documentation = "https://othmaneblial.github.io/rustdroid/docs.html"
 readme = "README.md"
 keywords = ["android", "apk", "emulator", "testing", "cli"]
 categories = ["command-line-utilities", "development-tools"]

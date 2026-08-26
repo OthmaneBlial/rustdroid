@@ -21,6 +21,7 @@
 </p>
 
 <p align="center">
+  <a href="https://othmaneblial.github.io/rustdroid/">Project site</a> ·
   <a href="docs/demo.md">See the reproducible demo</a> ·
   <a href="docs/first-install.md">Install on Linux</a> ·
   <a href="docs/support-matrix.md">Support matrix</a>
