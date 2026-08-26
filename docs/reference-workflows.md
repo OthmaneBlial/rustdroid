@@ -33,3 +33,11 @@ template will work in every application.
 The [first manual matrix run](https://github.com/OthmaneBlial/rustdroid/actions/runs/32911691564)
 completed successfully on 2026-08-26. It produced all three receipts and
 verified the package/activity launch path for every public source fixture.
+
+The [Node 24 action-runtime confirmation](https://github.com/OthmaneBlial/rustdroid/actions/runs/32913034524)
+repeated that full matrix after moving the checked-in workflows to
+`actions/checkout@v6`, `actions/setup-java@v5`, `actions/setup-node@v6` where
+needed, and `actions/upload-artifact@v7`. Gradle, Flutter, and Expo all
+completed successfully, and the run log contains no `Node.js 20 actions are
+deprecated` notice. This is a compatibility proof for the current workflow
+source; the monthly schedule remains the evidence for ongoing reliability.

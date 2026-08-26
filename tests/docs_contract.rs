@@ -145,6 +145,7 @@ fn roadmap_distinguishes_delivery_from_external_evidence() {
         "success measures, not build artifacts",
         "prepared social preview only after explicit approval",
         "32911691564",
+        "32913034524",
     ] {
         assert!(
             roadmap.contains(snippet),
@@ -243,8 +244,22 @@ fn executable_stack_fixtures_preserve_their_documented_build_contracts() {
         );
     }
 
-    assert!(
-        guide.contains("32911691564"),
-        "reference-workflows guide must link the first successful full stack proof"
-    );
+    for run_id in ["32911691564", "32913034524"] {
+        assert!(
+            guide.contains(run_id),
+            "reference-workflows guide must link the documented stack proof {run_id}"
+        );
+    }
+
+    for current_action in [
+        "actions/checkout@v6",
+        "actions/setup-java@v5",
+        "actions/setup-node@v6",
+        "actions/upload-artifact@v7",
+    ] {
+        assert!(
+            guide.contains(current_action),
+            "reference-workflows guide must document the runtime-migrated {current_action}"
+        );
+    }
 }
