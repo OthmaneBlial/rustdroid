@@ -22,6 +22,7 @@ fn contributor_and_guide_docs_exist() {
         "docs/troubleshooting.md",
         "docs/releases/v0.3.0.md",
         "docs/releases/v0.3.1.md",
+        "docs/performance-notes/v0.3.1.md",
         "docs/versioning-policy.md",
         "docs/ci-examples.md",
         "docs/fixture-testing.md",
@@ -150,6 +151,45 @@ fn roadmap_distinguishes_delivery_from_external_evidence() {
         assert!(
             roadmap.contains(snippet),
             "roadmap delivery status must contain {snippet}"
+        );
+    }
+}
+
+#[test]
+fn v031_release_notes_publish_reproducible_receipt_timings() {
+    let release =
+        std::fs::read_to_string("docs/releases/v0.3.1.md").expect("read v0.3.1 release notes");
+    let notes = std::fs::read_to_string("docs/performance-notes/v0.3.1.md")
+        .expect("read v0.3.1 performance notes");
+
+    for snippet in [
+        "Measured receipt path",
+        "mean ± sample standard deviation",
+        "Gradle Android",
+        "Flutter",
+        "Expo prebuild",
+        "Boot",
+        "Install",
+        "Launch",
+        "Total",
+    ] {
+        assert!(
+            release.contains(snippet),
+            "v0.3.1 release notes must publish {snippet}"
+        );
+    }
+
+    for snippet in [
+        "32911691564",
+        "32913034524",
+        "ubuntu-22.04",
+        "API 35",
+        "n = 2",
+        "No Docker comparison",
+    ] {
+        assert!(
+            notes.contains(snippet),
+            "v0.3.1 performance notes must preserve {snippet}"
         );
     }
 }
