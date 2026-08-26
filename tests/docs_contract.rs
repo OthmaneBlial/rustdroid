@@ -149,6 +149,12 @@ fn roadmap_distinguishes_delivery_from_external_evidence() {
         "External adoption and public maturity",
         "success measures, not build artifacts",
         "prepared social preview only after explicit approval",
+        "First manual host proof",
+        "second manual host proof",
+        "third manual host proof",
+        "32905475830",
+        "32907975602/attempts/2",
+        "32915494009",
         "32911691564",
         "32913034524",
     ] {
