@@ -182,9 +182,10 @@ fn v031_release_notes_publish_reproducible_receipt_timings() {
     for snippet in [
         "32911691564",
         "32913034524",
+        "32914348192",
         "ubuntu-22.04",
         "API 35",
-        "n = 2",
+        "n = 3",
         "No Docker comparison",
     ] {
         assert!(
