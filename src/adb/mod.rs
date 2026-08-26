@@ -77,6 +77,9 @@ const THREE_BUTTON_NAVIGATION_COMMANDS: &[&[&str]] = &[
     ],
 ];
 
+const PROPERTY_READ_ATTEMPTS: usize = 3;
+const PROPERTY_READ_RETRY_DELAY: Duration = Duration::from_millis(250);
+
 #[derive(Debug, Clone)]
 pub struct AdbClient {
     serial: String,
@@ -521,15 +524,23 @@ impl AdbClient {
         config: &RuntimeConfig,
         property: &str,
     ) -> Option<String> {
-        let outcome = runtime
-            .exec(config, self.adb_command(["shell", "getprop", property]))
-            .await
-            .ok()?;
-        if outcome.exit_code != 0 {
-            return None;
+        for attempt in 0..PROPERTY_READ_ATTEMPTS {
+            let value = runtime
+                .exec(config, self.adb_command(["shell", "getprop", property]))
+                .await
+                .ok()
+                .and_then(|outcome| property_value(outcome.exit_code, &outcome.stdout));
+
+            if value.is_some() {
+                return value;
+            }
+
+            if attempt + 1 < PROPERTY_READ_ATTEMPTS {
+                sleep(PROPERTY_READ_RETRY_DELAY).await;
+            }
         }
-        let value = outcome.stdout.trim();
-        (!value.is_empty()).then(|| value.to_owned())
+
+        None
     }
 
     fn adb_command<const N: usize>(&self, command: [&str; N]) -> Vec<String> {
@@ -993,6 +1004,13 @@ fn ensure_command_success(action: &str, stdout: &str, stderr: &str, exit_code: i
     )
 }
 
+fn property_value(exit_code: i64, stdout: &str) -> Option<String> {
+    (exit_code == 0)
+        .then(|| stdout.trim())
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
 fn parse_badging(output: &str) -> Result<ApkMetadata> {
     let mut package_name = None;
     let mut launchable_activity = None;
@@ -1053,7 +1071,14 @@ fn looks_like_failed_activity_launch(output: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_badging, THREE_BUTTON_NAVIGATION_COMMANDS};
+    use super::{parse_badging, property_value, THREE_BUTTON_NAVIGATION_COMMANDS};
+
+    #[test]
+    fn property_value_requires_a_successful_nonempty_adb_response() {
+        assert_eq!(property_value(0, " 35\n"), Some("35".to_owned()));
+        assert_eq!(property_value(0, " \n"), None);
+        assert_eq!(property_value(1, "35\n"), None);
+    }
 
     #[test]
     fn parse_badging_extracts_package_and_activity() {
