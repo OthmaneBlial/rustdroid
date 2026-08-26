@@ -1,0 +1,8 @@
+{
+  "host_fixture_launch_success": {
+    "boot_duration_ms_max": 90000,
+    "install_duration_ms_max": 20000,
+    "launch_duration_ms_max": 15000,
+    "total_duration_ms_max": 120000
+  }
+}

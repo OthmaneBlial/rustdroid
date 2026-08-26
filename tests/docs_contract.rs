@@ -96,6 +96,51 @@ fn readme_links_to_the_main_guides() {
 }
 
 #[test]
+fn static_site_ships_local_docs_and_subpath_safe_assets() {
+    let index = std::fs::read_to_string("site/index.html").expect("read static site home");
+    let docs = std::fs::read_to_string("site/docs.html").expect("read static site docs");
+    let docs_script =
+        std::fs::read_to_string("site/docs.js").expect("read static site docs script");
+
+    for snippet in [
+        "docs.html",
+        "assets/rustdroid-proof.svg",
+        "assets/rustdroid-demo.gif",
+        "APK path in.",
+    ] {
+        assert!(index.contains(snippet), "site home must preserve {snippet}");
+    }
+
+    for snippet in ["RustDroid documentation", "doc-navigation", "docs.js"] {
+        assert!(docs.contains(snippet), "site docs must preserve {snippet}");
+    }
+
+    for snippet in [
+        "first-install.md",
+        "ci-examples.md",
+        "assets/${cleanUrl.slice",
+    ] {
+        assert!(
+            docs_script.contains(snippet),
+            "site docs reader must preserve {snippet}"
+        );
+    }
+
+    for document in [
+        "site/docs/first-install.md",
+        "site/docs/ci-examples.md",
+        "site/docs/receipt-schema-v1.md",
+        "site/assets/rustdroid-proof.svg",
+        "site/assets/rustdroid-demo.gif",
+    ] {
+        assert!(
+            std::path::Path::new(document).is_file(),
+            "site must ship {document}"
+        );
+    }
+}
+
+#[test]
 fn troubleshooting_and_fixture_guides_preserve_their_public_contracts() {
     let troubleshooting =
         std::fs::read_to_string("docs/troubleshooting.md").expect("read troubleshooting guide");

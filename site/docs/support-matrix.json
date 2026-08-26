@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "generated_by": "scripts/generate-support-matrix.sh",
+  "contract_combinations": [
+    {
+      "backend": "host",
+      "runner": "GitHub-hosted Ubuntu 22.04 with KVM",
+      "android_api": "30",
+      "abi": "x86_64",
+      "ui_mode": "headless",
+      "evidence": "host-integration-runtime",
+      "evidence_url": "https://github.com/OthmaneBlial/rustdroid/actions/runs/32907975602/attempts/2",
+      "verification_state": "verified"
+    },
+    {
+      "backend": "host",
+      "runner": "fresh Ubuntu 22.04 contract",
+      "android_api": "35",
+      "abi": "x86_64",
+      "ui_mode": "headless",
+      "evidence": "fresh-machine-contract",
+      "evidence_url": "https://github.com/OthmaneBlial/rustdroid/actions/runs/32905479252",
+      "verification_state": "verified"
+    },
+    {
+      "backend": "host",
+      "runner": "pinned action contract",
+      "android_api": "35",
+      "abi": "x86_64",
+      "ui_mode": "headless",
+      "evidence": "action-contract",
+      "evidence_url": "https://github.com/OthmaneBlial/rustdroid/actions/runs/32907241889",
+      "verification_state": "verified"
+    }
+  ],
+  "source_only": ["aarch64 Linux release archives"],
+  "not_supported": ["iOS", "remote device farms"]
+}
