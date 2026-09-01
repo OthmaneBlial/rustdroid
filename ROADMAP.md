@@ -1,203 +1,146 @@
 # RustDroid Roadmap
 
-> Make RustDroid the local Android APK loop that developers recommend when they need one trustworthy answer: **did this APK boot, install, launch, or fail -- and what evidence do I have?**
+> Make RustDroid the smallest trustworthy gate between an Android build and deeper UI or device-cloud testing: **artifact in, launch receipt out**.
 
-RustDroid should earn attention because it removes a painful step from everyday Android work, not because it imitates a device farm or chases empty star metrics. The product boundary remains deliberate: fast, local, Linux-first APK validation with a host-emulator fast path; Docker, browser, and VNC are supporting paths.
+This roadmap is about activation, trust, and reuse. RustDroid already has a broad command surface; adding another backend or test language is less valuable than making the first useful result obvious, repeatable, and easy to adopt.
 
-## Baseline audit snapshot -- 2026-08-25
+## Current snapshot -- 2026-09-01
 
-This was the pre-delivery audit. The delivery status below supersedes its claims about missing workflows, metadata, documentation, and community health; it remains here to preserve the prioritisation rationale.
-
-### What is already genuinely strong
-
-- A real Rust CLI, not a wrapper mock: host and Docker runtimes, `open`, `install`, `launch`, `run`, `watch`, logs, cleanup, profiles, JSON output, diagnostics, and artifacts.
-- Practical APK handling: single APKs, split installs, `.apks`, `.xapk`, ABI inspection, package resolution, data reset, and OBB staging.
-- Better engineering foundations than most new CLI repositories: deterministic APK fixtures, package/release checks, a host integration lane, checksums, install/uninstall scripts, shell completions, performance guardrails, and run-summary HTML/JSON artifacts.
-- A useful positioning wedge: a narrow, scriptable local loop before a team needs a device cloud. This is meaningfully different from the broader Docker Android platform.
-
-### Why it is not yet a project people naturally star or share
-
-1. **The central claim is not publicly trusted yet.** The last six scheduled host-integration runs failed at the host-runtime/smoke step. A recurring red check against the main value proposition is more damaging than a missing feature. Locally, `cargo fmt`, Clippy, packaging, shell checks, and the focused integration suite pass, but `cargo test` is not portable to this macOS workspace because one unit test assumes Linux `/proc/<pid>/cmdline` exists.
-2. **The first successful outcome is hard to picture.** The README lists a lot of power, but starts with requirements and many modes. It has no terminal recording, no report screenshot, no tiny sample APK journey, no result card, and no before/after comparison. A visitor cannot see the payoff in the first 20 seconds.
-3. **Distribution makes promises it does not fully fulfil.** The installer accepts `aarch64`, while the release workflow and `v0.2.0` assets publish only `x86_64-unknown-linux-musl`. crates.io is prepared but not a shipped channel. The repository documentation setting still points at a `master` docs URL although the default branch is `main`.
-4. **Discovery and community are almost empty.** At this snapshot the public repository has 2 stars, 0 forks, 0 open issues, no GitHub topics, no Discussions, and a 57% GitHub community-health profile. It lacks issue and pull-request templates, a code of conduct, a security policy, contribution labels, and a clearly maintained public feedback path.
-5. **The repository contains distracting material.** `sample-pdfs/` and its helper scripts are unrelated to Android APK testing. They make a small repository look less intentional and reduce confidence in the project story.
-6. **The product surface is already broad enough.** Adding modes, flags, or a full UI-test DSL before proving activation would make the CLI harder to understand. The next gains must come from trust, activation, evidence, and reuse.
-
-## Delivery status -- 2026-08-26
-
-The implementation has been consolidated into [`v0.3.1`](https://github.com/OthmaneBlial/rustdroid/releases/tag/v0.3.1) rather than creating empty `v0.4.0` and `v0.5.0` tags. This status deliberately separates completed engineering work from external or time-based evidence that cannot honestly be manufactured.
-
-| Roadmap scope | Current state | Evidence and remaining gate |
+| Area | Current evidence | Honest gap |
 | --- | --- | --- |
-| P0 host trust | Implemented and manually verified | The host runner is isolated, schedules every Monday at 06:00 UTC, emits classified failure artifacts, and passed the three full manual host/smoke/performance runs linked below. Do not add a reliability badge until four consecutive scheduled runs pass. |
-| P0 release and proof | Released, with one external metadata action pending | [`v0.3.1`](https://github.com/OthmaneBlial/rustdroid/releases/tag/v0.3.1) ships the x86_64 Linux archive, portable checksum, clean-container installation proof, and provenance. The generated social-preview asset is ready; it still needs an explicit repository-settings upload confirmation. |
-| P1 onboarding and CI receipts | Implemented and verified | Reviewable `setup`, stable `doctor --json`, Linux quickstart/config examples, fresh-machine Android 35 fixture proof, schema v1 JSON/HTML/JUnit/Markdown receipts, and a pinned reusable action are present. |
-| P2 adoption and speed evidence | Implemented and verified | Three small public Gradle, Flutter, and Expo-prebuild sources now build the advertised APK paths. The first full matrix proof and the current action-runtime proof each built every source, launched it on Android 35 through the immutable action, and uploaded three passed receipts. Recipes, generated support matrix, dry-run plans, and benchmark receipts are checked into the repository. |
-| P3 contributor and security loop | Implemented and configured | Community health is 100%, Discussions and private vulnerability reporting are enabled, issue/PR templates and labelled starter work exist, and CodeQL, Dependabot, `cargo deny`, locked Expo dependency auditing, current Node 24-ready official Actions, and release-security checks run in CI. |
-| External adoption and public maturity | Intentionally unclaimed | Four weekly host runs, independent adopters, organic stars, community sharing, and user quotes require time and consent. They are success measures, not build artifacts, and remain tracked operating work. |
+| Product | APK, split APK, `.apks`, and `.xapk` inputs; host and Docker runtimes; install, launch, watch, logs, diagnostics, profiles, and receipts | Failed runs do not yet have one canonical, versioned receipt contract across every stage |
+| First success | Linux quickstart, non-destructive setup plan, public APK fixture, rewritten README, readable demo, and checked-in [real Gradle receipt](docs/receipts/reference-gradle.md) from `v0.3.1` | A new maintainer has not yet published a timed, consented fresh-machine onboarding session |
+| Public proof | Three public source stacks, reproducible timings, immutable action examples, release checksums, and successful Android 35/KVM runs | Independent user workflows and quotes still require real adopters and consent |
+| Distribution | Verified x86_64 Linux release plus source install and a reusable root action | GitHub Marketplace and crates.io are prepared paths, not published channels |
+| Community | 100% community-health files, Discussions, private vulnerability reporting, templates, and focused repository topics | The project still has 2 stars, 0 forks, and no verified external adopter |
+| Automation | Workflow definitions and prior passing evidence remain versioned | GitHub Actions are temporarily disabled in repository settings at the owner's request; no badge should imply a currently running default gate |
 
-### Current evidence links
+Recent public evidence includes the [September 1 Gradle/Flutter/Expo matrix](https://github.com/OthmaneBlial/rustdroid/actions/runs/33519017529), the earlier [fresh-machine contract](https://github.com/OthmaneBlial/rustdroid/actions/runs/32905479252), [pinned action contract](https://github.com/OthmaneBlial/rustdroid/actions/runs/32907241889), and three complete host proofs: [one](https://github.com/OthmaneBlial/rustdroid/actions/runs/32905475830), [two](https://github.com/OthmaneBlial/rustdroid/actions/runs/32907975602/attempts/2), and [three](https://github.com/OthmaneBlial/rustdroid/actions/runs/32915494009).
 
-- [First manual host proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32905475830), [second manual host proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32907975602/attempts/2), and [third manual host proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32915494009) each passed the complete host, smoke, and performance validation. [Fresh-machine proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32905479252) and [pinned action proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32907241889) cover their independent contracts.
-- [v0.3.1 release workflow](https://github.com/OthmaneBlial/rustdroid/actions/runs/32906999443): archive, checksum, clean-container install, and provenance all passed. The published archive and checksum were downloaded into a clean directory and verified with `sha256sum --check`; the provenance attestation verified the release workflow and tag.
-- [Public stack-fixture proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32911691564): Gradle, Flutter, and Expo prebuild each built its public source fixture, installed it, launched it on Android 35, and uploaded a passed JSON/HTML/JUnit/Markdown receipt.
-- [Node 24 action-runtime proof](https://github.com/OthmaneBlial/rustdroid/actions/runs/32913034524): the same public Gradle, Flutter, and Expo sources again built, installed, launched, and uploaded their three receipts after the `checkout` v6, `setup-java` v5, `setup-node` v6, and `upload-artifact` v7 migration. The run log contains no `Node.js 20 actions are deprecated` notice; this is a one-off compatibility proof, not a scheduled reliability claim.
-- The starter-work issues for doctor remediation, fixture documentation, and workflow contracts were implemented and closed in `5c0674b`.
+## Can this earn GitHub stars?
 
-## Product thesis
+Yes, the problem is real and the product has a credible wedge: developers already invest heavily in emulator provisioning, KVM, clean state, timeouts, ADB glue, and failure diagnosis. RustDroid can be useful because it accepts a built artifact without requiring a UI-test script and produces one normalized evidence bundle.
 
-### The one-sentence promise
+That does not justify a star forecast. Stars are a lagging signal, not a deliverable. RustDroid must first prove that unfamiliar users can install it, reach a receipt, understand failures, and reuse the action. External adoption is not a build artifact.
 
-**From an APK path to a reproducible local launch receipt in one command.**
+## What not to build or promote
 
-The winning experience is not merely "start an emulator." It is:
+- No UI assertion language, recorder, or attempt to replace Maestro, Appium, Espresso, or Gradle Managed Devices.
+- No remote device inventory, hosted dashboard, iOS promise, or imitation device farm.
+- No new backend until host and Docker receipt behavior are consistent and independently used.
+- No performance superlatives without a reproducible environment, sample count, and variance.
+- No reliability badge while repository automation is disabled or the scheduled evidence clock is paused.
+- No extra documentation page unless it removes a real onboarding ambiguity; prefer improving the first-install, troubleshooting, recipes, or receipt guides.
+- No package-manager badge before that package is live and a clean install has been verified.
+- No paid, automated, reciprocal, or otherwise synthetic stars. Do not promise a star count.
 
-```text
-APK path -> preflight -> boot/reuse -> install -> launch -> logs/artifacts -> clear result
+## P0 -- Make every result trustworthy
+
+### 1. One failure receipt contract
+
+Successful runs already emit JSON, HTML, JUnit, Markdown, and logs. The next product release should make failures equally portable.
+
+- Emit a canonical `run-summary.json` whenever RustDroid has enough context to do so, including failed preflight, emulator boot, ADB readiness, install, launch, crash/ANR, capture, and cleanup stages.
+- Add stable fields for `status`, `failure_stage`, `failure_classification`, safe error context, and the last completed stage.
+- Keep local paths, APK contents, tokens, and uncontrolled log excerpts out of the canonical JSON.
+- Render the same failure accurately in HTML, JUnit, and Markdown.
+- Add fixture-backed contracts for every failure class and reject unknown schema majors.
+
+**Done when:** a CI consumer can route or compare a failed run without scraping console text, and each supported failure class has a deterministic test.
+
+### 2. Prove first success on a clean Linux host
+
+- Record one silent, captioned, real terminal walkthrough from release install to public fixture receipt.
+- Measure time to first receipt separately from Android SDK/AVD provisioning time.
+- Validate every copied command from a clean checkout and the published release archive.
+- Keep the current generated walkthrough as a readable overview, but label generated and recorded proof distinctly.
+
+**Done when:** an unfamiliar Linux user can follow one page without choosing a backend, profile, artifact format, or report format before the first pass.
+
+### 3. Re-enable automation intentionally
+
+This is an owner-controlled gate. Until it happens, local validation is mandatory before every push.
+
+- Re-enable GitHub Actions only when the owner wants automated gates again.
+- Start with fast checks, dependency security, and the action contract; schedule expensive emulator matrices separately.
+- Require four consecutive scheduled host runs before restoring a reliability badge.
+- Preserve actionable artifacts for emulator, ADB, install, launch, capture, and infrastructure failures.
+
+**Done when:** the enabled default checks are useful, consistently maintained, and do not advertise reliability beyond their evidence.
+
+## P1 -- Put RustDroid where Android CI is assembled
+
+### 1. GitHub Marketplace
+
+The existing composite action is the best-fit distribution surface because it places the receipt contract beside Android emulator provisioning.
+
+- Validate one copyable consumer workflow from APK build through KVM/AVD provisioning, RustDroid, and artifact upload.
+- Keep the listing narrow: install/launch evidence on a prepared Linux/KVM runner.
+- Confirm a unique Marketplace name, category, tagged release, two-factor authentication, and the Marketplace Developer Agreement.
+- Publish only after the owner completes those account-level gates.
+
+**Done when:** a repository that does not contain RustDroid source can add the action from Marketplace and receive a passed receipt from its own APK.
+
+### 2. crates.io
+
+- Re-check the live crate name immediately before publication.
+- Inspect `cargo package --list`, run `cargo publish --dry-run`, and verify the package stays within registry limits.
+- Align the crate version, Git tag, release notes, and tested source install.
+- Treat the token and irreversible publication decision as maintainer-only actions.
+
+**Done when:** `cargo install rustdroid --locked` succeeds from a clean supported environment and the README can truthfully show the command.
+
+### 3. Defer low-signal packaging
+
+- Keep GitHub Releases as the binary source of truth.
+- Add GHCR only if a measured Docker workflow becomes materially simpler.
+- Add a Homebrew tap only after repeated user requests; do not pursue Homebrew Core as an early discovery tactic.
+
+## P2 -- Earn independent workflows
+
+- Help three external repositories produce a receipt from Gradle, Flutter, Expo/React Native, or an artifact-only pipeline.
+- Ask for the smallest shareable receipt or issue link, never a private APK or private logs.
+- Convert each consented setup failure into a troubleshooting improvement or stable diagnostic ID.
+- Publish focused technical material: KVM/emulator diagnosis, artifact-to-receipt CI, split APK handling, and failure-receipt design.
+- Measure successful third-party receipts, repeat users, actionable issues, and accepted integrations before referral traffic or stars.
+
+**Done when:** three independent workflows are publicly verifiable and at least one contribution or documentation correction comes from outside the owner account.
+
+## P3 -- Improve the artifact gate without broadening it
+
+Consider these only after P0 evidence is complete:
+
+- A fast `inspect` path that reports package, launcher, ABI, splits, digest, and archive structure without booting an emulator.
+- Receipt comparison that highlights environment drift and stage-duration changes without uploading data.
+- Redaction controls and a receipt privacy audit for teams that upload logs.
+- A stable machine-readable capability command for integrations and package managers.
+
+Do not turn these into a general Android automation platform.
+
+## Measures
+
+Review monthly and publish only evidence that can be linked or reproduced.
+
+| Measure | Why it matters | Evidence |
+| --- | --- | --- |
+| Time to first receipt | Tests whether onboarding is actually short | Timed clean-machine session with environment details |
+| Receipt completion rate by stage | Shows where users get stuck | Redacted, consented issues or CI workflows |
+| Independent workflows | Proves reuse outside the owner repository | Public links or maintainer-confirmed examples |
+| Repeat usage | Separates a trial from a useful tool | Returning workflow runs or follow-up reports |
+| Action/package installs | Validates distribution choices | Marketplace/registry data after publication |
+| Stars and forks | Useful attention signal only | GitHub insights, interpreted after activation evidence |
+
+## Local release gate while Actions are disabled
+
+Run from a clean checkout before pushing product or release changes:
+
+```bash
+cargo fmt --check
+cargo clippy --all-targets --locked -- -D warnings
+cargo test --locked
+./scripts/ci-shell-check.sh
+node --check site/app.js
+node --check site/docs.js
 ```
 
-The result should be useful to three audiences:
-
-- Android developers who need a fast loop after every local build.
-- Mobile CI owners who need an inexpensive pre-cloud smoke check with inspectable artifacts.
-- Maintainers/reverse engineers validating APK, split APK, or XAPK artifacts without opening Android Studio.
-
-### Explicit non-goals
-
-- Do not become a remote device farm, an iOS tool, or a general Android automation platform.
-- Do not compete with Appium, Maestro, or Firebase Test Lab by building a second UI-test language.
-- Do not add invisible telemetry, paid-hosting dependencies, or a browser-first path to manufacture growth.
-- Do not buy stars, automate engagement, or publish performance claims without a reproducible benchmark and environment details.
-
-## Success measures
-
-Metrics are decision tools, not promises. Review them monthly and publish only the evidence that can be verified.
-
-| Area | 90-day target | Evidence |
-| --- | --- | --- |
-| Trust | Four consecutive green scheduled host runs; no known red default workflow | Actions history and linked failure artifacts |
-| Activation | A clean supported Linux machine reaches a verified fixture run in 10 minutes or less | Fresh-machine CI/checklist and recorded walkthrough |
-| Install quality | Every advertised architecture either receives a tested release archive or a clear, intentional source-only message | Release matrix and install tests |
-| Reuse | Three public repositories or maintainers report using the workflow or action | Linked issues, discussions, or public references |
-| Community | 90%+ community-health profile, three external feedback/contribution events, and labelled starter issues | GitHub community profile and issue history |
-| Attention | 50 genuine stars is a useful early signal; pursue larger reach only after activation and trust are proven | GitHub repository insights, never paid or synthetic growth |
-
-## Roadmap
-
-### P0 -- Restore trust and make the payoff visible (next release, `v0.3.0`)
-
-#### 1. Make the host fast path credibly green
-
-This is the release blocker.
-
-- Reproduce the scheduled `host-integration` failure locally or in an isolated Actions run. Preserve the failing `run-summary`, emulator log, logcat, and workflow log in the issue that tracks it.
-- Fix the root cause, then require three manual reruns plus four scheduled weekly runs to pass before advertising a host-integration badge.
-- Keep the fast checks and host lane separate, but do not let a permanently red scheduled lane silently normalize. If a hosted runner limitation remains, report it explicitly and make the failure artifact/actionable fallback obvious.
-- Make the `/proc`-dependent unit test platform-aware or inject the process reader so `cargo test` is useful on supported contributor hosts. Linux remains the runtime target; contributors should not see a misleading test failure on macOS.
-- Add a minimal failure taxonomy to host artifacts: emulator boot, ADB bridge, APK install, launch/foreground, log capture, cleanup, or infrastructure.
-
-**Done when:** the default CI is green, the host history demonstrates reliability, and a failure gives a contributor an actionable reason rather than a generic timeout.
-
-#### 2. Align release, installer, and support claims
-
-- Decide the support matrix publicly: either ship and test `aarch64-unknown-linux-musl`, or state `x86_64 Linux` as the only binary-release target and guide ARM users to a tested source build.
-- Add clean-container install verification for every release asset, checksum verification, `rustdroid version`, `doctor`, completion generation, and `rustdroid-run help`.
-- Publish to crates.io only after a live name-availability check and a tagged, verified release; otherwise describe the channel as "planned", never "ready".
-- Add build provenance/attestation to release artifacts and keep checksums alongside every archive.
-- Correct the public documentation URL, homepage metadata, social preview, and repository topics: `android`, `android-emulator`, `apk`, `adb`, `mobile-testing`, `devtools`, `rust`, `cli`, `github-actions`.
-
-**Done when:** every install instruction resolves to a real tested artifact or a precise fallback, and the GitHub sidebar contains no stale links.
-
-#### 3. Replace the feature list with a 45-second proof
-
-- Rework the README opening around the outcome: "APK path in; launch receipt out." Put the host-fast path first, with Docker described as an optional reproducible backend.
-- Add a short, captioned terminal recording/GIF showing `doctor`, a fixture run, a success receipt, and the generated HTML/JSON artifact. Keep it under a minute and readable without sound.
-- Add one copyable “I have an APK” command, one “I build with Gradle” command, and one “I need CI artifacts” command. Each must use a command tested in CI.
-- Commit a small, purpose-built demo/fixture journey and a golden result screenshot. Do not require Android Studio or a private APK to see the product working.
-- Move unrelated `sample-pdfs/` material out of the repository after confirming it is not part of a documented release contract. Replace it only with APK-relevant fixtures or examples.
-- Add honest badges only for workflows that are presently green, the latest release, license, and Rust version. Avoid vanity badges.
-
-**Done when:** a new visitor can understand the problem, see the output, and run a documented fixture flow without choosing among ten modes.
-
-### P1 -- Make first use boringly successful (`v0.4.0`)
-
-#### 4. Deliver a supported-machine onboarding path
-
-- Write a distro-specific quickstart for Ubuntu/Debian and Fedora: KVM permissions, Android command-line tools, emulator image/AVD creation, `adb`, `aapt`/`apkanalyzer`, and optional `scrcpy`.
-- Provide a non-destructive `rustdroid setup`/bootstrap experience only if it can explain every proposed change before applying it. A generated shell plan is safer than hidden `sudo` automation.
-- Extend `doctor --json` with stable check IDs, remediation commands, the selected backend, and an explicit distinction between mandatory and optional tools.
-- Create a fresh-machine contract test that installs the documented dependencies, creates the required AVD, and runs a fixture. It may be scheduled or manually dispatched if it is expensive.
-- Explain project config ownership: checked-in `.rustdroid.toml` examples for host-fast, headless CI, and low-RAM environments, plus precedence rules for flags, environment variables, and profiles.
-
-**Done when:** an Android developer can reach one verified run from a clean supported Linux machine without guessing which tool or AVD is missing.
-
-#### 5. Turn receipts into a reusable CI primitive
-
-- Define a stable, versioned run-receipt schema for JSON and HTML: input digest, emulator/API/profile, timings, package/activity, pass/fail classification, links to logs, and tool version. Never expose APK contents or private paths by default.
-- Add optional JUnit output and a concise Markdown job summary so CI systems can mark a smoke test as passed or failed without parsing human logs.
-- Provide a tested `action.yml` or a small dedicated composite action that installs RustDroid, accepts an APK path/profile, uploads the receipt, and works on the documented Linux/KVM runner shape.
-- Demonstrate the action against one open reference Android project or a public fixture project. Pin action versions and test the exact `uses:` snippet.
-
-**Done when:** a repository can adopt RustDroid with one documented CI step and receive useful failure evidence in the same run.
-
-### P2 -- Grow the useful ecosystem without diluting the core (`v0.5.0`)
-
-#### 6. Publish reference workflows, not speculative integrations
-
-- Maintain small, executable examples for a Gradle Android app, Flutter APK output, and React Native/Expo prebuilt APK output. Each should explain the APK path and run the same receipt contract.
-- Add recipe pages for split APKs, `.apks`, `.xapk`, cold vs warm startup checks, crash/ANR triage, and running an existing Maestro/Appium command after RustDroid has prepared the emulator.
-- Publish a transparent support matrix for backend, API image, ABI, UI mode, and CI runner. Generate it from tested combinations where possible.
-- Add a `--dry-run`/plan view wherever an operation can create, remove, or reuse state, and make cleanup ownership obvious.
-
-**Done when:** users can recognize their stack in an example and adopt the project without asking whether it replaces their entire test framework.
-
-#### 7. Make speed claims reproducible and comparable
-
-- Version the benchmark environment: host CPU class, Linux image, Android API image, AVD configuration, cold/warm state, APK fixture, and command line.
-- Publish a small benchmark table in each release: boot, install, launch, total, and variance. Compare host-fast with Docker only when the hardware and conditions are equivalent.
-- Add an opt-in benchmark command that writes a receipt; never collect machine data remotely.
-- Investigate snapshot reuse, APK fingerprinting, and incremental reinstall only when measurements show a user-visible win and correctness stays intact.
-
-**Done when:** "fast" means a contributor can rerun and challenge the measurement, not just read a claim.
-
-### P3 -- Build a contributor and distribution loop (continuous)
-
-#### 8. Make contribution safe and inviting
-
-- Add `CODE_OF_CONDUCT.md`, `SECURITY.md`, `SUPPORT.md`, issue forms for bug reports, environment/setup failures, and feature proposals, plus a pull-request template.
-- Label and document starter work: `good first issue`, `help wanted`, `docs`, `ci`, `host-runtime`, `fixtures`, and `release`. Every starter issue needs scope, acceptance criteria, and a reproducible command.
-- Enable GitHub Discussions for setup questions and workflow recipes; reserve Issues for reproducible defects and accepted work. Publish a respectful response expectation instead of pretending to provide 24/7 support.
-- Add dependency/security maintenance appropriate for a Rust CLI: CodeQL, Dependabot/Renovate, `cargo deny` or equivalent license/advisory checks, and a release-security checklist.
-
-**Done when:** an outside developer knows where to ask, report, contribute, and disclose a security issue without reading the whole codebase first.
-
-#### 9. Distribute proof where the right developers already learn
-
-- Ship `v0.3.0` with a one-command demo, a screenshot, a clear changelog, and a short release post focused on the problem it removes.
-- Write one technically useful comparison: the local host fast loop versus manually wiring an Android emulator or a broader Docker Android stack. Show commands, environment, limits, and measurements; do not attack alternatives.
-- Share the evidence in relevant Rust, Android, mobile CI, and self-hosted tooling communities only where the community rules allow it. Lead with the reproducible demo or a useful troubleshooting lesson, not “please star my repo.”
-- Ask early users for a concrete reference workflow, issue, or short quote. Add public “used by” entries only with permission and an actual link.
-- Treat every release, recipe, benchmark, and solved setup issue as reusable content. A maintainable evidence library compounds better than one launch post.
-
-**Done when:** discovery brings people to a verified use case, and each new user can produce feedback that makes the next user's path shorter.
-
-## Release and maturity gates
-
-| Release | Purpose | Required proof |
-| --- | --- | --- |
-| `v0.3.1` | Consolidated trust, activation, and reference-workflow release | Green verified release; aligned x86_64/source-only ARM claims; fixture proof; fresh-machine proof; receipt action; stack-specific templates; portable checksum and provenance |
-| Next feature release, if warranted | Improvements driven by real feedback | A scoped user problem, testable acceptance criteria, and updated evidence; do not cut a version merely to match a roadmap label |
-| `v1.0.0` | Public maturity | Four healthy host runs, supported install matrix, durable release/security process, external use evidence, no known P0 activation or data-loss defect |
-
-Do not cut `v1.0.0` because the feature list feels long. Cut it only when a new user can install, run, understand a failure, and adopt RustDroid in CI with public evidence.
-
-## Operating cadence from here
-
-1. Let the scheduled host lane collect four healthy weekly runs; investigate any failure through its uploaded taxonomy before changing product claims.
-2. Keep `v0.3.1` as the verified install target. Do not publish crates.io until a separately reviewed live publication decision and name-availability check.
-3. Upload the prepared social preview only after explicit approval, then verify the GitHub sidebar shows it.
-4. Share the reproducible release proof where community rules permit, and record only independently verifiable adoption, quotes, and workflow links.
-5. Cut the next release only in response to a concrete, reproduced user problem.
-
-This order still postpones new emulator modes and “viral” features. A small Android developer tool becomes recommendable when its first run is obvious, its failures are explainable, and its evidence is trustworthy.
+Host-emulator, package-container, release-attestation, Marketplace, crates.io, and independent-adopter gates remain separate. A green local suite cannot substitute for them.

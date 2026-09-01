@@ -198,20 +198,19 @@ fn roadmap_distinguishes_delivery_from_external_evidence() {
     let roadmap = std::fs::read_to_string("ROADMAP.md").expect("read roadmap");
 
     for snippet in [
-        "## Delivery status -- 2026-08-26",
+        "## Current snapshot -- 2026-09-01",
         "v0.3.1",
-        "Do not add a reliability badge until four consecutive scheduled runs pass.",
-        "External adoption and public maturity",
-        "success measures, not build artifacts",
-        "prepared social preview only after explicit approval",
-        "First manual host proof",
-        "second manual host proof",
-        "third manual host proof",
+        "GitHub Actions are temporarily disabled",
+        "External adoption is not a build artifact.",
+        "Do not promise a star count.",
+        "## P0 -- Make every result trustworthy",
+        "## P1 -- Put RustDroid where Android CI is assembled",
+        "GitHub Marketplace",
+        "crates.io",
+        "33519017529",
         "32905475830",
         "32907975602/attempts/2",
         "32915494009",
-        "32911691564",
-        "32913034524",
     ] {
         assert!(
             roadmap.contains(snippet),
