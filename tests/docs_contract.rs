@@ -151,6 +151,26 @@ fn static_site_ships_local_docs_and_subpath_safe_assets() {
 }
 
 #[test]
+fn receipt_schema_documents_safe_cross_format_failure_results() {
+    let schema =
+        std::fs::read_to_string("docs/receipt-schema-v1.md").expect("read receipt schema guide");
+
+    for snippet in [
+        "`failure_stage`",
+        "`last_completed_stage`",
+        "`error_summary`",
+        "`input_preflight`",
+        "one failed testcase",
+        "do not currently produce a run receipt",
+    ] {
+        assert!(
+            schema.contains(snippet),
+            "receipt schema must document {snippet}"
+        );
+    }
+}
+
+#[test]
 fn troubleshooting_and_fixture_guides_preserve_their_public_contracts() {
     let troubleshooting =
         std::fs::read_to_string("docs/troubleshooting.md").expect("read troubleshooting guide");

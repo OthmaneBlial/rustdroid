@@ -8,7 +8,7 @@ This roadmap is about activation, trust, and reuse. RustDroid already has a broa
 
 | Area | Current evidence | Honest gap |
 | --- | --- | --- |
-| Product | APK, split APK, `.apks`, and `.xapk` inputs; host and Docker runtimes; install, launch, watch, logs, diagnostics, profiles, and receipts | Failed runs do not yet have one canonical, versioned receipt contract across every stage |
+| Product | APK, split APK, `.apks`, and `.xapk` inputs; host and Docker runtimes; install, launch, watch, logs, diagnostics, profiles, and passed/failed receipts | Input-preflight failure is fixture-tested; the remaining failure stages still need deterministic end-to-end fixtures, and backend connection can fail before the orchestrator owns a receipt directory |
 | First success | Linux quickstart, non-destructive setup plan, public APK fixture, rewritten README, readable demo, and checked-in [real Gradle receipt](docs/receipts/reference-gradle.md) from `v0.3.1` | A new maintainer has not yet published a timed, consented fresh-machine onboarding session |
 | Public proof | Three public source stacks, reproducible timings, immutable action examples, release checksums, and successful Android 35/KVM runs | Independent user workflows and quotes still require real adopters and consent |
 | Distribution | Verified x86_64 Linux release plus source install and a reusable root action | GitHub Marketplace and crates.io are prepared paths, not published channels |
@@ -39,6 +39,8 @@ That does not justify a star forecast. Stars are a lagging signal, not a deliver
 ### 1. One failure receipt contract
 
 Successful runs already emit JSON, HTML, JUnit, Markdown, and logs. The next product release should make failures equally portable.
+
+The current implementation writes a path-free schema-v1 failure receipt after backend selection and fixture-tests the `input_preflight` path. The remaining work below is broader stage coverage, not a claim that failure receipts are absent.
 
 - Emit a canonical `run-summary.json` whenever RustDroid has enough context to do so, including failed preflight, emulator boot, ADB readiness, install, launch, crash/ANR, capture, and cleanup stages.
 - Add stable fields for `status`, `failure_stage`, `failure_classification`, safe error context, and the last completed stage.

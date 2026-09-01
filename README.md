@@ -197,6 +197,8 @@ Use `rustdroid --help` for every command and flag. Checked-in settings are expla
 
 A passed RustDroid receipt proves that the recorded Android artifact was inspected, installed, launched, and observed on the recorded emulator path. It does **not** prove that every screen, business flow, device model, permission path, accessibility behavior, or production environment works.
 
+When `run` reaches the orchestrator and an artifact directory is requested, a failed input preflight, emulator boot, install, launch, runtime observation, log capture, or cleanup now writes the same JSON/HTML/JUnit/Markdown contract with a stable failure stage. Parsing, configuration, or backend-connection errors can still happen before a receipt directory is owned.
+
 Generated logs can contain application data. RustDroid keeps runs local by default and records file names, sizes, and SHA-256 input digests rather than absolute APK paths, but you should still restrict who can read uploaded CI artifacts.
 
 See the [receipt schema](docs/receipt-schema-v1.md), [support scope](docs/support-scope.md), and [fixture testing contract](docs/fixture-testing.md) for the precise boundaries.

@@ -1,5 +1,6 @@
 mod common;
 
+use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -65,6 +66,50 @@ fn dry_run_prints_a_runtime_plan_without_needing_an_emulator() {
     assert_output_contains(&output, "\"dry_run\": true");
     assert_output_contains(&output, "\"host\"");
     assert_output_contains(&output, "start or reuse an emulator");
+}
+
+#[test]
+fn missing_input_writes_a_safe_failure_receipt_before_runtime_start() {
+    let context = TestContext::new();
+    let artifacts_dir = context
+        .config_path
+        .parent()
+        .expect("test config should have a parent")
+        .join("failure-artifacts");
+    let private_input = context
+        .config_path
+        .parent()
+        .expect("test config should have a parent")
+        .join("private-missing.apk");
+    let output = run_command(rustdroid_command(&context).args([
+        "--runtime-backend",
+        "host",
+        "run",
+        private_input.to_str().expect("UTF-8 fixture path"),
+        "--artifacts-dir",
+        artifacts_dir.to_str().expect("UTF-8 artifact path"),
+        "--keep-alive",
+        "false",
+    ]));
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_output_contains(&output, "status=failed");
+    assert_output_contains(&output, "failure_stage=input_preflight");
+
+    let summary = fs::read_to_string(artifacts_dir.join("run-summary.json"))
+        .expect("failure summary should exist");
+    assert!(summary.contains("\"status\": \"failed\""));
+    assert!(summary.contains("\"failure_stage\": \"input_preflight\""));
+    assert!(summary.contains("\"failure_classification\": \"input\""));
+    assert!(summary.contains("the Android artifact could not be prepared"));
+    assert!(!summary.contains(private_input.to_string_lossy().as_ref()));
+
+    let junit =
+        fs::read_to_string(artifacts_dir.join("junit.xml")).expect("failure JUnit should exist");
+    assert!(junit.contains("failures=\"1\""));
+    assert!(junit.contains("<failure type=\"input\""));
+    assert!(artifacts_dir.join("run-report.html").is_file());
+    assert!(artifacts_dir.join("run-summary.md").is_file());
 }
 
 #[test]

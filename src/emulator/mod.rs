@@ -82,7 +82,10 @@ pub struct RunSummary {
     pub schema_version: u8,
     pub tool_version: String,
     pub status: String,
+    pub failure_stage: Option<String>,
     pub failure_classification: String,
+    pub last_completed_stage: Option<String>,
+    pub error_summary: Option<String>,
     pub profile: Option<String>,
     pub runtime_backend: String,
     pub emulator: ReceiptEmulator,
@@ -143,6 +146,35 @@ struct RunArtifacts {
     anr_summary: Option<String>,
     anr_traces: Option<String>,
     tombstones: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct RunProgress {
+    inputs: Vec<ReceiptInput>,
+    metadata: Option<ApkMetadata>,
+    boot_duration_ms: u128,
+    install_duration_ms: u128,
+    launch_duration_ms: u128,
+    last_completed_stage: Option<&'static str>,
+}
+
+#[derive(Debug, Clone)]
+struct RunCompletion {
+    status: String,
+    failure_stage: Option<String>,
+    failure_classification: String,
+    error_summary: Option<String>,
+    api_level: Option<String>,
+    crash_summary: Option<String>,
+    anr_summary: Option<String>,
+    total_duration_ms: u128,
+}
+
+#[derive(Debug)]
+struct RunFailure {
+    stage: &'static str,
+    classification: &'static str,
+    error: anyhow::Error,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -248,31 +280,119 @@ impl EmulatorOrchestrator {
     }
 
     pub async fn run(&self, args: RunArgs) -> Result<()> {
-        let prepared = PreparedApkSet::from_inputs(&args.apks)?;
-        let inputs = build_receipt_inputs(&args.apks)?;
         let artifacts_dir = args
             .artifacts_dir
             .as_ref()
             .cloned()
             .or_else(|| self.config.artifacts_dir.as_ref().map(PathBuf::from));
         let total_started = Instant::now();
+        let mut progress = RunProgress::default();
+
+        let prepared = match PreparedApkSet::from_inputs(&args.apks) {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                return self
+                    .finish_failed_run(
+                        &args,
+                        artifacts_dir.as_deref(),
+                        total_started,
+                        &progress,
+                        RunFailure {
+                            stage: "input_preflight",
+                            classification: "input",
+                            error,
+                        },
+                    )
+                    .await;
+            }
+        };
+        progress.inputs = match build_receipt_inputs(&args.apks) {
+            Ok(inputs) => inputs,
+            Err(error) => {
+                return self
+                    .finish_failed_run(
+                        &args,
+                        artifacts_dir.as_deref(),
+                        total_started,
+                        &progress,
+                        RunFailure {
+                            stage: "input_preflight",
+                            classification: "input",
+                            error,
+                        },
+                    )
+                    .await;
+            }
+        };
+        progress.last_completed_stage = Some("input_preflight");
 
         eprintln!("==> starting emulator on {}", self.runtime_backend_name());
         let boot_started = Instant::now();
-        self.start_device(true, true).await?;
-        let boot_duration_ms = boot_started.elapsed().as_millis();
+        if let Err(error) = self.start_device(true, true).await {
+            return self
+                .finish_failed_run(
+                    &args,
+                    artifacts_dir.as_deref(),
+                    total_started,
+                    &progress,
+                    RunFailure {
+                        stage: "emulator_boot",
+                        classification: "emulator",
+                        error,
+                    },
+                )
+                .await;
+        }
+        progress.boot_duration_ms = boot_started.elapsed().as_millis();
+        progress.last_completed_stage = Some("emulator_boot");
 
         eprintln!("==> installing package set");
         let install_started = Instant::now();
-        let install = self.install_prepared_apks(&prepared, args.replace).await?;
-        let install_duration_ms = install_started.elapsed().as_millis();
+        let install = match self.install_prepared_apks(&prepared, args.replace).await {
+            Ok(install) => install,
+            Err(error) => {
+                return self
+                    .finish_failed_run(
+                        &args,
+                        artifacts_dir.as_deref(),
+                        total_started,
+                        &progress,
+                        RunFailure {
+                            stage: "apk_install",
+                            classification: "install",
+                            error,
+                        },
+                    )
+                    .await;
+            }
+        };
+        progress.install_duration_ms = install_started.elapsed().as_millis();
+        progress.metadata = Some(install.metadata.clone());
+        progress.last_completed_stage = Some("apk_install");
 
         eprintln!("==> launching {}", install.metadata.package_name);
         let launch_started = Instant::now();
-        self.adb
+        if let Err(error) = self
+            .adb
             .launch_app(&self.runtime, &self.config, &install.metadata)
-            .await?;
-        let launch_duration_ms = launch_started.elapsed().as_millis();
+            .await
+        {
+            return self
+                .finish_failed_run(
+                    &args,
+                    artifacts_dir.as_deref(),
+                    total_started,
+                    &progress,
+                    RunFailure {
+                        stage: "app_launch",
+                        classification: "launch",
+                        error,
+                    },
+                )
+                .await;
+        }
+        progress.launch_duration_ms = launch_started.elapsed().as_millis();
+        progress.last_completed_stage = Some("app_launch");
 
         let stream_result = logs::stream(
             &self.runtime,
@@ -286,7 +406,6 @@ impl EmulatorOrchestrator {
         )
         .await;
 
-        let total_duration_ms = total_started.elapsed().as_millis();
         let (message_crash_summary, message_anr_summary) = stream_result
             .as_ref()
             .err()
@@ -294,8 +413,10 @@ impl EmulatorOrchestrator {
             .unwrap_or((None, None));
 
         let mut artifacts = RunArtifacts::default();
+        let mut artifact_collection_failed = false;
         if artifacts_dir.is_some() {
-            artifacts = self.collect_run_artifacts().await?;
+            (artifacts, artifact_collection_failed) =
+                self.collect_run_artifacts_best_effort(true).await;
         }
 
         let crash_summary = message_crash_summary.or_else(|| {
@@ -311,59 +432,78 @@ impl EmulatorOrchestrator {
                 .and_then(extract_logcat_anr_summary)
         });
 
-        let emulator = ReceiptEmulator {
-            adb_serial: self.config.adb_serial.clone(),
-            avd_name: self.config.host_avd_name.clone(),
-            api_level: self
-                .adb
-                .get_property(&self.runtime, &self.config, "ro.build.version.sdk")
-                .await,
-            device: self.config.device.clone(),
-            headless: self.config.effective_emulator_headless(),
-            gpu_mode: self.config.emulator_gpu_mode.clone(),
-        };
-        let receipt_artifacts = artifacts_dir.as_ref().map(|_| ReceiptArtifacts {
-            json: "run-summary.json".to_owned(),
-            html: "run-report.html".to_owned(),
-            junit: "junit.xml".to_owned(),
-            markdown_summary: "run-summary.md".to_owned(),
-            logcat: artifacts
-                .logcat_dump
-                .as_ref()
-                .map(|_| "logcat.txt".to_owned()),
-            emulator_process_log: artifacts
-                .process_logs
-                .as_ref()
-                .map(|_| "emulator-process.log".to_owned()),
+        let mut failure = stream_result.as_ref().err().map(|_| {
+            if anr_summary.is_some() {
+                (
+                    "app_runtime",
+                    "anr",
+                    "an application-not-responding signal was detected",
+                )
+            } else if crash_summary.is_some() {
+                (
+                    "app_runtime",
+                    "crash",
+                    "an application crash signal was detected",
+                )
+            } else {
+                (
+                    "log_capture",
+                    "capture",
+                    "runtime log capture did not complete successfully",
+                )
+            }
         });
-        let summary = RunSummary {
-            schema_version: 1,
-            tool_version: env!("CARGO_PKG_VERSION").to_owned(),
-            status: "passed".to_owned(),
-            failure_classification: "none".to_owned(),
-            profile: self.config.active_profile.clone(),
-            runtime_backend: self.runtime_backend_name().to_owned(),
-            emulator,
-            package_name: install.metadata.package_name.clone(),
-            launchable_activity: install.metadata.launchable_activity.clone(),
-            native_abis: install.metadata.native_abis.clone(),
-            x86_ready: install
-                .metadata
-                .native_abis
-                .iter()
-                .any(|abi| abi.starts_with("x86")),
-            uses_arm_translation: install.metadata.uses_arm_translation_on_x86_emulator(),
-            gps_disabled: !self.config.emulator_enable_gps,
-            boot_duration_ms,
-            install_duration_ms,
-            launch_duration_ms,
-            total_duration_ms,
-            kept_alive: args.keep_alive,
-            crash_summary,
-            anr_summary,
-            inputs,
-            artifacts: receipt_artifacts,
+        if failure.is_none() && artifact_collection_failed {
+            failure = Some((
+                "artifact_capture",
+                "capture",
+                "one or more requested runtime artifacts could not be collected",
+            ));
+        }
+
+        let api_level = self
+            .adb
+            .get_property(&self.runtime, &self.config, "ro.build.version.sdk")
+            .await;
+        let cleanup_result = if !args.keep_alive {
+            eprintln!("==> stopping runtime because --keep-alive=false");
+            self.runtime.stop(&self.config, 15).await
+        } else {
+            Ok(())
         };
+        if cleanup_result.is_err() {
+            if failure.is_none() {
+                failure = Some((
+                    "cleanup",
+                    "cleanup",
+                    "runtime cleanup did not complete successfully",
+                ));
+            } else {
+                eprintln!("warning: runtime cleanup also failed after an earlier run failure");
+            }
+        }
+        let (status, failure_stage, failure_classification, error_summary) = failure.map_or_else(
+            || ("passed", None, "none", None),
+            |(stage, classification, summary)| {
+                ("failed", Some(stage), classification, Some(summary))
+            },
+        );
+        let summary = self.build_run_summary(
+            &args,
+            &progress,
+            artifacts_dir.as_deref(),
+            &artifacts,
+            RunCompletion {
+                status: status.to_owned(),
+                failure_stage: failure_stage.map(str::to_owned),
+                failure_classification: failure_classification.to_owned(),
+                error_summary: error_summary.map(str::to_owned),
+                api_level,
+                crash_summary,
+                anr_summary,
+                total_duration_ms: total_started.elapsed().as_millis(),
+            },
+        );
 
         if let Some(artifacts_dir) = artifacts_dir.as_ref() {
             write_run_artifacts(
@@ -386,12 +526,169 @@ impl EmulatorOrchestrator {
 
         print_run_summary(&summary);
 
-        if !args.keep_alive {
-            eprintln!("==> stopping runtime because --keep-alive=false");
-            self.runtime.stop(&self.config, 15).await?;
+        stream_result?;
+        if artifact_collection_failed {
+            bail!("one or more requested runtime artifacts could not be collected");
+        }
+        cleanup_result
+    }
+
+    async fn finish_failed_run(
+        &self,
+        args: &RunArgs,
+        artifacts_dir: Option<&Path>,
+        total_started: Instant,
+        progress: &RunProgress,
+        failure: RunFailure,
+    ) -> Result<()> {
+        let RunFailure {
+            stage: failure_stage,
+            classification: failure_classification,
+            error,
+        } = failure;
+        let device_ready = matches!(
+            progress.last_completed_stage,
+            Some("emulator_boot" | "apk_install" | "app_launch")
+        );
+        let artifacts = if artifacts_dir.is_some() && failure_stage != "input_preflight" {
+            self.collect_run_artifacts_best_effort(device_ready).await.0
+        } else {
+            RunArtifacts::default()
+        };
+        let api_level = if device_ready {
+            self.adb
+                .get_property(&self.runtime, &self.config, "ro.build.version.sdk")
+                .await
+        } else {
+            None
+        };
+
+        if !args.keep_alive && failure_stage != "input_preflight" {
+            if let Err(cleanup_error) = self.runtime.stop(&self.config, 15).await {
+                eprintln!(
+                    "warning: failed to clean up runtime after {failure_stage}: {cleanup_error}"
+                );
+            }
         }
 
-        stream_result
+        let crash_summary = artifacts
+            .logcat_dump
+            .as_deref()
+            .and_then(extract_logcat_crash_summary);
+        let anr_summary = artifacts
+            .logcat_dump
+            .as_deref()
+            .and_then(extract_logcat_anr_summary);
+        let summary = self.build_run_summary(
+            args,
+            progress,
+            artifacts_dir,
+            &artifacts,
+            RunCompletion {
+                status: "failed".to_owned(),
+                failure_stage: Some(failure_stage.to_owned()),
+                failure_classification: failure_classification.to_owned(),
+                error_summary: Some(safe_failure_summary(failure_stage).to_owned()),
+                api_level,
+                crash_summary,
+                anr_summary,
+                total_duration_ms: total_started.elapsed().as_millis(),
+            },
+        );
+
+        if let Some(artifacts_dir) = artifacts_dir {
+            if let Err(receipt_error) = write_run_artifacts(
+                artifacts_dir,
+                &summary,
+                &RunArtifacts {
+                    crash_summary: summary.crash_summary.clone(),
+                    anr_summary: summary.anr_summary.clone(),
+                    ..artifacts
+                },
+            ) {
+                eprintln!("warning: failed to write the {failure_stage} receipt: {receipt_error}");
+            }
+        }
+        if let Some(path) = args.junit_path.as_ref() {
+            if let Err(receipt_error) = write_optional_report(path, &build_junit_report(&summary)) {
+                eprintln!("warning: failed to write failure JUnit report: {receipt_error}");
+            }
+        }
+        if let Some(path) = args.markdown_summary_path.as_ref() {
+            if let Err(receipt_error) =
+                write_optional_report(path, &build_markdown_summary(&summary))
+            {
+                eprintln!("warning: failed to write failure Markdown report: {receipt_error}");
+            }
+        }
+        print_run_summary(&summary);
+        Err(error)
+    }
+
+    fn build_run_summary(
+        &self,
+        args: &RunArgs,
+        progress: &RunProgress,
+        artifacts_dir: Option<&Path>,
+        artifacts: &RunArtifacts,
+        completion: RunCompletion,
+    ) -> RunSummary {
+        let metadata = progress.metadata.as_ref();
+        let native_abis = metadata
+            .map(|metadata| metadata.native_abis.clone())
+            .unwrap_or_default();
+        let receipt_artifacts = artifacts_dir.map(|_| ReceiptArtifacts {
+            json: "run-summary.json".to_owned(),
+            html: "run-report.html".to_owned(),
+            junit: "junit.xml".to_owned(),
+            markdown_summary: "run-summary.md".to_owned(),
+            logcat: artifacts
+                .logcat_dump
+                .as_ref()
+                .map(|_| "logcat.txt".to_owned()),
+            emulator_process_log: artifacts
+                .process_logs
+                .as_ref()
+                .map(|_| "emulator-process.log".to_owned()),
+        });
+
+        RunSummary {
+            schema_version: 1,
+            tool_version: env!("CARGO_PKG_VERSION").to_owned(),
+            status: completion.status,
+            failure_stage: completion.failure_stage,
+            failure_classification: completion.failure_classification,
+            last_completed_stage: progress.last_completed_stage.map(str::to_owned),
+            error_summary: completion.error_summary,
+            profile: self.config.active_profile.clone(),
+            runtime_backend: self.runtime_backend_name().to_owned(),
+            emulator: ReceiptEmulator {
+                adb_serial: self.config.adb_serial.clone(),
+                avd_name: self.config.host_avd_name.clone(),
+                api_level: completion.api_level,
+                device: self.config.device.clone(),
+                headless: self.config.effective_emulator_headless(),
+                gpu_mode: self.config.emulator_gpu_mode.clone(),
+            },
+            package_name: metadata
+                .map(|metadata| metadata.package_name.clone())
+                .unwrap_or_else(|| "unresolved".to_owned()),
+            launchable_activity: metadata.and_then(|metadata| metadata.launchable_activity.clone()),
+            native_abis: native_abis.clone(),
+            x86_ready: native_abis.iter().any(|abi| abi.starts_with("x86")),
+            uses_arm_translation: metadata
+                .is_some_and(ApkMetadata::uses_arm_translation_on_x86_emulator),
+            gps_disabled: !self.config.emulator_enable_gps,
+            boot_duration_ms: progress.boot_duration_ms,
+            install_duration_ms: progress.install_duration_ms,
+            launch_duration_ms: progress.launch_duration_ms,
+            total_duration_ms: completion.total_duration_ms,
+            kept_alive: args.keep_alive,
+            crash_summary: completion.crash_summary,
+            anr_summary: completion.anr_summary,
+            inputs: progress.inputs.clone(),
+            artifacts: receipt_artifacts,
+        }
     }
 
     pub async fn watch(&self, args: WatchArgs) -> Result<()> {
@@ -910,28 +1207,65 @@ impl EmulatorOrchestrator {
         Ok(Some(outcome.stdout))
     }
 
-    async fn collect_run_artifacts(&self) -> Result<RunArtifacts> {
-        let process_logs = self.collect_process_logs().await?;
-        let logcat_dump = self.collect_logcat_dump().await?;
-        let anr_traces = self
-            .capture_shell_file("if [ -f /data/anr/traces.txt ]; then cat /data/anr/traces.txt; fi")
-            .await?;
-        let tombstones = self
-            .capture_shell_file(
-                "if [ -d /data/tombstones ]; then for f in /data/tombstones/tombstone_*; do [ -f \"$f\" ] || continue; echo \"===== $f =====\"; cat \"$f\"; echo; done; fi",
-            )
-            .await?;
+    async fn collect_run_artifacts_best_effort(&self, device_ready: bool) -> (RunArtifacts, bool) {
+        let mut collection_failed = false;
+        let process_logs = match self.collect_process_logs().await {
+            Ok(logs) => logs,
+            Err(_) => {
+                collection_failed = true;
+                None
+            }
+        };
+        let (logcat_dump, anr_traces, tombstones) = if device_ready {
+            let logcat_dump = match self.collect_logcat_dump().await {
+                Ok(logcat) => logcat,
+                Err(_) => {
+                    collection_failed = true;
+                    None
+                }
+            };
+            let anr_traces = match self
+                .capture_shell_file(
+                    "if [ -f /data/anr/traces.txt ]; then cat /data/anr/traces.txt; fi",
+                )
+                .await
+            {
+                Ok(traces) => traces,
+                Err(_) => {
+                    collection_failed = true;
+                    None
+                }
+            };
+            let tombstones = match self
+                .capture_shell_file(
+                    "if [ -d /data/tombstones ]; then for f in /data/tombstones/tombstone_*; do [ -f \"$f\" ] || continue; echo \"===== $f =====\"; cat \"$f\"; echo; done; fi",
+                )
+                .await
+            {
+                Ok(tombstones) => tombstones,
+                Err(_) => {
+                    collection_failed = true;
+                    None
+                }
+            };
+            (logcat_dump, anr_traces, tombstones)
+        } else {
+            (None, None, None)
+        };
 
-        Ok(RunArtifacts {
-            crash_summary: logcat_dump
-                .as_deref()
-                .and_then(extract_logcat_crash_summary),
-            anr_summary: logcat_dump.as_deref().and_then(extract_logcat_anr_summary),
-            process_logs,
-            logcat_dump,
-            anr_traces,
-            tombstones,
-        })
+        (
+            RunArtifacts {
+                crash_summary: logcat_dump
+                    .as_deref()
+                    .and_then(extract_logcat_crash_summary),
+                anr_summary: logcat_dump.as_deref().and_then(extract_logcat_anr_summary),
+                process_logs,
+                logcat_dump,
+                anr_traces,
+                tombstones,
+            },
+            collection_failed,
+        )
     }
 
     async fn capture_shell_file(&self, script: &str) -> Result<Option<String>> {
@@ -1014,9 +1348,10 @@ fn write_optional_report(path: &Path, contents: &str) -> Result<()> {
 
 fn print_run_summary(summary: &RunSummary) {
     println!(
-        "summary: backend={} status={} package={} boot_ms={} install_ms={} launch_ms={} total_ms={} kept_alive={}",
+        "summary: backend={} status={} failure_stage={} package={} boot_ms={} install_ms={} launch_ms={} total_ms={} kept_alive={}",
         summary.runtime_backend,
         summary.status,
+        summary.failure_stage.as_deref().unwrap_or("none"),
         summary.package_name,
         summary.boot_duration_ms,
         summary.install_duration_ms,
@@ -1074,6 +1409,20 @@ fn parse_failure_summary(message: &str) -> (Option<String>, Option<String>) {
         return (Some(message.to_owned()), None);
     }
     (None, None)
+}
+
+fn safe_failure_summary(stage: &str) -> &'static str {
+    match stage {
+        "input_preflight" => "the Android artifact could not be prepared",
+        "emulator_boot" => "the emulator did not become ready",
+        "apk_install" => "the Android artifact could not be installed",
+        "app_launch" => "the application could not be launched",
+        "app_runtime" => "the application failed while its launch was being observed",
+        "log_capture" => "runtime log capture did not complete successfully",
+        "artifact_capture" => "one or more requested runtime artifacts could not be collected",
+        "cleanup" => "runtime cleanup did not complete successfully",
+        _ => "the RustDroid run did not complete successfully",
+    }
 }
 
 fn extract_logcat_crash_summary(logcat: &str) -> Option<String> {
@@ -1175,13 +1524,33 @@ fn write_run_artifacts(
 
 fn build_junit_report(summary: &RunSummary) -> String {
     let duration_seconds = summary.total_duration_ms as f64 / 1000.0;
+    let failed = summary.status != "passed";
+    let test_case = if failed {
+        format!(
+            "  <testcase classname=\"rustdroid.launch\" name=\"{}\" time=\"{duration_seconds:.3}\">\n    <failure type=\"{}\" message=\"{}\"/>\n  </testcase>",
+            escape_xml(&summary.package_name),
+            escape_xml(&summary.failure_classification),
+            escape_xml(
+                summary
+                    .error_summary
+                    .as_deref()
+                    .unwrap_or("RustDroid run failed")
+            ),
+        )
+    } else {
+        format!(
+            "  <testcase classname=\"rustdroid.launch\" name=\"{}\" time=\"{duration_seconds:.3}\"/>",
+            escape_xml(&summary.package_name),
+        )
+    };
     format!(
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<testsuite name=\"RustDroid APK receipt\" tests=\"1\" failures=\"0\" errors=\"0\" time=\"{duration_seconds:.3}\">\n  <properties>\n    <property name=\"schema_version\" value=\"{}\"/>\n    <property name=\"tool_version\" value=\"{}\"/>\n    <property name=\"runtime_backend\" value=\"{}\"/>\n    <property name=\"input_sha256\" value=\"{}\"/>\n  </properties>\n  <testcase classname=\"rustdroid.launch\" name=\"{}\" time=\"{duration_seconds:.3}\"/>\n</testsuite>\n",
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<testsuite name=\"RustDroid APK receipt\" tests=\"1\" failures=\"{}\" errors=\"0\" time=\"{duration_seconds:.3}\">\n  <properties>\n    <property name=\"schema_version\" value=\"{}\"/>\n    <property name=\"tool_version\" value=\"{}\"/>\n    <property name=\"runtime_backend\" value=\"{}\"/>\n    <property name=\"failure_stage\" value=\"{}\"/>\n    <property name=\"input_sha256\" value=\"{}\"/>\n  </properties>\n{test_case}\n</testsuite>\n",
+        u8::from(failed),
         summary.schema_version,
         escape_xml(&summary.tool_version),
         escape_xml(&summary.runtime_backend),
+        escape_xml(summary.failure_stage.as_deref().unwrap_or("none")),
         escape_xml(&input_digests(summary)),
-        escape_xml(&summary.package_name),
     )
 }
 
@@ -1234,8 +1603,12 @@ fn build_markdown_summary(summary: &RunSummary) -> String {
         .as_deref()
         .unwrap_or("not declared");
     format!(
-        "## RustDroid APK receipt\n\n| Field | Value |\n| --- | --- |\n| Status | `{}` |\n| Package | `{}` |\n| Activity | `{}` |\n| Backend / profile | `{}` / `{}` |\n| Emulator API / serial | `{}` / `{}` |\n| Input SHA-256 | `{}` |\n| Boot / install / launch / total | {} ms / {} ms / {} ms / {} ms |\n| Classification | `{}` |\n\nArtifacts: `run-summary.json`, `run-report.html`, `junit.xml`, `run-summary.md`, plus available logs under `logs/`.\n",
+        "## RustDroid APK receipt\n\n| Field | Value |\n| --- | --- |\n| Status | `{}` |\n| Failure stage | `{}` |\n| Last completed stage | `{}` |\n| Classification | `{}` |\n| Error summary | `{}` |\n| Package | `{}` |\n| Activity | `{}` |\n| Backend / profile | `{}` / `{}` |\n| Emulator API / serial | `{}` / `{}` |\n| Input SHA-256 | `{}` |\n| Boot / install / launch / total | {} ms / {} ms / {} ms / {} ms |\n\nArtifacts: `run-summary.json`, `run-report.html`, `junit.xml`, `run-summary.md`, plus available logs under `logs/`.\n",
         summary.status,
+        summary.failure_stage.as_deref().unwrap_or("none"),
+        summary.last_completed_stage.as_deref().unwrap_or("none"),
+        summary.failure_classification,
+        summary.error_summary.as_deref().unwrap_or("none"),
         summary.package_name,
         activity,
         summary.runtime_backend,
@@ -1247,7 +1620,6 @@ fn build_markdown_summary(summary: &RunSummary) -> String {
         summary.install_duration_ms,
         summary.launch_duration_ms,
         summary.total_duration_ms,
-        summary.failure_classification,
     )
 }
 
@@ -1320,10 +1692,16 @@ fn build_html_report(summary: &RunSummary) -> String {
         escape_xml(&summary.native_abis.join(", "))
     };
     format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\"><title>RustDroid Run Receipt</title><style>body{{font-family:system-ui,sans-serif;margin:2rem;background:#f4f1ea;color:#111}}main{{max-width:900px;margin:0 auto;background:#fff;padding:2rem;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.08)}}h1{{margin-top:0}}dl{{display:grid;grid-template-columns:220px 1fr;gap:.75rem 1rem}}dt{{font-weight:700}}dd{{margin:0}}.badge{{display:inline-block;padding:.3rem .6rem;border-radius:999px;background:#111;color:#fff;font-size:.85rem}}.panel{{margin-top:1.5rem;padding:1rem 1.25rem;border-radius:12px;background:#f7f3ea}}code{{background:#f1ede4;padding:.1rem .35rem;border-radius:6px}}a{{color:#0b5fff}}</style></head><body><main><h1>RustDroid Run Receipt</h1><p><span class=\"badge\">{status}</span></p><dl><dt>Schema / tool version</dt><dd>{schema_version} / {tool_version}</dd><dt>Backend / profile</dt><dd>{backend} / {profile}</dd><dt>Package / activity</dt><dd>{package} / {activity}</dd><dt>AVD / API</dt><dd>{avd} / {api_level}</dd><dt>ADB serial</dt><dd>{serial}</dd><dt>Headless / GPU</dt><dd>{headless} / {gpu_mode}</dd><dt>Boot</dt><dd>{boot} ms</dd><dt>Install</dt><dd>{install} ms</dd><dt>Launch</dt><dd>{launch} ms</dd><dt>Total</dt><dd>{total} ms</dd><dt>ABIs</dt><dd>{abis}</dd><dt>x86 Ready</dt><dd>{x86_ready}</dd><dt>ARM Translation</dt><dd>{arm_translation}</dd><dt>GPS Disabled</dt><dd>{gps_disabled}</dd><dt>Kept Alive</dt><dd>{kept_alive}</dd><dt>Classification</dt><dd>{classification}</dd><dt>Crash</dt><dd>{crash}</dd><dt>ANR</dt><dd>{anr}</dd></dl><section class=\"panel\"><h2>Input digest</h2><ul>{inputs}</ul><p>Only file names and SHA-256 digests are recorded; local input paths are intentionally excluded.</p></section><section class=\"panel\"><h2>Artifacts</h2><p>{artifact_links}</p><p><code>reports/</code> mirrors the summary files. <code>logs/</code> contains emulator and logcat output. <code>forensics/</code> contains crash, ANR, tombstone, and trace captures when available.</p></section></main></body></html>",
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>RustDroid Run Receipt</title><style>body{{font-family:system-ui,sans-serif;margin:2rem;background:#f4f1ea;color:#111}}main{{max-width:900px;margin:0 auto;background:#fff;padding:2rem;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.08)}}h1{{margin-top:0}}dl{{display:grid;grid-template-columns:220px 1fr;gap:.75rem 1rem}}dt{{font-weight:700}}dd{{margin:0}}.badge{{display:inline-block;padding:.3rem .6rem;border-radius:999px;background:#111;color:#fff;font-size:.85rem}}.panel{{margin-top:1.5rem;padding:1rem 1.25rem;border-radius:12px;background:#f7f3ea}}code{{background:#f1ede4;padding:.1rem .35rem;border-radius:6px}}a{{color:#0b5fff}}</style></head><body><main><h1>RustDroid Run Receipt</h1><p><span class=\"badge\">{status}</span></p><dl><dt>Schema / tool version</dt><dd>{schema_version} / {tool_version}</dd><dt>Failure stage</dt><dd>{failure_stage}</dd><dt>Last completed stage</dt><dd>{last_completed_stage}</dd><dt>Classification</dt><dd>{classification}</dd><dt>Error summary</dt><dd>{error_summary}</dd><dt>Backend / profile</dt><dd>{backend} / {profile}</dd><dt>Package / activity</dt><dd>{package} / {activity}</dd><dt>AVD / API</dt><dd>{avd} / {api_level}</dd><dt>ADB serial</dt><dd>{serial}</dd><dt>Headless / GPU</dt><dd>{headless} / {gpu_mode}</dd><dt>Boot</dt><dd>{boot} ms</dd><dt>Install</dt><dd>{install} ms</dd><dt>Launch</dt><dd>{launch} ms</dd><dt>Total</dt><dd>{total} ms</dd><dt>ABIs</dt><dd>{abis}</dd><dt>x86 Ready</dt><dd>{x86_ready}</dd><dt>ARM Translation</dt><dd>{arm_translation}</dd><dt>GPS Disabled</dt><dd>{gps_disabled}</dd><dt>Kept Alive</dt><dd>{kept_alive}</dd><dt>Crash</dt><dd>{crash}</dd><dt>ANR</dt><dd>{anr}</dd></dl><section class=\"panel\"><h2>Input digest</h2><ul>{inputs}</ul><p>Only file names and SHA-256 digests are recorded; local input paths are intentionally excluded.</p></section><section class=\"panel\"><h2>Artifacts</h2><p>{artifact_links}</p><p><code>reports/</code> mirrors the summary files. <code>logs/</code> contains emulator and logcat output. <code>forensics/</code> contains crash, ANR, tombstone, and trace captures when available.</p></section></main></body></html>",
         status = escape_xml(&summary.status),
         schema_version = summary.schema_version,
         tool_version = escape_xml(&summary.tool_version),
+        failure_stage = escape_xml(summary.failure_stage.as_deref().unwrap_or("none")),
+        last_completed_stage = escape_xml(
+            summary.last_completed_stage.as_deref().unwrap_or("none")
+        ),
+        classification = escape_xml(&summary.failure_classification),
+        error_summary = escape_xml(summary.error_summary.as_deref().unwrap_or("none")),
         backend = escape_xml(&summary.runtime_backend),
         profile = escape_xml(profile),
         package = escape_xml(&summary.package_name),
@@ -1342,7 +1720,6 @@ fn build_html_report(summary: &RunSummary) -> String {
         arm_translation = summary.uses_arm_translation,
         gps_disabled = summary.gps_disabled,
         kept_alive = summary.kept_alive,
-        classification = escape_xml(&summary.failure_classification),
         crash = escape_xml(summary.crash_summary.as_deref().unwrap_or("none")),
         anr = escape_xml(summary.anr_summary.as_deref().unwrap_or("none")),
         inputs = inputs,
@@ -1419,10 +1796,11 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        build_html_report, extract_logcat_anr_summary, extract_logcat_crash_summary,
-        parse_failure_summary, receipt_input, resolve_watch_candidate, write_benchmark_artifacts,
-        write_run_artifacts, BenchmarkEnvironment, BenchmarkReceipt, ReceiptArtifacts,
-        ReceiptEmulator, ReceiptInput, RunArtifacts, RunSummary,
+        build_html_report, build_junit_report, build_markdown_summary, extract_logcat_anr_summary,
+        extract_logcat_crash_summary, parse_failure_summary, receipt_input,
+        resolve_watch_candidate, write_benchmark_artifacts, write_run_artifacts,
+        BenchmarkEnvironment, BenchmarkReceipt, ReceiptArtifacts, ReceiptEmulator, ReceiptInput,
+        RunArtifacts, RunSummary,
     };
 
     fn sample_summary() -> RunSummary {
@@ -1430,7 +1808,10 @@ mod tests {
             schema_version: 1,
             tool_version: "0.2.0".to_owned(),
             status: "passed".to_owned(),
+            failure_stage: None,
             failure_classification: "none".to_owned(),
+            last_completed_stage: Some("app_launch".to_owned()),
+            error_summary: None,
             profile: Some("host-fast".to_owned()),
             runtime_backend: "host".to_owned(),
             emulator: ReceiptEmulator {
@@ -1603,6 +1984,29 @@ mod tests {
         let escaped_report = build_html_report(&untrusted_abi);
         assert!(escaped_report.contains("x86_64&lt;script&gt;alert(1)&lt;/script&gt;"));
         assert!(!escaped_report.contains("x86_64<script>"));
+    }
+
+    #[test]
+    fn failure_receipt_surfaces_the_same_result_in_every_report_format() {
+        let mut summary = sample_summary();
+        summary.status = "failed".to_owned();
+        summary.failure_stage = Some("app_launch".to_owned());
+        summary.failure_classification = "launch".to_owned();
+        summary.last_completed_stage = Some("apk_install".to_owned());
+        summary.error_summary = Some("the application could not be launched".to_owned());
+
+        let html = build_html_report(&summary);
+        assert!(html.contains("<dt>Failure stage</dt><dd>app_launch</dd>"));
+        assert!(html.contains("the application could not be launched"));
+
+        let markdown = build_markdown_summary(&summary);
+        assert!(markdown.contains("| Status | `failed` |"));
+        assert!(markdown.contains("| Last completed stage | `apk_install` |"));
+
+        let junit = build_junit_report(&summary);
+        assert!(junit.contains("failures=\"1\""));
+        assert!(junit.contains("<failure type=\"launch\""));
+        assert!(junit.contains("the application could not be launched"));
     }
 
     #[test]

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added schema-v1 failure receipts for input preflight, emulator boot, install, launch, runtime observation, artifact capture, and cleanup failures after backend selection. JSON, HTML, JUnit, and Markdown now report the same stable stage and path-free summary.
+- Made runtime artifact collection best-effort so an unavailable log source does not erase the primary run failure, while still marking a requested capture failure when no earlier failure exists.
+- Escaped ABI values in generated HTML receipts and rendered an empty ABI set as text instead of an invalid `<none>` element.
+
 ## v0.3.1
 
 - Fixed the release checksum manifest so downloaded assets can be verified from any directory. The v0.3.0 archive itself is valid, but its attached checksum file is not portable; use v0.3.1 for verified installs.
