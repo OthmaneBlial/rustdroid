@@ -40,7 +40,7 @@ render_frame() {
         print "    <circle cx=\"88\" cy=\"141\" r=\"6\" fill=\"#df664a\"/>"
         print "    <circle cx=\"108\" cy=\"141\" r=\"6\" fill=\"#f2b655\"/>"
         print "    <circle cx=\"128\" cy=\"141\" r=\"6\" fill=\"#7aa88b\"/>"
-        print "    <text x=\"158\" y=\"146\" fill=\"#a8b8af\" font-size=\"13\">45-second fixture walkthrough — timings vary by host</text>"
+        print "    <text x=\"158\" y=\"146\" fill=\"#a8b8af\" font-size=\"13\">public fixture walkthrough — real steps, timing varies by host</text>"
         print "    <text x=\"98\" y=\"218\" fill=\"#f5a623\" font-size=\"14\" letter-spacing=\"2\">" title "</text>"
         print "    <text x=\"98\" y=\"278\" fill=\"#f5a623\" font-size=\"16\" font-weight=\"700\">$</text>"
         print "    <text x=\"124\" y=\"278\" fill=\"#f1f4ef\" font-size=\"16\">" command_line "</text>"
@@ -94,8 +94,8 @@ render_frame "04" "04 / 04  KEEP THE RECEIPT" \
   "reproduce the result instead of trusting an opaque timeout"
 
 ffmpeg -hide_banner -loglevel error -y \
-  -framerate 1 -start_number 1 -i "$WORK_DIR/frame-%02d.png" \
-  -filter_complex "fps=1,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=reserve_transparent=0[p];[b][p]paletteuse=dither=bayer" \
+  -framerate 1/2 -start_number 1 -i "$WORK_DIR/frame-%02d.png" \
+  -filter_complex "fps=2,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=reserve_transparent=0[p];[b][p]paletteuse=dither=bayer" \
   -loop 0 "$OUTPUT_GIF"
 
 echo "created $OUTPUT_GIF"

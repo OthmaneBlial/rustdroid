@@ -6,6 +6,8 @@ The repository contains a small signed APK fixture so that a new user can see th
 
 The walkthrough is a captioned replay of the exact documented flow. It intentionally shows no universal timing promise; use the receipt and benchmark documentation to compare a supported Linux host.
 
+For raw evidence, inspect the checked-in [Gradle `run-summary.json`](receipts/reference-gradle.json) and its [provenance note](receipts/reference-gradle.md). That receipt came from the public September 1, 2026 workflow run that built the source fixture, launched it on Android 35, and uploaded the complete artifact bundle.
+
 The visual in [`assets/rustdroid-proof.svg`](../assets/rustdroid-proof.svg) is a reference cold host-fixture run measured on April 2, 2026. Its numbers are context, not a performance promise; reproduce the workflow on your own Linux host and AVD.
 
 ## Prerequisites

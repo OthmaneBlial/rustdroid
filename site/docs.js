@@ -20,6 +20,7 @@ const groups = [
   {
     title: "Receipts & CI",
     items: [
+      ["Real Gradle receipt", "receipts/reference-gradle.md"],
       ["CI examples", "ci-examples.md"],
       ["Reusable GitHub Action", "github-action.md"],
       ["Receipt schema v1", "receipt-schema-v1.md"],

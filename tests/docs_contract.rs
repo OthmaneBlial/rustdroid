@@ -30,6 +30,8 @@ fn contributor_and_guide_docs_exist() {
         "docs/release-process.md",
         "docs/release-security-checklist.md",
         "docs/receipt-schema-v1.md",
+        "docs/receipts/reference-gradle.md",
+        "docs/receipts/reference-gradle.json",
         "docs/quickstart-linux.md",
         "docs/operation-plans.md",
         "docs/recipes.md",
@@ -62,10 +64,12 @@ fn readme_links_to_the_main_guides() {
     let readme = std::fs::read_to_string("README.md").expect("read README");
 
     for snippet in [
-        "actions/workflows/ci.yml/badge.svg?branch=main",
         "img.shields.io/github/v/release/OthmaneBlial/rustdroid",
         "img.shields.io/github/license/OthmaneBlial/rustdroid",
         "Rust-stable",
+        "The missing gate after a build",
+        "docs/receipts/reference-gradle.md",
+        "docs/receipts/reference-gradle.json",
         "watch build/outputs/apk/debug",
         "assets/rustdroid-proof.svg",
         "assets/rustdroid-demo.gif",
@@ -107,6 +111,8 @@ fn static_site_ships_local_docs_and_subpath_safe_assets() {
         "docs.html",
         "assets/rustdroid-proof.svg",
         "assets/rustdroid-demo.gif",
+        "receipts/reference-gradle.json",
+        "actions/runs/33519017529",
         "APK path in.",
     ] {
         assert!(index.contains(snippet), "site home must preserve {snippet}");
@@ -118,6 +124,7 @@ fn static_site_ships_local_docs_and_subpath_safe_assets() {
 
     for snippet in [
         "first-install.md",
+        "receipts/reference-gradle.md",
         "ci-examples.md",
         "assets/${cleanUrl.slice",
     ] {
@@ -131,6 +138,8 @@ fn static_site_ships_local_docs_and_subpath_safe_assets() {
         "site/docs/first-install.md",
         "site/docs/ci-examples.md",
         "site/docs/receipt-schema-v1.md",
+        "site/docs/receipts/reference-gradle.md",
+        "site/receipts/reference-gradle.json",
         "site/assets/rustdroid-proof.svg",
         "site/assets/rustdroid-demo.gif",
     ] {

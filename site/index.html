@@ -5,10 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="RustDroid verifies Android APK installs and launches locally, then writes inspectable emulator receipts.">
     <meta name="theme-color" content="#101713">
+    <link rel="canonical" href="https://othmaneblial.github.io/rustdroid/">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="RustDroid — APK path in. Launch receipt out.">
+    <meta property="og:description" content="A Linux-first artifact gate for Android APK installs, launches, and portable emulator receipts.">
+    <meta property="og:url" content="https://othmaneblial.github.io/rustdroid/">
+    <meta property="og:image" content="https://othmaneblial.github.io/rustdroid/assets/rustdroid-social-preview.png">
+    <meta name="twitter:card" content="summary_large_image">
     <title>RustDroid — APK path in. Launch receipt out.</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&amp;family=DM+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -28,12 +35,12 @@
     <main id="main">
       <section class="hero" id="top" aria-labelledby="hero-title">
         <div class="hero-copy reveal">
-          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> Local Android APK loop / Linux-first</p>
+          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> Artifact gate before UI and device-cloud testing</p>
           <h1 id="hero-title">APK path in.<br><em>Launch receipt</em> out.</h1>
-          <p class="hero-intro">RustDroid boots or reuses an emulator, installs your APK, observes its launch, and leaves an evidence trail you can inspect locally or upload to CI.</p>
+          <p class="hero-intro">RustDroid boots or reuses an emulator, installs your Android artifact, observes its launch, and leaves evidence you can inspect locally or upload to CI. No test script. No APK upload to a RustDroid service.</p>
           <div class="hero-actions">
-            <a class="button button-primary" href="#start">Run the fixture <span aria-hidden="true">↓</span></a>
-            <a class="button button-quiet" href="https://github.com/OthmaneBlial/rustdroid/releases/latest">Get the release <span aria-hidden="true">↗</span></a>
+            <a class="button button-primary" href="docs.html#receipts%2Freference-gradle.md">Inspect a real receipt <span aria-hidden="true">↗</span></a>
+            <a class="button button-quiet" href="#start">Run the public fixture <span aria-hidden="true">↓</span></a>
           </div>
           <ul class="hero-notes" aria-label="Product properties">
             <li>Host emulator fast path</li>
@@ -42,11 +49,11 @@
           </ul>
         </div>
 
-        <div class="terminal-shell reveal delay-1" aria-label="Example RustDroid receipt">
+        <div class="terminal-shell reveal delay-1" aria-label="Real RustDroid Gradle fixture receipt from September 1, 2026">
           <div class="terminal-topline">
             <span class="window-controls" aria-hidden="true"><i></i><i></i><i></i></span>
-            <span>host-fast / reference fixture</span>
-            <span>run #0042</span>
+            <span>host-fast / public Gradle fixture</span>
+            <span>2026-09-01</span>
           </div>
           <div class="terminal-body">
             <div class="command-block">
@@ -55,30 +62,31 @@
               <button class="copy-button" data-copy="rustdroid --profile host-fast --host-avd-name test_avd run tests/fixtures/apks/launch-success.apk --duration-secs 2 --keep-alive false --artifacts-dir artifacts/rustdroid-demo" aria-label="Copy fixture command">Copy</button>
             </div>
             <div class="terminal-rule"></div>
-            <p class="preflight"><span>PRE-FLIGHT</span><b>APK metadata read</b><b>x86_64 ready</b><b>artifacts enabled</b></p>
+            <p class="preflight"><span>PRE-FLIGHT</span><b>APK digest recorded</b><b>API 35 ready</b><b>artifacts enabled</b></p>
             <div class="receipt-cards">
               <article>
                 <span>01 / boot</span>
-                <strong>AVD ready</strong>
-                <small>host emulator</small>
+                <strong>6.795 s</strong>
+                <small>host AVD ready</small>
               </article>
               <article>
                 <span>02 / install</span>
-                <strong>APK set</strong>
-                <small>package resolved</small>
+                <strong>3.431 s</strong>
+                <small>APK installed</small>
               </article>
               <article>
                 <span>03 / launch</span>
-                <strong>Foreground</strong>
+                <strong>3.517 s</strong>
                 <small>activity observed</small>
               </article>
               <article class="receipt-result">
                 <span>04 / result</span>
-                <strong>Verified</strong>
-                <small>receipt written</small>
+                <strong>Passed</strong>
+                <small>15.746 s total</small>
               </article>
             </div>
-            <div class="receipt-footer"><span>RUN RECEIPT</span><b>run-summary.json</b><b>run-report.html</b><b>junit.xml</b><em>evidence, not guesswork</em></div>
+            <div class="receipt-footer"><span>REAL RUN</span><b>schema v1</b><b>Android 35</b><b>0 crashes / 0 ANRs</b><em>evidence, not guesswork</em></div>
+            <a class="receipt-provenance" href="https://github.com/OthmaneBlial/rustdroid/actions/runs/33519017529">Source workflow and uploaded artifact <span aria-hidden="true">↗</span></a>
           </div>
         </div>
       </section>
@@ -105,17 +113,17 @@
       <section class="proof-section" id="receipts" aria-labelledby="proof-title">
         <div class="proof-visual reveal">
           <img src="assets/rustdroid-proof.svg" alt="A RustDroid host-fixture run receipt showing preflight, boot, install, launch, and evidence artifacts.">
-          <p>Reference cold host-fixture run. Timings are context, not a promise; reproduce on your own supported host.</p>
+          <p>Reference cold host-fixture diagram. For current raw evidence, inspect the September 1 Gradle receipt and its public workflow.</p>
           <a class="demo-preview" href="docs.html#demo.md">
             <img src="assets/rustdroid-demo.gif" alt="A four-step RustDroid terminal walkthrough: doctor, fixture run, launch verification, and receipt artifacts.">
-            <span>Open the guided fixture walkthrough <b aria-hidden="true">↗</b></span>
+            <span>Play the readable eight-second walkthrough <b aria-hidden="true">↗</b></span>
           </a>
         </div>
         <div class="proof-copy reveal delay-1">
           <p class="eyebrow">A receipt is more useful than a pass/fail dot</p>
           <h2 id="proof-title">Useful to humans.<br>Stable for machines.</h2>
           <p>A completed run can leave a versioned JSON receipt, a reviewable HTML report, JUnit for CI, Markdown, and logcat evidence. Failures retain the stage that failed: emulator, ADB, install, launch, or capture.</p>
-          <a class="text-link" href="https://github.com/OthmaneBlial/rustdroid/blob/main/docs/receipt-schema-v1.md">Read the receipt schema <span aria-hidden="true">→</span></a>
+          <div class="proof-links"><a class="text-link" href="receipts/reference-gradle.json">Open the real JSON <span aria-hidden="true">→</span></a><a class="text-link" href="docs.html#receipt-schema-v1.md">Read the schema <span aria-hidden="true">→</span></a></div>
           <dl class="receipt-list">
             <div><dt>run-summary.json</dt><dd>automation and dashboards</dd></div>
             <div><dt>run-report.html</dt><dd>quick human review</dd></div>
@@ -129,11 +137,13 @@
         <div class="start-intro reveal">
           <p class="eyebrow">No private application required</p>
           <h2 id="start-title">Try a real, checked-in fixture first.</h2>
-          <p>Use the signed launch fixture to validate your Linux host, Android SDK, AVD, and receipt path before connecting a private app.</p>
+          <p>Clone the repository, then use the signed launch fixture to validate your Linux host, Android SDK, AVD, and receipt path before connecting a private app.</p>
         </div>
         <div class="large-command reveal delay-1">
-          <div class="large-command-head"><span>fixture / launch-success.apk</span><button class="copy-button" data-copy="rustdroid --profile host-fast --host-avd-name test_avd run tests/fixtures/apks/launch-success.apk --duration-secs 2 --keep-alive false --artifacts-dir artifacts/rustdroid-demo">Copy command</button></div>
-          <pre><code><span class="prompt">$</span> rustdroid \
+          <div class="large-command-head"><span>fixture / launch-success.apk</span><button class="copy-button" data-copy="git clone --depth 1 https://github.com/OthmaneBlial/rustdroid.git && cd rustdroid && rustdroid --profile host-fast --host-avd-name test_avd run tests/fixtures/apks/launch-success.apk --duration-secs 2 --keep-alive false --artifacts-dir artifacts/rustdroid-demo">Copy command</button></div>
+          <pre><code><span class="prompt">$</span> git clone --depth 1 https://github.com/OthmaneBlial/rustdroid.git
+<span class="prompt">$</span> cd rustdroid
+<span class="prompt">$</span> rustdroid \
   --profile host-fast \
   --host-avd-name test_avd \
   run tests/fixtures/apks/launch-success.apk \

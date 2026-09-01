@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "tool_version": "0.3.1",
+  "status": "passed",
+  "failure_classification": "none",
+  "profile": "host-fast",
+  "runtime_backend": "host",
+  "emulator": {
+    "adb_serial": "emulator-5554",
+    "avd_name": "test_avd",
+    "api_level": "35",
+    "device": "Nexus 5",
+    "headless": true,
+    "gpu_mode": "host"
+  },
+  "package_name": "dev.rustdroid.examples.gradle",
+  "launchable_activity": "dev.rustdroid.examples.gradle.MainActivity",
+  "native_abis": [],
+  "x86_ready": false,
+  "uses_arm_translation": false,
+  "gps_disabled": true,
+  "boot_duration_ms": 6795,
+  "install_duration_ms": 3431,
+  "launch_duration_ms": 3517,
+  "total_duration_ms": 15746,
+  "kept_alive": false,
+  "crash_summary": null,
+  "anr_summary": null,
+  "inputs": [
+    {
+      "file_name": "app-debug.apk",
+      "sha256": "8af0bc58e97c9aa502c072834f97578916b09273c38df6cda0cf62019799ea97",
+      "size_bytes": 8868
+    }
+  ],
+  "artifacts": {
+    "json": "run-summary.json",
+    "html": "run-report.html",
+    "junit": "junit.xml",
+    "markdown_summary": "run-summary.md",
+    "logcat": "logcat.txt",
+    "emulator_process_log": null
+  }
+}
