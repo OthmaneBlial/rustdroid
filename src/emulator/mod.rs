@@ -1314,6 +1314,11 @@ fn build_html_report(summary: &RunSummary) -> String {
             )
         },
     );
+    let abis = if summary.native_abis.is_empty() {
+        "none".to_owned()
+    } else {
+        escape_xml(&summary.native_abis.join(", "))
+    };
     format!(
         "<!doctype html><html><head><meta charset=\"utf-8\"><title>RustDroid Run Receipt</title><style>body{{font-family:system-ui,sans-serif;margin:2rem;background:#f4f1ea;color:#111}}main{{max-width:900px;margin:0 auto;background:#fff;padding:2rem;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.08)}}h1{{margin-top:0}}dl{{display:grid;grid-template-columns:220px 1fr;gap:.75rem 1rem}}dt{{font-weight:700}}dd{{margin:0}}.badge{{display:inline-block;padding:.3rem .6rem;border-radius:999px;background:#111;color:#fff;font-size:.85rem}}.panel{{margin-top:1.5rem;padding:1rem 1.25rem;border-radius:12px;background:#f7f3ea}}code{{background:#f1ede4;padding:.1rem .35rem;border-radius:6px}}a{{color:#0b5fff}}</style></head><body><main><h1>RustDroid Run Receipt</h1><p><span class=\"badge\">{status}</span></p><dl><dt>Schema / tool version</dt><dd>{schema_version} / {tool_version}</dd><dt>Backend / profile</dt><dd>{backend} / {profile}</dd><dt>Package / activity</dt><dd>{package} / {activity}</dd><dt>AVD / API</dt><dd>{avd} / {api_level}</dd><dt>ADB serial</dt><dd>{serial}</dd><dt>Headless / GPU</dt><dd>{headless} / {gpu_mode}</dd><dt>Boot</dt><dd>{boot} ms</dd><dt>Install</dt><dd>{install} ms</dd><dt>Launch</dt><dd>{launch} ms</dd><dt>Total</dt><dd>{total} ms</dd><dt>ABIs</dt><dd>{abis}</dd><dt>x86 Ready</dt><dd>{x86_ready}</dd><dt>ARM Translation</dt><dd>{arm_translation}</dd><dt>GPS Disabled</dt><dd>{gps_disabled}</dd><dt>Kept Alive</dt><dd>{kept_alive}</dd><dt>Classification</dt><dd>{classification}</dd><dt>Crash</dt><dd>{crash}</dd><dt>ANR</dt><dd>{anr}</dd></dl><section class=\"panel\"><h2>Input digest</h2><ul>{inputs}</ul><p>Only file names and SHA-256 digests are recorded; local input paths are intentionally excluded.</p></section><section class=\"panel\"><h2>Artifacts</h2><p>{artifact_links}</p><p><code>reports/</code> mirrors the summary files. <code>logs/</code> contains emulator and logcat output. <code>forensics/</code> contains crash, ANR, tombstone, and trace captures when available.</p></section></main></body></html>",
         status = escape_xml(&summary.status),
@@ -1332,11 +1337,7 @@ fn build_html_report(summary: &RunSummary) -> String {
         install = summary.install_duration_ms,
         launch = summary.launch_duration_ms,
         total = summary.total_duration_ms,
-        abis = if summary.native_abis.is_empty() {
-            "<none>".to_owned()
-        } else {
-            summary.native_abis.join(", ")
-        },
+        abis = abis,
         x86_ready = summary.x86_ready,
         arm_translation = summary.uses_arm_translation,
         gps_disabled = summary.gps_disabled,
@@ -1587,6 +1588,21 @@ mod tests {
         assert!(report.contains("fatal exception"));
         assert!(report.contains("input dispatching timed out"));
         assert!(report.contains("Artifacts"));
+    }
+
+    #[test]
+    fn html_report_renders_empty_and_untrusted_abi_values_as_text() {
+        let mut empty_abis = sample_summary();
+        empty_abis.native_abis.clear();
+        let empty_report = build_html_report(&empty_abis);
+        assert!(empty_report.contains("<dt>ABIs</dt><dd>none</dd>"));
+        assert!(!empty_report.contains("<none>"));
+
+        let mut untrusted_abi = sample_summary();
+        untrusted_abi.native_abis = vec!["x86_64<script>alert(1)</script>".to_owned()];
+        let escaped_report = build_html_report(&untrusted_abi);
+        assert!(escaped_report.contains("x86_64&lt;script&gt;alert(1)&lt;/script&gt;"));
+        assert!(!escaped_report.contains("x86_64<script>"));
     }
 
     #[test]
