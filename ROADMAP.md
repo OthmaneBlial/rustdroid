@@ -15,7 +15,7 @@ Audit baseline: published release tag `v0.3.2` at `ce727e8`, checked against the
 | Core | Host/Docker; APK, splits, APKS/XAPK; watch; diagnostics; five report formats | A large command surface makes the first decision harder |
 | Evidence | Public Gradle, Flutter and Expo runs; exact-candidate API 30 matrix and receipts | External adopter evidence is still absent |
 | Demo | Real 57-second H.264 MP4, poster, captions, checked-in uncut source and a live project-site player | Native GitHub README rendering and external viewers still need monitoring |
-| Installation | Published `v0.3.2` Linux x86_64 archive, fixture, checksum and attestation | Published-asset Android quickstart receipt is still pending |
+| Installation | Published `v0.3.2` Linux x86_64 archive, fixture, checksum, attestation and clean-runner Android receipt | Broader host/device coverage remains external |
 | Quality | Local Rust suite, Clippy, packaging, security audits and exact-candidate Linux/KVM host lane passed | Business flows and a broader device matrix are out of scope |
 | Automation | GitHub Actions re-enabled; action contract, host matrix, release archive and demo lanes have green runs | Scheduled weekly proof and external consumer repositories remain open |
 | Distribution | GitHub Releases and reusable action | Marketplace/crates.io publication is not established by this audit |
@@ -92,10 +92,10 @@ Before launch promotion. Estimate: 1–2 days after M1.
 - [x] Align Cargo version/lockfile, tag, changelog, CLI version, notes, immutable action examples and tested source revision. `v0.3.2` is published from `ce727e8`; Cargo/lockfile, changelog, CLI, notes and examples pin the tested release commit.
 - [x] Build the Linux x86_64 archive on Linux; verify its checksum and install in a clean container, then attach provenance. [Published release workflow 34214422456](https://github.com/OthmaneBlial/rustdroid/actions/runs/34214422456), source `ce727e8`, passed. The downloaded release archive SHA-256 is `0617c7ace752cfdb924e68edf8df391c6e76da395a1dba78e97e7bdc77ca0656`; `VERSION` is `v0.3.2`; fixture SHA-256 is `5006fcae4718a1998dbba7097283792807284c29a7eff79f1d3a7a072492cf60`. `gh attestation verify` identifies the exact tag source. The published-asset Android quickstart is tracked by the dedicated verification workflow.
 - [x] Run the host lane against the exact candidate commit, not only the old pinned action. [Run 34205810640](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205810640) checked out `2754c3ee6fc3bb7795f0b2f0a8e100febb4be900` and passed runtime/smoke, the nine-case failure matrix and performance. Downloaded matrix receipts verify every expected outcome.
-- [ ] Download the published archive again and execute copied README commands on a clean supported host. The release asset download/checksum/version/attestation gate passed; keep this open until `published-release-verification` produces the Android receipt.
+- [x] Download the published archive again and execute copied README commands on a clean supported host. [Published-release verification 34215919027](https://github.com/OthmaneBlial/rustdroid/actions/runs/34215919027) passed on GitHub Linux with API 35 `test_avd`; the receipt reports `com.rustdroid.fixture.launch` / `MainActivity`, headless host execution, and total duration `39905 ms`.
 - [x] Attach the actual MP4, poster, captions, uncut source and minimal public receipts with recording commit and environment. See [`docs/receipts/product-demo.md`](docs/receipts/product-demo.md).
 
-**Acceptance:** the verified published archive performs the behavior shown in the video and README. Asset checksum/version/attestation verification is complete; the dedicated clean-runner workflow still has to execute the Android quickstart receipt.
+**Acceptance:** the verified published archive performs the behavior shown in the video and README. Asset checksum/version/attestation and the dedicated clean-runner Android quickstart receipt are complete; broader host/device coverage remains an external gate.
 
 ### M3. Replace the illustrative GIF with watchable proof
 
