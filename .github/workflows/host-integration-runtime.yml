@@ -76,7 +76,7 @@ jobs:
             cargo build --locked &&
             RUSTDROID_FIXTURE_OUTPUT_DIR=dist/runtime-fixtures bash scripts/generate-fixture-apks.sh &&
             python3 scripts/check-runtime-failures.py --serial emulator-5554 --avd test_avd
-            --fixture-dir dist/runtime-fixtures --include-anr
+            --fixture-dir dist/runtime-fixtures --include-anr --include-capture-faults
 
       - name: Upload failure-matrix receipts
         if: always()

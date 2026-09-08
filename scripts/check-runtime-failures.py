@@ -7,6 +7,7 @@ The caller provisions the dedicated emulator; this script leaves it running.
 import argparse
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -21,6 +22,7 @@ def main():
     parser.add_argument("--output", default="ci-artifacts/runtime-failures")
     parser.add_argument("--fixture-dir", default="tests/fixtures/apks")
     parser.add_argument("--include-anr", action="store_true")
+    parser.add_argument("--include-capture-faults", action="store_true")
     args = parser.parse_args()
     if sys.platform != "linux" or not os.access("/dev/kvm", os.R_OK | os.W_OK):
         parser.error("a Linux host with usable /dev/kvm is required; no runtime checks ran")
@@ -39,14 +41,35 @@ def main():
     ]
     if args.include_anr:
         cases.append(("launch-then-anr", "app_runtime", "anr", 45))
+    if args.include_capture_faults:
+        cases.extend([
+            ("reader-exit", "log_capture", "capture", 2),
+            ("marker-timeout", "log_capture", "capture", 2),
+        ])
     for fixture, stage, classification, duration in cases:
         directory = out / fixture
         directory.mkdir()
+        environment = os.environ.copy()
+        input_fixture = fixture
+        if fixture in ("reader-exit", "marker-timeout"):
+            input_fixture = "launch-success"
+            real_adb = shutil.which("adb")
+            if not real_adb:
+                raise RuntimeError("real adb is required")
+            shim = directory / "fault-bin"
+            shim.mkdir()
+            shutil.copy2(root / "scripts/test-support/adb-fault.py", shim / "adb")
+            (shim / "adb").chmod(0o755)
+            environment.update({
+                "PATH": str(shim) + os.pathsep + environment["PATH"],
+                "RUSTDROID_TEST_REAL_ADB": real_adb,
+                "RUSTDROID_TEST_ADB_FAULT": fixture,
+            })
         command = [
             str((root / args.binary).resolve()), "--config", str(out / "isolated.toml"),
             "--profile", "host-fast", "--adb-serial", args.serial,
             "--host-avd-name", args.avd, "--headless", "true", "--boot-mode", "warm",
-            "run", str(root / args.fixture_dir / f"{fixture}.apk"),
+            "run", str(root / args.fixture_dir / f"{input_fixture}.apk"),
             "--duration-secs", str(duration), "--keep-alive", "true",
             "--artifacts-dir", str(directory),
         ]
@@ -54,7 +77,7 @@ def main():
         try:
             with (directory / "console.txt").open("w") as console:
                 if fixture != "launch-then-anr":
-                    process = subprocess.run(command, stdout=console, stderr=subprocess.STDOUT, timeout=120)
+                    process = subprocess.run(command, env=environment, stdout=console, stderr=subprocess.STDOUT, timeout=120)
                 else:
                     # A real foreground broadcast blocks inside the fixture receiver.
                     # No fabricated logcat lines or mocked ANR notification are used.
