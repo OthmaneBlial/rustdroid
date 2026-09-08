@@ -45,13 +45,17 @@ def main():
         cases.extend([
             ("reader-exit", "log_capture", "capture", 2),
             ("marker-timeout", "log_capture", "capture", 2),
+            ("cleanup-failure", "cleanup", "cleanup", 2),
+            ("reader-exit-cleanup", "log_capture", "capture", 2),
         ])
     for fixture, stage, classification, duration in cases:
         directory = out / fixture
         directory.mkdir()
         environment = os.environ.copy()
         input_fixture = fixture
-        if fixture in ("reader-exit", "marker-timeout"):
+        fault_modes = ("reader-exit", "marker-timeout", "cleanup-failure", "reader-exit-cleanup")
+        cleanup_fault = fixture in ("cleanup-failure", "reader-exit-cleanup")
+        if fixture in fault_modes:
             input_fixture = "launch-success"
             real_adb = shutil.which("adb")
             if not real_adb:
@@ -65,12 +69,20 @@ def main():
                 "RUSTDROID_TEST_REAL_ADB": real_adb,
                 "RUSTDROID_TEST_ADB_FAULT": fixture,
             })
+            if cleanup_fault:
+                scratch = directory / "isolated-temp"
+                scratch.mkdir()
+                environment["TMPDIR"] = str(scratch)
+                environment["RUSTDROID_TEST_STATE_FILE"] = str(
+                    scratch / "rustdroid/host/failure-contract/state.json"
+                )
         command = [
             str((root / args.binary).resolve()), "--config", str(out / "isolated.toml"),
             "--profile", "host-fast", "--adb-serial", args.serial,
             "--host-avd-name", args.avd, "--headless", "true", "--boot-mode", "warm",
+            "--container-name", "failure-contract",
             "run", str(root / args.fixture_dir / f"{input_fixture}.apk"),
-            "--duration-secs", str(duration), "--keep-alive", "true",
+            "--duration-secs", str(duration), "--keep-alive", "false" if cleanup_fault else "true",
             "--artifacts-dir", str(directory),
         ]
         record = {"fixture": fixture, "command": command, "verified": False}
@@ -116,6 +128,10 @@ def main():
             assert receipt["status"] == expected_status, receipt["status"]
             assert receipt.get("failure_stage") == stage, receipt.get("failure_stage")
             assert receipt["failure_classification"] == classification, receipt["failure_classification"]
+            if cleanup_fault:
+                assert Path(environment["RUSTDROID_TEST_STATE_FILE"]).exists(), "cleanup fault was not injected"
+                if fixture == "reader-exit-cleanup":
+                    assert "runtime cleanup also failed" in (directory / "console.txt").read_text()
             for report in ["run-report.html", "junit.xml", "run-summary.md"]:
                 content = (directory / report).read_text()
                 if stage:
