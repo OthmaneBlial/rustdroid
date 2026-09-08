@@ -90,7 +90,7 @@ Before launch promotion. Estimate: 1–2 days after M1.
 - [ ] Prepare `v0.3.2` as the reliability release; choose a minor version if public commands are added. See draft `docs/releases/v0.3.2.md`.
 - [ ] Include failure receipts and September 8 fixes: SHA-256 encoding, dependencies and Expo-compatible React Native.
 - [ ] Align Cargo version/lockfile, tag, changelog, CLI version, notes, immutable action examples and tested source revision.
-- [ ] Build the Linux x86_64 archive on Linux; verify its checksum and install in a clean container, then attach provenance.
+- [x] Build the Linux x86_64 archive on Linux; verify its checksum and install in a clean container, then attach provenance. [Candidate build 34205275762](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205275762), source `2754c3e`, passed. The downloaded archive's SHA-256 is `b8771783960ad4e14f36dc97daca3cd48b6b73d234d72e03e937d86f01ef98b2`; `VERSION` is `v0.3.2`. `gh attestation verify` verified the GitHub-hosted release workflow and exact source SHA. This is a workflow artifact, not a published GitHub Release.
 - [ ] Run the host lane against the exact candidate commit, not only the old pinned action.
 - [ ] Download the published archive again and execute copied README commands on a clean supported host.
 - [ ] Attach the actual MP4, poster and minimal public receipts with recording commit and environment.
