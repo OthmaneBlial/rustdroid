@@ -25,9 +25,11 @@ dist/demo-tools/bin/python scripts/record-cli-demo.py --output dist/new-cli-demo
 
 Requires FFmpeg, ffprobe, jq and a Menlo or DejaVu Sans Mono font. The script uses an isolated config, refuses to overwrite its output directory and checks expected command exit codes. It renders captured output, then uses the FFmpeg web profile: H.264, CRF 23, 30 fps, 1280×720, yuv420p, faststart, no audio. Inspect the chapter PNGs and decode the entire MP4 before sharing it.
 
-### Full emulator demo still to record
+### Full emulator demo under visual validation
 
-ROADMAP.md M3 specifies a 45–60 second real Linux/KVM success/failure recording: command and Android screen, broken public fixture, generated HTML report, then the quickstart. Keep the raw terminal capture, Android screenrecord, exact candidate commit and receipts. Existing GitHub artifacts contain reports and logs, not a screen recording. A new supported runtime session is required; GitHub Actions is currently paused.
+ROADMAP.md M3 specifies a 45–60 second real Linux/KVM success/failure recording: command and Android screen, broken public fixture, generated HTML report, then the quickstart. GitHub Actions was re-enabled with owner approval. [Recording run 34207134598](https://github.com/OthmaneBlial/rustdroid/actions/runs/34207134598) produced a 97-second uncut desktop capture, real success/failure receipts, terminal logs and source metadata using the verified 0.3.2 candidate archive. Visual inspection rejected this take for final use: the terminal overlaps Android and the report window appears too late. A corrected capture is being validated; workflow success alone is not video acceptance.
+
+Recording tools and Android/KVM run on the GitHub Linux runner only. No emulator or KVM installation on macOS is needed. The reproducible capture entry point is `.github/workflows/product-demo.yml`, with `scripts/record-product-demo.sh` and `scripts/demo-session.sh`. Original takes remain in their workflow artifacts; retain the accepted source alongside the final edit and label warmed state, omitted setup, cuts and speed changes.
 
 The playable MP4 link above does not establish a native inline GitHub README player. Upload and verify that separately when the full product recording is ready. Release preparation is tracked in [the v0.3.2 draft](releases/v0.3.2.md); no new release has been published by this recording work.
 
