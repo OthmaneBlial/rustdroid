@@ -179,7 +179,11 @@ srt_time() {
       "failure HTML receipt") caption="FAILURE RECEIPT | launch classification | digest + artifacts" ;;
       *) caption="RustDroid real run evidence" ;;
     esac
-    printf '%d\n%s --> %s\n%s\n\n' "$((index + 1))" "$(srt_time "$start_time")" "$(srt_time "$end_time")" "$caption"
+    if (( index + 1 < segment_count )); then
+      printf '%d\n%s --> %s\n%s\n\n' "$((index + 1))" "$(srt_time "$start_time")" "$(srt_time "$end_time")" "$caption"
+    else
+      printf '%d\n%s --> %s\n%s\n' "$((index + 1))" "$(srt_time "$start_time")" "$(srt_time "$end_time")" "$caption"
+    fi
   done
 } > "${output%.*}.srt"
 

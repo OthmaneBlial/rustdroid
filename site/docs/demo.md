@@ -27,14 +27,17 @@ Requires FFmpeg, ffprobe, jq and a Menlo or DejaVu Sans Mono font. The script us
 
 ### Full emulator demo
 
-ROADMAP.md M3 specifies a 45–60 second real Linux/KVM success/failure recording: command and Android screen, broken public fixture, generated HTML report, then the quickstart. GitHub Actions was re-enabled with owner approval. The accepted [capture run 34209082936](https://github.com/OthmaneBlial/rustdroid/actions/runs/34209082936) produced the raw desktop recording, real success/failure receipts, terminal logs and source metadata using the verified 0.3.2 candidate archive. The [green FFmpeg export run 34210495967](https://github.com/OthmaneBlial/rustdroid/actions/runs/34210495967) re-edited that raw capture from its measured timeline. The checked-in [final MP4](../assets/rustdroid-product-demo.mp4) is 57.36 seconds, silent, captioned and 1280×720; the [poster](../assets/rustdroid-product-demo-poster.png), [captions](../assets/rustdroid-product-demo.srt), [uncut source](../assets/rustdroid-product-demo-uncut.mp4) and [provenance receipt](receipts/product-demo.md) travel with it.
+ROADMAP.md M3 specifies a 45–60 second real Linux/KVM success/failure recording: command and Android screen, broken public fixture, generated HTML report, then the quickstart. GitHub Actions was re-enabled with owner approval. The accepted [capture run 34227525161](https://github.com/OthmaneBlial/rustdroid/actions/runs/34227525161) produced the raw desktop recording, a real successful receipt, the intentional missing-launcher receipt, terminal logs and source metadata using the verified 0.3.2 candidate archive. The [green FFmpeg export run 34228241401](https://github.com/OthmaneBlial/rustdroid/actions/runs/34228241401) re-edited that raw capture from its measured timeline. The checked-in [final MP4](../assets/rustdroid-product-demo.mp4) is 56.52 seconds, silent, captioned and 1280×720; it shows the success result and `passed` HTML receipt before the expected failure. The [poster](../assets/rustdroid-product-demo-poster.png), [captions](../assets/rustdroid-product-demo.srt), [uncut source](../assets/rustdroid-product-demo-uncut.mp4) and [provenance receipt](receipts/product-demo.md) travel with it.
 
 Recording tools and Android/KVM run on the GitHub Linux runner only. No emulator or KVM installation on macOS is needed. The reproducible capture entry point is `.github/workflows/product-demo.yml`, with `scripts/record-product-demo.sh`, `scripts/demo-session.sh` and `scripts/edit-product-demo.sh`. The edit notes label the warmed state, omitted setup, cuts and speed changes. The raw source is checked in for durable inspection and also retained in the linked Actions artifact.
 
 The project site includes a native `<video controls>` player with the poster and
-SRT track, plus a direct fallback download. The README carries the same source
-markup and fallback, but GitHub's rendered sanitizer removes relative
-repository `<video>` elements. A maintainer must upload the MP4 through
+SRT track, plus a direct fallback download. It is live at
+[`othmaneblial.github.io/rustdroid`](https://othmaneblial.github.io/rustdroid/)
+from Pages commit `5e21b761`; HTTPS checks for `/`, `/docs.html`, the MP4, the
+SRT and `docs/demo.md` all returned 200 after propagation. The README carries
+the same source markup and fallback, but GitHub's rendered sanitizer removes
+relative repository `<video>` elements. A maintainer must upload the MP4 through
 GitHub's attachment UI and replace the source with its `user-attachments` URL
 to complete that external README-player gate. The published
 [v0.3.2 release](https://github.com/OthmaneBlial/rustdroid/releases/tag/v0.3.2)

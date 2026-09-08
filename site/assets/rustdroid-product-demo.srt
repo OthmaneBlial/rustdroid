@@ -1,19 +1,31 @@
 1
-00:00:00,000 --> 00:00:04,400
+00:00:00,000 --> 00:00:04,288
 RustDroid 0.3.2 | real Linux/KVM runner | setup excluded
 
 2
-00:00:04,400 --> 00:00:15,270
-REAL LAUNCH | public signed APK | setup wait accelerated 3x
+00:00:04,288 --> 00:00:15,046
+REAL LAUNCH | signed APK | setup wait accelerated 4x
 
 3
-00:00:15,270 --> 00:00:34,270
-LAUNCH VERIFIED | Android screen and observed receipt
+00:00:15,046 --> 00:00:20,046
+SUCCESS | exit code 0 | status passed | app_launch observed
 
 4
-00:00:34,270 --> 00:00:50,270
-EXPECTED FAILURE | missing launcher | exit code 1
+00:00:20,046 --> 00:00:25,046
+REAL ANDROID SCREEN | RustDroid Launch Fixture
 
 5
-00:00:50,270 --> 00:01:00,000
-HTML RECEIPT | stage app_launch | digest and artifacts
+00:00:25,046 --> 00:00:33,050
+SUCCESS RECEIPT | passed | launch completed | artifacts kept
+
+6
+00:00:33,050 --> 00:00:38,217
+EXPECTED FAILURE | missing launcher | setup accelerated 3x
+
+7
+00:00:38,217 --> 00:00:44,217
+EXPECTED FAILURE | exit code 1 | stage app_launch
+
+8
+00:00:44,217 --> 00:00:56,217
+FAILURE RECEIPT | launch classification | digest + artifacts

@@ -27,7 +27,7 @@ The GIF above is an illustrated walkthrough. [Watch the recorded CLI proof (MP4)
   <track kind="captions" src="assets/rustdroid-product-demo.srt" srclang="en" label="English captions" default>
 </video>
 
-**Real v0.3.2 demo:** a Linux/KVM GitHub runner launches the signed fixture, catches the missing-launcher fixture as `app_launch`, and opens the generated HTML receipt. The video is silent and captioned; setup is excluded and accelerated waits are labelled. [Download the MP4](assets/rustdroid-product-demo.mp4) · [provenance and raw-artifact notes](docs/demo.md#full-emulator-demo).
+**Real v0.3.2 demo:** a Linux/KVM GitHub runner first shows the signed fixture passing (`exit code 0` and a `passed` HTML receipt), then catches the missing-launcher fixture as `app_launch` and opens its generated receipt. The video is silent and captioned; setup is excluded and accelerated waits are labelled. [Download the MP4](assets/rustdroid-product-demo.mp4) · [provenance and raw-artifact notes](docs/demo.md#full-emulator-demo).
 
 ### The first Linux receipt in one decision
 
