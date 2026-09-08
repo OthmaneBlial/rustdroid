@@ -10,11 +10,16 @@ on:
       - tests/fixtures/**
       - .github/workflows/action-contract.yml
   workflow_dispatch:
+    inputs:
+      demonstrate_failure:
+        description: Intentionally fail the job with a missing-launcher APK and retain its reports
+        type: boolean
+        default: false
   schedule:
     - cron: "0 8 * * 3"
 
 concurrency:
-  group: action-contract-${{ github.workflow }}-${{ github.ref }}
+  group: action-contract-${{ github.workflow }}-${{ github.ref }}-${{ inputs.demonstrate_failure || false }}
   cancel-in-progress: true
 
 permissions:
@@ -74,7 +79,7 @@ jobs:
         name: Run the checked-in RustDroid action
         uses: ./
         with:
-          apk-path: tests/fixtures/apks/launch-success.apk
+          apk-path: ${{ inputs.demonstrate_failure && 'tests/fixtures/apks/missing-launcher.apk' || 'tests/fixtures/apks/launch-success.apk' }}
           profile: host-fast
           runtime-backend: host
           host-avd-name: test_avd
