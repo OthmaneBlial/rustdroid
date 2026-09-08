@@ -240,8 +240,7 @@ fn action_contract_exercises_checked_in_source_and_requires_api_level() {
 fn source_less_consumer_exercises_the_published_action_without_checkout() {
     let workflow = std::fs::read_to_string(".github/workflows/source-less-consumer.yml")
         .expect("read source-less consumer workflow");
-    let pinned_action =
-        "OthmaneBlial/rustdroid@ce727e89711958fc09daa57ac17d90bf8743e8c3";
+    let pinned_action = "OthmaneBlial/rustdroid@ce727e89711958fc09daa57ac17d90bf8743e8c3";
 
     assert!(workflow.contains("source-less consumer action"));
     assert!(workflow.contains(pinned_action));
