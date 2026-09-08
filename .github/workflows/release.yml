@@ -42,6 +42,9 @@ jobs:
       - name: Generate release notes and install snippet
         run: ./scripts/generate-release-notes.sh "${{ github.ref_name }}" "${{ matrix.target }}"
 
+      - name: Package the public first-run fixture
+        run: bash scripts/package-public-fixture.sh
+
       - name: Verify clean-container installation
         run: RUSTDROID_REQUIRE_CONTAINER=1 ./scripts/verify-release-install-container.sh "${{ matrix.target }}" "${{ github.ref_name }}"
 
@@ -61,6 +64,8 @@ jobs:
             dist/rustdroid-${{ matrix.target }}.tar.gz.sha256
             dist/install-snippet.txt
             dist/release-notes.md
+            dist/rustdroid-fixture-*.apk
+            dist/rustdroid-fixture-*.apk.sha256
 
       - name: Publish GitHub release assets
         if: startsWith(github.ref, 'refs/tags/')
@@ -71,3 +76,5 @@ jobs:
             dist/rustdroid-${{ matrix.target }}.tar.gz
             dist/rustdroid-${{ matrix.target }}.tar.gz.sha256
             dist/install-snippet.txt
+            dist/rustdroid-fixture-*.apk
+            dist/rustdroid-fixture-*.apk.sha256

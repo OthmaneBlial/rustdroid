@@ -1,6 +1,6 @@
 [package]
 name = "rustdroid"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 description = "Fast local Android APK smoke testing with reproducible emulator receipts"
 license = "MIT"
@@ -11,18 +11,19 @@ readme = "README.md"
 keywords = ["android", "apk", "emulator", "testing", "cli"]
 categories = ["command-line-utilities", "development-tools"]
 include = [
-    "Cargo.toml",
-    "Cargo.lock",
-    "README.md",
-    "CHANGELOG.md",
-    "CONTRIBUTING.md",
-    "LICENSE",
-    "docs/**",
-    "install.sh",
-    "uninstall.sh",
-    "scripts/**",
-    "src/**",
-    "tests/**",
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/CONTRIBUTING.md",
+    "/LICENSE",
+    "/docs/**",
+    "/install.sh",
+    "/run.sh",
+    "/uninstall.sh",
+    "/scripts/**",
+    "/src/**",
+    "/tests/**",
 ]
 
 [dependencies]

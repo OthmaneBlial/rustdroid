@@ -1,0 +1,100 @@
+{
+  "recorded_at": "2026-09-08T07:35:07.786430+00:00",
+  "host": "Darwin",
+  "source_commit": "f03c933084246a112360139bdd1e6ae48de0708d",
+  "binary_sha256": "86ac45325c623e2433ccfedd1cea2f2d5d98df464f819e7c7447f1a5ecfea65f",
+  "scope": "Actual CLI output replay with reading holds; no new emulator launch or screen capture.",
+  "historical_receipt": "https://github.com/OthmaneBlial/rustdroid/actions/runs/33519017529",
+  "commands": [
+    {
+      "argv": [
+        "target/debug/rustdroid",
+        "--config",
+        "dist/cli-demo-final/isolated.toml",
+        "version"
+      ],
+      "stdout": "rustdroid 0.3.1\n",
+      "stderr": "",
+      "exit_code": 0,
+      "elapsed_seconds": 0.8891,
+      "title": "A real CLI. Inspectable evidence.",
+      "subtitle": "CLI execution on macOS; Android runtime support remains Linux/KVM.",
+      "display_seconds": 5
+    },
+    {
+      "argv": [
+        "target/debug/rustdroid",
+        "--config",
+        "dist/cli-demo-final/isolated.toml",
+        "--profile",
+        "host-fast",
+        "--host-avd-name",
+        "test_avd",
+        "--dry-run",
+        "run",
+        "tests/fixtures/apks/launch-success.apk",
+        "--keep-alive",
+        "false"
+      ],
+      "stdout": "RustDroid dry-run: run\nbackend=host profile=host-fast serial=emulator-5554 avd=test_avd\ninputs: launch-success.apk\n- check runtime readiness\n- start or reuse an emulator\n- upload, inspect, and install the APK input\n- launch the resolved activity and collect logs\n- write a receipt when an artifacts directory is configured\n- stop the managed runtime after the receipt\nNo emulator, container, APK, process, or file was changed.\n",
+      "stderr": "",
+      "exit_code": 0,
+      "elapsed_seconds": 0.0119,
+      "title": "See the plan before changing anything.",
+      "subtitle": "This is an explicit dry run. No emulator is started.",
+      "display_seconds": 11
+    },
+    {
+      "argv": [
+        "target/debug/rustdroid",
+        "--config",
+        "dist/cli-demo-final/isolated.toml",
+        "--profile",
+        "host-fast",
+        "run",
+        "dist/cli-demo-final/intentionally-missing.apk",
+        "--duration-secs",
+        "1",
+        "--keep-alive",
+        "false",
+        "--artifacts-dir",
+        "dist/cli-demo-final/failure"
+      ],
+      "stdout": "summary: backend=host status=failed failure_stage=input_preflight package=unresolved boot_ms=0 install_ms=0 launch_ms=0 total_ms=0 kept_alive=false\n",
+      "stderr": "error: APK input not found: dist/cli-demo-final/intentionally-missing.apk\n",
+      "exit_code": 1,
+      "elapsed_seconds": 0.0113,
+      "title": "A missing APK produces a failed receipt.",
+      "subtitle": "Real failure, real nonzero exit. No Android host is needed for this check.",
+      "display_seconds": 9
+    },
+    {
+      "argv": [
+        "jq",
+        "{status,failure_stage,failure_classification,error_summary}",
+        "dist/cli-demo-final/failure/run-summary.json"
+      ],
+      "stdout": "{\n  \"status\": \"failed\",\n  \"failure_stage\": \"input_preflight\",\n  \"failure_classification\": \"input\",\n  \"error_summary\": \"the Android artifact could not be prepared\"\n}\n",
+      "stderr": "",
+      "exit_code": 0,
+      "elapsed_seconds": 0.0063,
+      "title": "The failure is data your CI can use.",
+      "subtitle": "Reading the JSON file written by the previous command.",
+      "display_seconds": 9
+    },
+    {
+      "argv": [
+        "jq",
+        "{tool_version,status,package_name,total_duration_ms}",
+        "docs/receipts/reference-gradle.json"
+      ],
+      "stdout": "{\n  \"tool_version\": \"0.3.1\",\n  \"status\": \"passed\",\n  \"package_name\": \"dev.rustdroid.examples.gradle\",\n  \"total_duration_ms\": 15746\n}\n",
+      "stderr": "",
+      "exit_code": 0,
+      "elapsed_seconds": 0.0054,
+      "title": "A historical Linux launch is inspectable too.",
+      "subtitle": "Archived Android 35 proof from 2026-09-01; this is not a new emulator run.",
+      "display_seconds": 9
+    }
+  ]
+}

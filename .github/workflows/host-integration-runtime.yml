@@ -52,6 +52,30 @@ jobs:
             RUSTDROID_SMOKE_ENABLE_GUI=0 RUSTDROID_SMOKE_BOOT_TIMEOUT_SECS=360
             ./scripts/ci-host-check.sh
 
+      - id: failure_matrix
+        name: Verify actual launch and post-launch failures
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          avd-name: test_avd
+          profile: Nexus 5
+          target: google_apis
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
+          script: >-
+            sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}";
+            export PATH="$sdk_root/emulator:$sdk_root/platform-tools:$PATH";
+            cargo build --locked &&
+            python3 scripts/check-runtime-failures.py --serial emulator-5554 --avd test_avd
+
+      - name: Upload failure-matrix receipts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtime-failure-matrix
+          path: ci-artifacts/runtime-failures
+          if-no-files-found: warn
+
       - name: Upload host artifacts on failure
         if: ${{ always() && steps.host_suite.outcome != 'success' }}
         uses: actions/upload-artifact@v7

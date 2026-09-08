@@ -4,7 +4,9 @@ The repository contains a small signed APK fixture so that a new user can see th
 
 ![A four-step RustDroid terminal walkthrough: doctor, a public fixture run, launch observation, and receipt artifacts](../assets/rustdroid-demo.gif)
 
-The walkthrough is a captioned replay of the exact documented flow. It intentionally shows no universal timing promise; use the receipt and benchmark documentation to compare a supported Linux host.
+The GIF is an illustration generated from four SVG scenes, not a recording of command execution. It intentionally shows no universal timing promise; use the receipt and benchmark documentation to compare a supported Linux host.
+
+An additional [recorded CLI proof and its raw output](https://github.com/OthmaneBlial/rustdroid/blob/main/docs/demo.md#recorded-cli-proof) demonstrate an actual missing-input failure and generated receipt on macOS. This is an edited CLI output replay, not a new Android emulator recording. The complete Linux/KVM success/failure video remains a separate roadmap deliverable.
 
 For raw evidence, inspect the checked-in [Gradle `run-summary.json`](receipts/reference-gradle.json) and its [provenance note](receipts/reference-gradle.md). That receipt came from the public September 1, 2026 workflow run that built the source fixture, launched it on Android 35, and uploaded the complete artifact bundle.
 

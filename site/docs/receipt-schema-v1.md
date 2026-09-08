@@ -47,6 +47,37 @@ Use `--junit-path path/to/report.xml` or `--markdown-summary-path path/to/summar
 
 The schema records only evidence needed to reproduce or compare an APK run. Treat generated logs as potentially sensitive and upload them only to the CI audience that is allowed to inspect application output.
 
+## Observation semantics on current source
+
+For application runs, RustDroid resolves the process before starting the
+observation timer and waits for the requested readers to start. A reader error,
+unexpected EOF, panic or startup timeout is a capture failure. A zero-second
+application observation is rejected. Cancelling an application observation is
+a failure; stopping the interactive `logs` command remains a normal exit.
+
+A unique logcat marker is written immediately before each launch. Crash/ANR
+detection considers the target package after that marker; a final logcat read
+checks for events not delivered by the live stream. A missing marker makes the
+observation incomplete. Device-wide diagnostic dumps are retained as raw
+artifacts but do not supply unscoped canonical crash/ANR summaries.
+
+The main process PID is checked periodically and at the deadline. Process
+disappearance or PID change fails observation; activity navigation within the
+same process does not itself fail this check. PID polling is not proof that
+every UI frame or business flow worked.
+
+These semantics are implemented and locally regression-tested on current
+source, but the new Linux/KVM runtime failure matrix is not yet verified.
+The published v0.3.1 binary predates these changes.
+
+### Failures before receipt ownership
+
+Invalid `run` arguments return exit code 2 with parser diagnostics on stderr.
+Configuration-loading failures for `run` return exit code 1 with diagnostics
+on stderr. Neither creates an artifact directory or a synthetic receipt.
+Backend-connection errors also precede orchestrator ownership and follow the
+command's error exit code; they are not reported as successful observations.
+
 ## Benchmark receipt
 
 `rustdroid bench app.apk --artifacts-dir artifacts/bench` writes `bench-summary.json` and `bench-summary.md`. The benchmark receipt records the tool version, host OS/architecture/CPU count, runner image when supplied by CI, AVD/API, boot mode, emulator CPU/RAM/GPU configuration, safe input digest, and stage timings. It does not send machine data anywhere.

@@ -370,6 +370,24 @@ impl EmulatorOrchestrator {
         progress.metadata = Some(install.metadata.clone());
         progress.last_completed_stage = Some("apk_install");
 
+        let marker = match logs::begin_observation(&self.runtime, &self.config).await {
+            Ok(marker) => marker,
+            Err(error) => {
+                return self
+                    .finish_failed_run(
+                        &args,
+                        artifacts_dir.as_deref(),
+                        total_started,
+                        &progress,
+                        RunFailure {
+                            stage: "log_capture",
+                            classification: "capture",
+                            error,
+                        },
+                    )
+                    .await
+            }
+        };
         eprintln!("==> launching {}", install.metadata.package_name);
         let launch_started = Instant::now();
         if let Err(error) = self
@@ -402,6 +420,8 @@ impl EmulatorOrchestrator {
                 duration_secs: args.duration_secs,
                 package_name: Some(install.metadata.package_name.clone()),
                 since_start: false,
+                verify_liveness: true,
+                run_marker: Some(marker),
             },
         )
         .await;
@@ -419,18 +439,10 @@ impl EmulatorOrchestrator {
                 self.collect_run_artifacts_best_effort(true).await;
         }
 
-        let crash_summary = message_crash_summary.or_else(|| {
-            artifacts
-                .logcat_dump
-                .as_deref()
-                .and_then(extract_logcat_crash_summary)
-        });
-        let anr_summary = message_anr_summary.or_else(|| {
-            artifacts
-                .logcat_dump
-                .as_deref()
-                .and_then(extract_logcat_anr_summary)
-        });
+        // A whole-device dump can contain other apps and previous launches.
+        // Only the supervised observation supplies attributed failure summaries.
+        let crash_summary = message_crash_summary;
+        let anr_summary = message_anr_summary;
 
         let mut failure = stream_result.as_ref().err().map(|_| {
             if anr_summary.is_some() {
@@ -571,14 +583,10 @@ impl EmulatorOrchestrator {
             }
         }
 
-        let crash_summary = artifacts
-            .logcat_dump
-            .as_deref()
-            .and_then(extract_logcat_crash_summary);
-        let anr_summary = artifacts
-            .logcat_dump
-            .as_deref()
-            .and_then(extract_logcat_anr_summary);
+        // This path reports a stage failure before successful observation.
+        // Retain raw diagnostics without attributing historical device crashes.
+        let crash_summary = None;
+        let anr_summary = None;
         let summary = self.build_run_summary(
             args,
             progress,
@@ -741,6 +749,7 @@ impl EmulatorOrchestrator {
             ui_opened = true;
 
             let install = self.install_prepared_apks(&prepared, true).await?;
+            let marker = logs::begin_observation(&self.runtime, &self.config).await?;
             self.adb
                 .launch_app(&self.runtime, &self.config, &install.metadata)
                 .await?;
@@ -754,6 +763,8 @@ impl EmulatorOrchestrator {
                         duration_secs: Some(duration_secs),
                         package_name: Some(install.metadata.package_name.clone()),
                         since_start: false,
+                        verify_liveness: true,
+                        run_marker: Some(marker),
                     },
                 )
                 .await?;
@@ -894,6 +905,8 @@ impl EmulatorOrchestrator {
                 duration_secs: args.duration_secs,
                 package_name: args.package,
                 since_start: args.since_start,
+                verify_liveness: false,
+                run_marker: None,
             },
         )
         .await
@@ -2011,6 +2024,47 @@ mod tests {
         assert!(junit.contains("failures=\"1\""));
         assert!(junit.contains("<failure type=\"launch\""));
         assert!(junit.contains("the application could not be launched"));
+    }
+
+    #[test]
+    fn all_failure_classes_survive_written_receipts() {
+        for (stage, classification) in [
+            ("input_preflight", "input"),
+            ("emulator_boot", "emulator"),
+            ("apk_install", "install"),
+            ("app_launch", "launch"),
+            ("app_runtime", "crash"),
+            ("app_runtime", "anr"),
+            ("log_capture", "capture"),
+            ("artifact_capture", "capture"),
+            ("cleanup", "cleanup"),
+        ] {
+            let dir = tempdir().expect("receipt directory");
+            let mut summary = sample_summary();
+            summary.status = "failed".into();
+            summary.failure_stage = Some(stage.into());
+            summary.failure_classification = classification.into();
+            summary.error_summary = Some(super::safe_failure_summary(stage).into());
+            write_run_artifacts(dir.path(), &summary, &RunArtifacts::default()).unwrap();
+            let json: serde_json::Value = serde_json::from_str(
+                &fs::read_to_string(dir.path().join("run-summary.json")).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(json["status"], "failed");
+            assert_eq!(json["failure_stage"], stage);
+            assert_eq!(json["failure_classification"], classification);
+            for file in ["run-report.html", "junit.xml", "run-summary.md"] {
+                let contents = fs::read_to_string(dir.path().join(file)).unwrap();
+                assert!(contents.contains(stage), "{classification}: {file}");
+                assert!(
+                    contents.contains(super::safe_failure_summary(stage)),
+                    "{classification}: {file}"
+                );
+            }
+            let junit = fs::read_to_string(dir.path().join("junit.xml")).unwrap();
+            assert!(junit.contains("failures=\"1\""));
+            assert!(junit.contains(&format!("<failure type=\"{classification}\"")));
+        }
     }
 
     #[test]

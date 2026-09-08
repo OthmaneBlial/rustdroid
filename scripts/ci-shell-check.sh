@@ -10,6 +10,7 @@ scripts=(
   uninstall.sh
   run.sh
   scripts/package-release.sh
+  scripts/package-public-fixture.sh
   scripts/verify-release-install.sh
   scripts/verify-release-install-container.sh
   scripts/ci-host-check.sh

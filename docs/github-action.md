@@ -31,9 +31,13 @@ The repository tests the exact action revision below against its public `launch-
   if: always()
   with:
     name: rustdroid-receipt
-    path: ${{ steps.receipt.outputs.receipt-dir }}
+    path: artifacts/rustdroid
 ```
 
 The surrounding job must enable KVM and provision the AVD first, as shown in the reference workflow. The action appends its Markdown receipt to `$GITHUB_STEP_SUMMARY` and exposes `receipt-dir` for upload.
+
+Use the configured literal artifact path with this historical pin: its failure path can stop before publishing `receipt-dir`. `if: always()` preserves available failure reports without turning the failed job green. Failures before receipt creation may leave no reports to upload.
+
+The local 0.3.2 candidate fixes output/summary finalization and preserves the original exit code; shell regression tests cover success and failures. That fix is not contained in the historical SHA above. Update the pin only after publishing and verifying the candidate on a supported runner.
 
 The action accepts APK, `.apks`, and `.xapk` inputs. The generated receipt has the [schema v1 contract](receipt-schema-v1.md); logs can contain app output, so keep artifact retention and visibility appropriate for the application.

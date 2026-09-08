@@ -1,6 +1,20 @@
 {
   "fixtures": [
     {
+      "name": "launch-then-exit",
+      "path": "tests/fixtures/apks/launch-then-exit.apk",
+      "package": "com.rustdroid.fixture.exit",
+      "launchable_activity": "com.rustdroid.fixture.exit.MainActivity",
+      "native_abis": []
+    },
+    {
+      "name": "launch-then-crash",
+      "path": "tests/fixtures/apks/launch-then-crash.apk",
+      "package": "com.rustdroid.fixture.crash",
+      "launchable_activity": "com.rustdroid.fixture.crash.MainActivity",
+      "native_abis": []
+    },
+    {
       "name": "launch-success",
       "path": "tests/fixtures/apks/launch-success.apk",
       "package": "com.rustdroid.fixture.launch",

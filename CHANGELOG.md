@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### v0.3.2 candidate (not published)
+
+- Anchored Cargo package inclusions to the repository root so nested dependency licenses and temporary environments are excluded; included the runtime helper script explicitly.
+
+- Supervised log readers now fail on errors, premature termination and panics; the observation window starts after reader readiness and PID discovery.
+- Added main-process continuity checks and a final liveness check. Interrupted or zero-duration application observations cannot report success.
+- Scoped crash/ANR detection to a unique launch marker and target package, including a final log read and Docker transport chunk handling. Historical device dumps remain diagnostics without becoming canonical crash summaries.
+- Added signed process-exit and Java-crash fixtures, a Linux/KVM failure runner and cross-format receipt checks. Runtime qualification remains pending.
+- Updated Rust dependencies and GitHub workflow actions; fixed SHA-256 encoding for sha2 0.11 and aligned the Expo fixture with its supported React Native version.
+
 - Added schema-v1 failure receipts for input preflight, emulator boot, install, launch, runtime observation, artifact capture, and cleanup failures after backend selection. JSON, HTML, JUnit, and Markdown now report the same stable stage and path-free summary.
 - Made runtime artifact collection best-effort so an unavailable log source does not erase the primary run failure, while still marking a requested capture failure when no earlier failure exists.
 - Escaped ABI values in generated HTML receipts and rendered an empty ABI set as text instead of an invalid `<none>` element.

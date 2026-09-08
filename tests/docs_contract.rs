@@ -218,7 +218,7 @@ fn roadmap_distinguishes_delivery_from_external_evidence() {
     let roadmap = std::fs::read_to_string("ROADMAP.md").expect("read roadmap");
 
     for snippet in [
-        "## Current snapshot -- 2026-09-01",
+        "## Current snapshot -- 2026-09-08",
         "v0.3.1",
         "GitHub Actions are temporarily disabled",
         "External adoption is not a build artifact.",

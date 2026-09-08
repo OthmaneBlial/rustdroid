@@ -47,6 +47,50 @@ fn release_assets_exist_in_repo() {
 }
 
 #[test]
+fn action_preserves_reports_and_exit_codes() {
+    let action = fs::read_to_string("action.yml").unwrap();
+    let body = action.rsplit_once("      run: |\n").unwrap().1;
+    let script = body
+        .lines()
+        .map(|line| line.strip_prefix("        ").unwrap_or(line))
+        .collect::<Vec<_>>()
+        .join("\n");
+    for code in [0, 1, 2] {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        fs::create_dir_all(root.join("target/release")).unwrap();
+        let binary = root.join("target/release/rustdroid");
+        fs::write(&binary, format!("#!/bin/bash\nprintf 'test receipt\\n' > \"$RUSTDROID_ACTION_ARTIFACTS/run-summary.md\"\nexit {code}\n")).unwrap();
+        assert!(Command::new("chmod")
+            .arg("+x")
+            .arg(&binary)
+            .status()
+            .unwrap()
+            .success());
+        let artifacts = root.join("receipt with spaces");
+        let mut command = Command::new("bash");
+        command
+            .args(["-c", &script])
+            .env("GITHUB_ACTION_PATH", root)
+            .env("GITHUB_OUTPUT", root.join("output"))
+            .env("GITHUB_STEP_SUMMARY", root.join("summary"))
+            .env("RUSTDROID_ACTION_ARTIFACTS", &artifacts);
+        for key in ["APK", "PROFILE", "BACKEND", "AVD", "DURATION", "KEEP_ALIVE"] {
+            command.env(format!("RUSTDROID_ACTION_{key}"), "test");
+        }
+        assert_eq!(command.status().unwrap().code(), Some(code));
+        assert_eq!(
+            fs::read_to_string(root.join("summary")).unwrap(),
+            "test receipt\n"
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("output")).unwrap(),
+            format!("receipt-dir={}\n", artifacts.display())
+        );
+    }
+}
+
+#[test]
 fn composite_action_declares_the_receipt_contract() {
     let action = std::fs::read_to_string("action.yml").expect("read action.yml");
 

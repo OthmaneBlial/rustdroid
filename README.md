@@ -20,6 +20,8 @@
   RustDroid is a Linux-first CLI that turns an APK, split set, <code>.apks</code>, or <code>.xapk</code> into an inspectable local launch result.
 </p>
 
+The GIF above is an illustrated walkthrough. [Watch the recorded CLI proof (MP4)](assets/rustdroid-cli-proof.mp4): actual command output, a missing-input failure and its generated receipt, followed by an explicitly labelled historical Linux receipt. It is not a new emulator launch recording. [Recording scope and reproduction](docs/demo.md#recorded-cli-proof).
+
 <p align="center">
   <a href="https://othmaneblial.github.io/rustdroid/">Project site</a> ·
   <a href="docs/receipts/reference-gradle.md">Inspect a real receipt</a> ·
@@ -57,6 +59,8 @@ That run completed the receipt path in 15.746 seconds. It is one reproducible sa
 
 ## Get to your first receipt
 
+The published release is currently **v0.3.1**. The working source is the **v0.3.2 candidate** with stricter observation and failure receipts; it is not yet a published, Linux-qualified release. See the [candidate notes](docs/releases/v0.3.2.md) before relying on those newer semantics.
+
 RustDroid currently targets Linux hosts with KVM, an Android SDK emulator, ADB, and an existing AVD. The [Linux quickstart](docs/quickstart-linux.md) gives exact Ubuntu/Debian and Fedora setup commands.
 
 ### 1. Install the verified release
@@ -71,7 +75,7 @@ The prebuilt archive targets **x86_64 Linux**. ARM/aarch64 Linux uses the docume
 
 ```bash
 rustdroid version
-rustdroid doctor
+rustdroid --runtime-backend host doctor
 rustdroid self-test --backend host
 ```
 
@@ -100,7 +104,17 @@ artifacts/rustdroid/
 └── logcat.txt         # runtime evidence
 ```
 
-Want a public input first? Clone the repository and replace your APK path with `tests/fixtures/apks/launch-success.apk`.
+Want a public input first? Download the tiny fixture from an immutable source revision; no clone is needed. On the prepared Linux host above:
+
+```bash
+curl -fL https://raw.githubusercontent.com/OthmaneBlial/rustdroid/f03c933084246a112360139bdd1e6ae48de0708d/tests/fixtures/apks/launch-success.apk -o launch-success.apk
+echo '5006fcae4718a1998dbba7097283792807284c29a7eff79f1d3a7a072492cf60  launch-success.apk' | sha256sum -c -
+rustdroid --profile host-fast --host-avd-name test_avd \
+  run launch-success.apk --duration-secs 2 --keep-alive false \
+  --artifacts-dir artifacts/rustdroid
+```
+
+Open `artifacts/rustdroid/run-report.html` to inspect the result. The fixture only demonstrates installation and launch, not an application's business flows. Its source is in `tests/fixtures/`.
 
 ## Where RustDroid fits
 

@@ -3,3 +3,5 @@ target/
 dist/
 ci-artifacts/
 *.apk
+!tests/fixtures/apks/launch-then-exit.apk
+!tests/fixtures/apks/launch-then-crash.apk

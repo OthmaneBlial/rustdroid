@@ -3,7 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fixtures_root="$repo_root/tests/fixtures"
-apk_dir="$fixtures_root/apks"
+apk_dir="${RUSTDROID_FIXTURE_OUTPUT_DIR:-$fixtures_root/apks}"
 keystore_path="$fixtures_root/debug.keystore"
 
 sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/android-sdk}}"
@@ -71,7 +71,6 @@ fi
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 
-rm -rf "$apk_dir"
 mkdir -p "$apk_dir"
 
 sign_apk() {
@@ -96,6 +95,14 @@ write_activity_source() {
     local package_name="$2"
     local activity_name="$3"
     local screen_text="$4"
+    local behavior="${5:-normal}"
+    local behavior_code=""
+    case "$behavior" in
+        normal) ;;
+        exit) behavior_code='new android.os.Handler().postDelayed(() -> android.os.Process.killProcess(android.os.Process.myPid()), 8000);' ;;
+        crash) behavior_code='new android.os.Handler().postDelayed(() -> { throw new IllegalStateException("RustDroid intentional fixture crash"); }, 8000);' ;;
+        *) echo "unknown fixture behavior: $behavior" >&2; exit 1 ;;
+    esac
     local package_path="${package_name//./\/}"
 
     mkdir -p "$src_dir/$package_path"
@@ -113,6 +120,7 @@ public final class $activity_name extends Activity {
         TextView view = new TextView(this);
         view.setText("$screen_text");
         setContentView(view);
+        $behavior_code
     }
 }
 EOF_ACTIVITY
@@ -193,13 +201,14 @@ build_single_apk_fixture() {
     local screen_text="$5"
     local include_launcher="$6"
     local native_abi="${7:-}"
+    local behavior="${8:-normal}"
 
     local fixture_dir="$workdir/$fixture_name"
     mkdir -p "$fixture_dir/src" "$fixture_dir/res" "$fixture_dir/build"
 
     write_manifest "$fixture_dir/AndroidManifest.xml" "$package_name" "$activity_name" "$include_launcher"
     write_strings "$fixture_dir/res" "$app_label"
-    write_activity_source "$fixture_dir/src" "$package_name" "$activity_name" "$screen_text"
+    write_activity_source "$fixture_dir/src" "$package_name" "$activity_name" "$screen_text" "$behavior"
     compile_activity "$fixture_dir/src" "$fixture_dir/build"
 
     local unsigned_apk="$fixture_dir/build/$fixture_name-unsigned.apk"
@@ -299,6 +308,16 @@ build_single_apk_fixture \
     "arm64-v8a"
 
 build_split_fixture
+
+build_single_apk_fixture \
+    "launch-then-exit" "com.rustdroid.fixture.exit" \
+    "RustDroid Exit Fixture" "MainActivity" \
+    "This process exits eight seconds after launch" "true" "" "exit"
+
+build_single_apk_fixture \
+    "launch-then-crash" "com.rustdroid.fixture.crash" \
+    "RustDroid Crash Fixture" "MainActivity" \
+    "This app crashes eight seconds after launch" "true" "" "crash"
 
 echo "generated fixture APKs:"
 find "$apk_dir" -maxdepth 1 -type f -name '*.apk' | sort

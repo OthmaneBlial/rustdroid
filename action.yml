@@ -60,6 +60,16 @@ runs:
         RUSTDROID_ACTION_KEEP_ALIVE: ${{ inputs.keep-alive }}
       run: |
         set -euo pipefail
+        finish_receipt() {
+          local run_exit=$?
+          trap - EXIT
+          if [[ -f "$RUSTDROID_ACTION_ARTIFACTS/run-summary.md" ]]; then
+            cat "$RUSTDROID_ACTION_ARTIFACTS/run-summary.md" >> "$GITHUB_STEP_SUMMARY" || true
+          fi
+          printf 'receipt-dir=%s\n' "$RUSTDROID_ACTION_ARTIFACTS" >> "$GITHUB_OUTPUT" || true
+          exit "$run_exit"
+        }
+        trap finish_receipt EXIT
         mkdir -p "$RUSTDROID_ACTION_ARTIFACTS"
         "$GITHUB_ACTION_PATH/target/release/rustdroid" \
           --profile "$RUSTDROID_ACTION_PROFILE" \
@@ -72,5 +82,3 @@ runs:
           --artifacts-dir "$RUSTDROID_ACTION_ARTIFACTS" \
           --junit-path "$RUSTDROID_ACTION_ARTIFACTS/junit.xml" \
           --markdown-summary-path "$RUSTDROID_ACTION_ARTIFACTS/run-summary.md"
-        cat "$RUSTDROID_ACTION_ARTIFACTS/run-summary.md" >> "$GITHUB_STEP_SUMMARY"
-        printf 'receipt-dir=%s\n' "$RUSTDROID_ACTION_ARTIFACTS" >> "$GITHUB_OUTPUT"

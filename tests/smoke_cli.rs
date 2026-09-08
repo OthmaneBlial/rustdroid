@@ -1,5 +1,43 @@
 mod common;
 
+#[test]
+fn invalid_run_configuration_fails_before_receipt_ownership() {
+    let context = common::TestContext::new();
+    std::fs::write(&context.config_path, "[invalid toml").unwrap();
+    let artifacts = context.config_path.parent().unwrap().join("early-failure");
+    let output = common::rustdroid_command(&context)
+        .args(["run", "missing.apk", "--artifacts-dir"])
+        .arg(&artifacts)
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert!(!output.stderr.is_empty());
+    assert!(
+        !artifacts.exists(),
+        "configuration failure must not invent a receipt"
+    );
+}
+
+#[test]
+fn invalid_run_arguments_use_the_parser_exit_code() {
+    let context = common::TestContext::new();
+    let artifacts = context.config_path.parent().unwrap().join("parse-failure");
+    let output = common::rustdroid_command(&context)
+        .args([
+            "run",
+            "missing.apk",
+            "--duration-secs",
+            "not-a-number",
+            "--artifacts-dir",
+        ])
+        .arg(&artifacts)
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(!output.stderr.is_empty());
+    assert!(!artifacts.exists());
+}
+
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
