@@ -37,6 +37,13 @@ jobs:
           target: google_apis
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
           script: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/record-product-demo.sh
+      - name: Edit captioned public demo with FFmpeg
+        if: success()
+        run: |
+          bash scripts/edit-product-demo.sh \
+            demo-artifacts/desktop-uncut.mp4 \
+            demo-artifacts/rustdroid-product-demo.mp4 \
+            demo-artifacts/rustdroid-product-demo-poster.png
       - name: Retain uncut capture and actual receipts
         if: always()
         uses: actions/upload-artifact@v7
