@@ -31,11 +31,14 @@ ROADMAP.md M3 specifies a 45–60 second real Linux/KVM success/failure recordin
 
 Recording tools and Android/KVM run on the GitHub Linux runner only. No emulator or KVM installation on macOS is needed. The reproducible capture entry point is `.github/workflows/product-demo.yml`, with `scripts/record-product-demo.sh`, `scripts/demo-session.sh` and `scripts/edit-product-demo.sh`. The edit notes label the warmed state, omitted setup, cuts and speed changes. The raw source is checked in for durable inspection and also retained in the linked Actions artifact.
 
-The repository README and project site include native `<video controls>` players
-with the poster and SRT track, plus a direct fallback download. GitHub's final
-rendering and media delivery are checked after the assets land on `main`.
-Release preparation is tracked in [the v0.3.2 draft](releases/v0.3.2.md); no new
-release has been published by this recording work.
+The project site includes a native `<video controls>` player with the poster and
+SRT track, plus a direct fallback download. The README carries the same source
+markup and fallback, but GitHub's rendered sanitizer removes relative
+repository `<video>` elements. A maintainer must upload the MP4 through
+GitHub's attachment UI and replace the source with its `user-attachments` URL
+to complete that external README-player gate. Release preparation is tracked in
+[the v0.3.2 draft](releases/v0.3.2.md); no new release has been published by
+this recording work.
 
 For raw evidence, inspect the checked-in [Gradle `run-summary.json`](receipts/reference-gradle.json) and its [provenance note](receipts/reference-gradle.md). That receipt came from the public September 1, 2026 workflow run that built the source fixture, launched it on Android 35, and uploaded the complete artifact bundle.
 

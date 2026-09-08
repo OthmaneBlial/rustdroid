@@ -115,7 +115,8 @@ Use FFmpeg, preserving raw output and the original recording. Keep the existing 
 - [x] Retain uncut source. Label edits, warmed emulator state and speed changes; measure SDK installation separately. The raw MP4 is checked in and retained in the Actions artifact.
 - [x] Export captioned 1280×720 H.264 MP4, `yuv420p`, `+faststart`, 57.36 seconds and 552 KiB; it stays below the 15 MB target.
 - [x] Make it understandable without audio. The silent export keeps readable commands and burned captions instead of relying on sound.
-- [x] Provide play/pause/seek controls on the site and a native `<video controls>` player in the README, with an accessible SRT track and fallback download. The checked-in media is served from the repository asset path; rendered GitHub markup/media availability remains an external surface to monitor.
+- [x] Provide play/pause/seek controls on the project site, with an accessible SRT track and fallback download. The checked-in site assets are present and the player markup is covered by the static-site contract.
+- [ ] Verify a native GitHub README video player. GitHub's rendered sanitizer removes a relative repository `<video>` element; the README retains the poster/source/fallback, but a maintainer must upload the MP4 once through GitHub's attachment UI to obtain a `github.com/user-attachments/assets/...` URL before this external rendering gate can be checked.
 - [x] Inspect beginning, launch, failure, report and final frames; decode the entire file and verify playback. The inspected frames and full `ffmpeg -f null -` decode are recorded in the delivery notes.
 
 **Acceptance:** the final local/site asset is a real, playable Linux/KVM demonstration whose receipts and source are inspectable. Independent viewer comprehension remains an M4 experiment, not an invented claim. See `docs/receipts/product-demo.md` for exact hashes and runs.

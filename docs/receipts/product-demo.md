@@ -25,6 +25,9 @@ classified missing-launcher failure, and generated HTML report. Setup and
 variable waits are excluded or time-compressed; the captions say when that
 happens. The edit script is [`scripts/edit-product-demo.sh`](../../scripts/edit-product-demo.sh).
 
-The final MP4 is a checked-in copy of the green edit-only artifact. The raw
-capture and all runtime receipts remain in the linked Actions artifact for the
-same run (subject to GitHub's artifact retention policy).
+The final MP4 is a checked-in copy of the green edit-only artifact. The project
+site player is ready and the README keeps a fallback download; GitHub strips a
+relative README `<video>` tag, so a maintainer upload is still required for a
+native README player. The raw capture and all runtime receipts remain in the
+linked Actions artifact for the same run (subject to GitHub's artifact
+retention policy).
