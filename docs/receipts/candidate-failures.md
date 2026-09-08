@@ -26,4 +26,4 @@ For infrastructure failure tests, a per-process ADB wrapper forwards ordinary op
 
 Each case checks its exit code and canonical JSON outcome, then verifies the failure stage in the generated HTML, JUnit and Markdown. Local tests additionally cover report serialization, startup readiness, historical/package attribution and cancellation. This is not business-flow testing, a physical-device matrix, independent user adoption or proof of a published release.
 
-The [candidate Linux archive](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205275762) was built separately at `2754c3e` and has a verified checksum and provenance. Keep these revisions distinct; the exact archive revision has its own runtime validation gate.
+The original [candidate Linux archive](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205275762) was built separately at `2754c3e` and has a verified checksum and provenance. The published `v0.3.2` archive is built from `ce727e8`; keep these revisions distinct because each archive has its own runtime validation evidence.

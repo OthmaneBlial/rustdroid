@@ -6,7 +6,7 @@ This is an execution plan, not a forecast of GitHub stars. The repository curren
 
 ## Current snapshot -- 2026-09-08
 
-Audit baseline: candidate archive `2754c3e`, checked against the live repository and release evidence on September 8, 2026. Counts are a dated snapshot; final demo evidence is linked below.
+Audit baseline: published release tag `v0.3.2` at `ce727e8`, checked against the live repository and release evidence on September 8, 2026. Counts are a dated snapshot; final demo evidence is linked below.
 
 | Area | What exists | What holds adoption back |
 | --- | --- | --- |
@@ -15,7 +15,7 @@ Audit baseline: candidate archive `2754c3e`, checked against the live repository
 | Core | Host/Docker; APK, splits, APKS/XAPK; watch; diagnostics; five report formats | A large command surface makes the first decision harder |
 | Evidence | Public Gradle, Flutter and Expo runs; exact-candidate API 30 matrix and receipts | External adopter evidence is still absent |
 | Demo | Real 57-second H.264 MP4, poster, captions, checked-in uncut source and a live project-site player | Native GitHub README rendering and external viewers still need monitoring |
-| Installation | Published `v0.3.1`; checksummed `v0.3.2` Linux x86_64 candidate archive and clean-container install | Candidate is not tagged or published; README's latest binary remains v0.3.1 |
+| Installation | Published `v0.3.2` Linux x86_64 archive, fixture, checksum and attestation | Published-asset Android quickstart receipt is still pending |
 | Quality | Local Rust suite, Clippy, packaging, security audits and exact-candidate Linux/KVM host lane passed | Business flows and a broader device matrix are out of scope |
 | Automation | GitHub Actions re-enabled; action contract, host matrix, release archive and demo lanes have green runs | Scheduled weekly proof and external consumer repositories remain open |
 | Distribution | GitHub Releases and reusable action | Marketplace/crates.io publication is not established by this audit |
@@ -54,9 +54,9 @@ GitHub verification, September 8 (after owner-authorized Actions reactivation):
 - Follow-up timeout hardening: host command execution now requests process termination when its future is cancelled. A real subprocess regression test verifies that a command starts, times out and cannot perform its delayed write. This tests cancellation, not the full Android timeout-receipt contract.
 - Cleanup precedence is now exercised through the production selection helper and actual written JSON/HTML/JUnit/Markdown reports: crash, ANR, reader and artifact failures retain their original stage and message with and without a secondary cleanup failure. A standalone cleanup failure remains a failure. This is deterministic policy/serialization coverage, not an injected emulator cleanup failure.
 - Source `1be2d25`: [five-case failure matrix](https://github.com/OthmaneBlial/rustdroid/actions/runs/34203908475) passed on API 30. The freshly compiled ANR fixture blocks a registered receiver during a foreground broadcast. Downloaded logs show Android's broadcast timeout after 10001 ms, followed by `ANR in com.rustdroid.fixture.anr`; the receipt is `failed/app_runtime/anr`, with nonzero CLI exit and matching report stages. No simulated ANR logs are used. Success, process exit, Java crash and missing launcher also passed their assertions in this run.
-- The follow-up [nine-case API 30 matrix](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205061851) covers the remaining injected reader, marker-timeout and cleanup-precedence paths; the exact candidate host lane is [34205810640](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205810640). The accepted [real capture](https://github.com/OthmaneBlial/rustdroid/actions/runs/34209082936) and green [FFmpeg export](https://github.com/OthmaneBlial/rustdroid/actions/runs/34210495967) now cover the final demonstration. A tagged/published release and external adoption remain separate gates.
+- The follow-up [nine-case API 30 matrix](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205061851) covers the remaining injected reader, marker-timeout and cleanup-precedence paths; the exact candidate host lane is [34205810640](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205810640). The accepted [real capture](https://github.com/OthmaneBlial/rustdroid/actions/runs/34209082936) and green [FFmpeg export](https://github.com/OthmaneBlial/rustdroid/actions/runs/34210495967) now cover the final demonstration. The v0.3.2 release is published; external adoption remains a separate gate.
 
-M1 and the feasible Linux candidate gates are implemented and evidenced below. The audit snapshot remains dated, and the owner-authorized commits land directly on `main`. This does not authorize a tagged/published release or claim external adoption.
+M1 and the feasible Linux release gates are implemented and evidenced below. The audit snapshot remains dated, and the owner-authorized commits land directly on `main`. This does not claim external adoption.
 
 - Reader tasks are now supervised; startup errors, unexpected EOF and panics cannot silently pass. Readiness precedes the observation timer.
 - PID discovery precedes the timer, with bounded lookup for application runs. Application runs monitor PID continuity and check it again at the deadline; interactive log commands retain interrupt-to-stop behavior.
@@ -83,20 +83,19 @@ The code review found specific risks to reproduce, not confirmed field incidents
 
 ### M2. Ship a release that matches the README
 
-Candidate evidence: Cargo/lockfile identify 0.3.2. The source package was reduced from 902 to 99 files by anchoring inclusion paths; nested dependency licenses and demo environments are excluded. Cargo package verification and optimized local installation pass, while the Linux x86_64 archive, checksum, attestation, clean-container install and exact-candidate host lane all pass on GitHub. The installed binary reports 0.3.2 and writes a failed input-preflight receipt with exit code 1. This remains a candidate, not a tagged GitHub Release, registry publication or broad host claim.
+Release evidence: Cargo/lockfile identify 0.3.2. The source package was reduced from 902 to 99 files by anchoring inclusion paths; nested dependency licenses and demo environments are excluded. Cargo package verification and optimized local installation pass, while the published Linux x86_64 archive, checksum, attestation, clean-container install and exact-candidate host lane all pass on GitHub. The installed binary reports 0.3.2 and writes a failed input-preflight receipt with exit code 1. This is a published GitHub Release for x86_64 Linux, not a broad host or registry claim.
 
 Before launch promotion. Estimate: 1–2 days after M1.
 
 - [x] Prepare the `v0.3.2` reliability-release candidate; no public command surface was added, so the patch version is retained. See `docs/releases/v0.3.2.md`.
 - [x] Include failure receipts and September 8 fixes: SHA-256 encoding, dependencies and Expo-compatible React Native.
-- [ ] Align Cargo version/lockfile, tag, changelog, CLI version, notes, immutable action examples and tested source revision.
-  Candidate Cargo/lockfile, CLI, notes, immutable workflow examples and source revisions are aligned; the checkbox stays open because creating the public tag/release requires an explicit publication decision.
-- [x] Build the Linux x86_64 archive on Linux; verify its checksum and install in a clean container, then attach provenance. [Candidate build 34205275762](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205275762), source `2754c3e`, passed. The downloaded archive's SHA-256 is `b8771783960ad4e14f36dc97daca3cd48b6b73d234d72e03e937d86f01ef98b2`; `VERSION` is `v0.3.2`. `gh attestation verify` verified the GitHub-hosted release workflow and exact source SHA. This is a workflow artifact, not a published GitHub Release.
+- [x] Align Cargo version/lockfile, tag, changelog, CLI version, notes, immutable action examples and tested source revision. `v0.3.2` is published from `ce727e8`; Cargo/lockfile, changelog, CLI, notes and examples pin the tested release commit.
+- [x] Build the Linux x86_64 archive on Linux; verify its checksum and install in a clean container, then attach provenance. [Published release workflow 34214422456](https://github.com/OthmaneBlial/rustdroid/actions/runs/34214422456), source `ce727e8`, passed. The downloaded release archive SHA-256 is `0617c7ace752cfdb924e68edf8df391c6e76da395a1dba78e97e7bdc77ca0656`; `VERSION` is `v0.3.2`; fixture SHA-256 is `5006fcae4718a1998dbba7097283792807284c29a7eff79f1d3a7a072492cf60`. `gh attestation verify` identifies the exact tag source. The published-asset Android quickstart is tracked by the dedicated verification workflow.
 - [x] Run the host lane against the exact candidate commit, not only the old pinned action. [Run 34205810640](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205810640) checked out `2754c3ee6fc3bb7795f0b2f0a8e100febb4be900` and passed runtime/smoke, the nine-case failure matrix and performance. Downloaded matrix receipts verify every expected outcome.
-- [ ] Download the published archive again and execute copied README commands on a clean supported host.
+- [ ] Download the published archive again and execute copied README commands on a clean supported host. The release asset download/checksum/version/attestation gate passed; keep this open until `published-release-verification` produces the Android receipt.
 - [x] Attach the actual MP4, poster, captions, uncut source and minimal public receipts with recording commit and environment. See [`docs/receipts/product-demo.md`](docs/receipts/product-demo.md).
 
-**Acceptance:** the verified candidate archive performs the behavior shown in the video and README. The published “latest” binary will only satisfy this gate after the owner creates the tag/release and the archive is downloaded again on a clean supported host.
+**Acceptance:** the verified published archive performs the behavior shown in the video and README. Asset checksum/version/attestation verification is complete; the dedicated clean-runner workflow still has to execute the Android quickstart receipt.
 
 ### M3. Replace the illustrative GIF with watchable proof
 
@@ -128,7 +127,7 @@ Use FFmpeg, preserving raw output and the original recording. Keep the existing 
 Estimate: 2–3 days after release and demonstration agree.
 
 - [x] Put one Linux quickstart below the video: supported host/prerequisites, one public fixture command, one report path.
-- [x] Provide a versioned fixture download and digest so trying the binary does not require cloning the repository. README uses an immutable source SHA; the downloaded APK digest was verified locally. The candidate release workflow also packages this fixture and checksum; those release assets are not yet published.
+- [x] Provide a versioned fixture download and digest so trying the binary does not require cloning the repository. README uses an immutable source SHA; the downloaded APK digest was verified locally. The published v0.3.2 release packages this fixture and checksum.
 - [x] Diagnose KVM/SDK/AVD problems before runtime mutation. Keep setup reviewable and non-destructive; `doctor` and the setup plan make this explicit.
 - [x] Move backend choices, profiles and exhaustive commands below the first success path.
 - [ ] Observe five unfamiliar Linux developers trying it, with consent; fix the top two blockers before adding documentation.

@@ -27,7 +27,7 @@ The GIF above is an illustrated walkthrough. [Watch the recorded CLI proof (MP4)
   <track kind="captions" src="assets/rustdroid-product-demo.srt" srclang="en" label="English captions" default>
 </video>
 
-**Real 0.3.2 candidate demo:** a Linux/KVM GitHub runner launches the signed fixture, catches the missing-launcher fixture as `app_launch`, and opens the generated HTML receipt. The video is silent and captioned; setup is excluded and accelerated waits are labelled. [Download the MP4](assets/rustdroid-product-demo.mp4) · [provenance and raw-artifact notes](docs/demo.md#full-emulator-demo).
+**Real v0.3.2 demo:** a Linux/KVM GitHub runner launches the signed fixture, catches the missing-launcher fixture as `app_launch`, and opens the generated HTML receipt. The video is silent and captioned; setup is excluded and accelerated waits are labelled. [Download the MP4](assets/rustdroid-product-demo.mp4) · [provenance and raw-artifact notes](docs/demo.md#full-emulator-demo).
 
 ### The first Linux receipt in one decision
 
@@ -72,7 +72,7 @@ No test script is required. No APK upload or hosted RustDroid account is require
 
 ## A real receipt, not a mock result
 
-The **0.3.2 source candidate** now has a [verified nine-case Android failure matrix](docs/receipts/candidate-failures.md): normal launch, exit, crash, ANR, missing launcher and injected capture/cleanup failures. The linked reports distinguish expected failures from a green test job. The historical receipt below remains a separate 0.3.1 example.
+The **v0.3.2 release** now has a [verified nine-case Android failure matrix](docs/receipts/candidate-failures.md): normal launch, exit, crash, ANR, missing launcher and injected capture/cleanup failures. The linked reports distinguish expected failures from a green test job. The historical receipt below remains a separate 0.3.1 example.
 
 <p align="center">
   <a href="docs/receipts/reference-gradle.json"><img src="assets/rustdroid-proof.svg" alt="A RustDroid launch receipt showing boot, install, launch, and artifact evidence" width="100%"></a>
@@ -84,7 +84,7 @@ That run completed the receipt path in 15.746 seconds. It is one reproducible sa
 
 ## Get to your first receipt
 
-The published release is currently **v0.3.1**. The working source is the **v0.3.2 candidate** with stricter observation and failure receipts, hosted Android tests and a Linux archive validated in a clean container. It is not yet a published release. See the [candidate notes](docs/releases/v0.3.2.md) for the exact tested revisions and remaining gates.
+The published release is **v0.3.2**. It includes stricter observation and failure receipts, hosted Android tests, a verified Linux x86_64 archive, and the real product demo. See the [release notes](docs/releases/v0.3.2.md) for the tested revision, checksums and supported scope.
 
 RustDroid currently targets Linux hosts with KVM, an Android SDK emulator, ADB, and an existing AVD. The [Linux quickstart](docs/quickstart-linux.md) gives exact Ubuntu/Debian and Fedora setup commands.
 
@@ -176,7 +176,7 @@ RustDroid ships a reusable composite action. Pair it with the emulator provision
 
 ```yaml
 - id: rustdroid
-  uses: OthmaneBlial/rustdroid@964ed16d32d4fa12b52dea21b95484a7b96e9854
+  uses: OthmaneBlial/rustdroid@ce727e89711958fc09daa57ac17d90bf8743e8c3
   with:
     apk-path: app/build/outputs/apk/debug/app-debug.apk
     profile: host-fast

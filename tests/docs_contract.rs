@@ -230,7 +230,7 @@ fn roadmap_distinguishes_delivery_from_external_evidence() {
 
     for snippet in [
         "## Current snapshot -- 2026-09-08",
-        "v0.3.1",
+        "v0.3.2",
         "GitHub Actions re-enabled",
         "External adoption is not a build artifact.",
         "Do not promise a star count.",
@@ -371,7 +371,7 @@ fn executable_stack_fixtures_preserve_their_documented_build_contracts() {
         "workflow_dispatch:",
         "cron: \"0 10 1 * *\"",
         "api-level: 35",
-        "OthmaneBlial/rustdroid@964ed16d32d4fa12b52dea21b95484a7b96e9854",
+        "OthmaneBlial/rustdroid@ce727e89711958fc09daa57ac17d90bf8743e8c3",
         "Create the immutable RustDroid receipt",
     ] {
         assert!(

@@ -236,7 +236,7 @@ fn action_contract_exercises_checked_in_source_and_requires_api_level() {
 
 #[test]
 fn stack_reference_workflows_boot_and_upload_the_pinned_receipt_action() {
-    let pinned_action = "OthmaneBlial/rustdroid@964ed16d32d4fa12b52dea21b95484a7b96e9854";
+    let pinned_action = "OthmaneBlial/rustdroid@ce727e89711958fc09daa57ac17d90bf8743e8c3";
 
     for workflow in [
         "examples/workflows/gradle-android-receipt.yml",

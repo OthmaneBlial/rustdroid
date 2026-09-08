@@ -108,7 +108,7 @@ jobs:
 
       - id: receipt
         name: Create the immutable RustDroid receipt
-        uses: OthmaneBlial/rustdroid@964ed16d32d4fa12b52dea21b95484a7b96e9854
+        uses: OthmaneBlial/rustdroid@ce727e89711958fc09daa57ac17d90bf8743e8c3
         with:
           apk-path: ${{ matrix.fixture }}/${{ matrix.apk_path }}
           profile: host-fast

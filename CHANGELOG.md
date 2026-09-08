@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.3.2 — 2026-09-08
 
-### v0.3.2 candidate (not published)
+### Reliability and receipts
 
 - Anchored Cargo package inclusions to the repository root so nested dependency licenses and temporary environments are excluded; included the runtime helper script explicitly.
 

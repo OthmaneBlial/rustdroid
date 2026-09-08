@@ -39,9 +39,10 @@ SRT and `docs/demo.md` all returned 200 after propagation. The README carries
 the same source markup and fallback, but GitHub's rendered sanitizer removes
 relative repository `<video>` elements. A maintainer must upload the MP4 through
 GitHub's attachment UI and replace the source with its `user-attachments` URL
-to complete that external README-player gate. Release preparation is tracked in
-[the v0.3.2 draft](releases/v0.3.2.md); no new release has been published by
-this recording work.
+to complete that external README-player gate. The published
+[v0.3.2 release](https://github.com/OthmaneBlial/rustdroid/releases/tag/v0.3.2)
+contains the matching Linux archive and fixture; the post-release clean-host
+quickstart check is tracked in the release notes.
 
 For raw evidence, inspect the checked-in [Gradle `run-summary.json`](receipts/reference-gradle.json) and its [provenance note](receipts/reference-gradle.md). That receipt came from the public September 1, 2026 workflow run that built the source fixture, launched it on Android 35, and uploaded the complete artifact bundle.
 

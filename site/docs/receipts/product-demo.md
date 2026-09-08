@@ -10,7 +10,7 @@ KVM was installed on the maintainer's Mac.
 | --- | --- |
 | Android capture | [full capture run 34209082936](https://github.com/OthmaneBlial/rustdroid/actions/runs/34209082936) |
 | Accepted FFmpeg export | [green edit-only run 34210495967](https://github.com/OthmaneBlial/rustdroid/actions/runs/34210495967) |
-| Product binary source | `2754c3ee6fc3bb7795f0b2f0a8e100febb4be900` (candidate archive from [34205275762](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205275762)) |
+| Product binary source | `2754c3ee6fc3bb7795f0b2f0a8e100febb4be900` (demo candidate archive from [34205275762](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205275762)); the matching published release is `v0.3.2` from `ce727e8` |
 | Recording workflow checkout | `d6e49b141c1c8b73a61cf7d4cda7d3ede5cb5376` |
 | Android environment | API 30, `test_avd`, `emulator-5554`, Linux/KVM runner |
 | Raw capture | [`rustdroid-product-demo-uncut.mp4`](../../assets/rustdroid-product-demo-uncut.mp4), SHA-256 `c36ff99761d4f2f5f736b00f145639633395a1445c6ef0a1a22cd6223ed6c36d` |

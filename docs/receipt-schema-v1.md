@@ -68,7 +68,7 @@ every UI frame or business flow worked.
 
 These semantics are implemented and locally regression-tested on current
 source, but the new Linux/KVM runtime failure matrix is not yet verified.
-The published v0.3.1 binary predates these changes.
+The published v0.3.2 binary contains this schema-v1 contract.
 
 ### Failures before receipt ownership
 

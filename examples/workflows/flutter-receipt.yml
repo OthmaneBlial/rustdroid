@@ -49,7 +49,7 @@ jobs:
           tail -n 120 "$RUNNER_TEMP/rustdroid-flutter-emulator.log" || true
           exit 1
       - id: receipt
-        uses: OthmaneBlial/rustdroid@964ed16d32d4fa12b52dea21b95484a7b96e9854
+        uses: OthmaneBlial/rustdroid@ce727e89711958fc09daa57ac17d90bf8743e8c3
         with:
           apk-path: build/app/outputs/flutter-apk/app-debug.apk
           artifacts-dir: artifacts/rustdroid

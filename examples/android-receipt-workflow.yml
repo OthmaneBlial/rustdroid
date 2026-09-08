@@ -51,7 +51,7 @@ jobs:
           exit 1
       - id: receipt
         # API 35 contract: actions/runs/34202434356 (source candidate 0.3.2).
-        uses: OthmaneBlial/rustdroid@c6c3df9d58a325ce4863c83284eb72e8a65dba38
+        uses: OthmaneBlial/rustdroid@ce727e89711958fc09daa57ac17d90bf8743e8c3
         with:
           apk-path: app/build/outputs/apk/debug/app-debug.apk
           host-avd-name: test_avd
