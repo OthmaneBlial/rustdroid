@@ -50,19 +50,20 @@ else
 fi
 
 success_wait_end=$(awk -v t="$success_result" 'BEGIN { printf "%.6f", t - 10 }')
-success_result_end=$(awk -v t="$success_result" 'BEGIN { printf "%.6f", t + 1 }')
-success_screen_start=$(awk -v t="$success_result" 'BEGIN { printf "%.6f", t + 1 }')
+success_result_start=$(awk -v t="$success_result" 'BEGIN { printf "%.6f", t - 3 }')
+success_result_end=$(awk -v t="$success_result" 'BEGIN { printf "%.6f", t + 2 }')
+success_screen_start="$success_result_end"
 success_screen_limit=$(awk -v a="$success_result" -v b="$success_report_start" -v c="$failure_start" \
   'BEGIN { limit = a + 7; if (b + 0 > 0 && b < limit) limit = b - .5; if (c < limit) limit = c; printf "%.6f", limit }')
 failure_end=$(awk -v t="$failure_result" 'BEGIN { printf "%.6f", t + 6 }')
 report_end=$(awk -v t="$report_start" 'BEGIN { printf "%.6f", t + 12 }')
-for value in "$success_wait_end" "$success_result_end" "$success_screen_limit" "$failure_end" "$report_end"; do
+for value in "$success_wait_end" "$success_result_start" "$success_result_end" "$success_screen_limit" "$failure_end" "$report_end"; do
   [[ "$value" =~ ^[0-9]+\.[0-9]+$ ]]
 done
-awk -v a="$success_start" -v b="$success_wait_end" -v c="$success_result_end" \
-  -v d="$success_screen_start" -v e="$success_screen_limit" -v f="$failure_start" \
-  -v g="$failure_end" -v h="$report_start" -v i="$report_end" \
-  'BEGIN { if (a <= 0 || b <= a || c <= b || d < c || e <= d || f < e || g <= f || h <= g || i <= h) exit 1 }'
+awk -v a="$success_start" -v b="$success_wait_end" -v c="$success_result_start" \
+  -v d="$success_result_end" -v e="$success_screen_start" -v f="$success_screen_limit" \
+  -v g="$failure_start" -v h="$failure_end" -v i="$report_start" -v j="$report_end" \
+  'BEGIN { if (a <= 0 || b <= a || c <= b || d <= c || e < d || f < e || g < f || h <= g || i <= h || j <= i) exit 1 }'
 
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/rustdroid-demo-edit.XXXXXX")
 trap 'rm -rf "$work_dir"' EXIT
@@ -95,7 +96,7 @@ add_segment() {
 
 add_segment "intro and provenance" 0 "$success_start" 1 full
 add_segment "success command" "$success_start" "$success_wait_end" 4 full
-add_segment "success result" "$success_wait_end" "$success_result_end" 1 full
+add_segment "success result" "$success_result_start" "$success_result_end" 1 full
 add_segment "Android launch screen" "$success_screen_start" "$success_screen_limit" 1 phone
 if [[ "$has_success_report" == true ]]; then
   add_segment "success HTML receipt" "$success_report_start" "$success_report_end" 1 full
