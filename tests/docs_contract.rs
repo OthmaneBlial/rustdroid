@@ -73,6 +73,9 @@ fn readme_links_to_the_main_guides() {
         "watch build/outputs/apk/debug",
         "assets/rustdroid-proof.svg",
         "assets/rustdroid-demo.gif",
+        "assets/rustdroid-product-demo.mp4",
+        "assets/rustdroid-product-demo-poster.png",
+        "video controls",
         "https://othmaneblial.github.io/rustdroid/",
         "docs/demo.md",
         "docs/configuration.md",
@@ -111,6 +114,9 @@ fn static_site_ships_local_docs_and_subpath_safe_assets() {
         "docs.html",
         "assets/rustdroid-proof.svg",
         "assets/rustdroid-demo.gif",
+        "assets/rustdroid-product-demo.mp4",
+        "assets/rustdroid-product-demo-poster.png",
+        "video controls",
         "receipts/reference-gradle.json",
         "actions/runs/33519017529",
         "APK path in.",
@@ -142,6 +148,8 @@ fn static_site_ships_local_docs_and_subpath_safe_assets() {
         "site/receipts/reference-gradle.json",
         "site/assets/rustdroid-proof.svg",
         "site/assets/rustdroid-demo.gif",
+        "site/assets/rustdroid-product-demo.mp4",
+        "site/assets/rustdroid-product-demo-poster.png",
     ] {
         assert!(
             std::path::Path::new(document).is_file(),

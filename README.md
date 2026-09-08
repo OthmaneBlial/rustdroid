@@ -22,6 +22,13 @@
 
 The GIF above is an illustrated walkthrough. [Watch the recorded CLI proof (MP4)](assets/rustdroid-cli-proof.mp4): actual command output, a missing-input failure and its generated receipt, followed by an explicitly labelled historical Linux receipt. It is not a new emulator launch recording. [Recording scope and reproduction](docs/demo.md#recorded-cli-proof).
 
+<video controls preload="metadata" poster="assets/rustdroid-product-demo-poster.png" width="1280" aria-label="RustDroid real Android launch and failure receipt demonstration">
+  <source src="assets/rustdroid-product-demo.mp4" type="video/mp4">
+  <track kind="captions" src="assets/rustdroid-product-demo.srt" srclang="en" label="English captions" default>
+</video>
+
+**Real 0.3.2 candidate demo:** a Linux/KVM GitHub runner launches the signed fixture, catches the missing-launcher fixture as `app_launch`, and opens the generated HTML receipt. The video is silent and captioned; setup is excluded and accelerated waits are labelled. [Download the MP4](assets/rustdroid-product-demo.mp4) · [provenance and raw-artifact notes](docs/demo.md#full-emulator-demo).
+
 <p align="center">
   <a href="https://othmaneblial.github.io/rustdroid/">Project site</a> ·
   <a href="docs/receipts/reference-gradle.md">Inspect a real receipt</a> ·

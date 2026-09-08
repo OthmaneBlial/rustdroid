@@ -96,6 +96,23 @@
         <div><span>HOST</span><span>DOCKER</span><span>CI</span><span>LOCAL-FIRST</span></div>
       </section>
 
+      <section class="demo-video section" id="demo" aria-labelledby="demo-title">
+        <div class="demo-video-copy reveal">
+          <p class="eyebrow">Recorded on a GitHub Linux/KVM runner</p>
+          <h2 id="demo-title">See the receipt form<br><em>before you trust it.</em></h2>
+          <p>A real 0.3.2 candidate run launches a signed fixture, catches a missing launcher, and leaves the same HTML evidence a teammate can open. Setup is intentionally excluded and waits are labelled when compressed.</p>
+          <p class="demo-video-meta"><span>01 / launch verified</span><span>02 / app_launch failure</span><span>03 / report retained</span></p>
+        </div>
+        <div class="demo-video-player reveal delay-1">
+          <video controls preload="metadata" poster="assets/rustdroid-product-demo-poster.png" aria-label="RustDroid real Android launch and failure receipt demonstration">
+            <source src="assets/rustdroid-product-demo.mp4" type="video/mp4">
+            <track kind="captions" src="assets/rustdroid-product-demo.srt" srclang="en" label="English captions" default>
+            Your browser cannot play this MP4. <a href="assets/rustdroid-product-demo.mp4">Download the demo</a>.
+          </video>
+          <p>Silent by design: captions keep the command, result, failure stage and report legible without audio. <a href="docs.html#demo.md">Read the provenance and reproduction notes ↗</a></p>
+        </div>
+      </section>
+
       <section class="loop section" id="loop" aria-labelledby="loop-title">
         <div class="section-heading reveal">
           <p class="eyebrow">One useful answer, not another dashboard</p>

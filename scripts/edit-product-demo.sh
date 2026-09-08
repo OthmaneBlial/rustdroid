@@ -40,6 +40,7 @@ drawtext=fontfile='$caption_font':text='2  EXPECTED FAILURE | missing launcher |
 enable='between(t,34.27,50.27)':x=28:y=674:fontsize=24:fontcolor=white:box=1:boxcolor=0x101820dd:boxborderw=12,\
 drawtext=fontfile='$caption_font':text='HTML RECEIPT | stage app_launch | digest + artifacts':\
 enable='between(t,50.27,60)':x=28:y=674:fontsize=24:fontcolor=white:box=1:boxcolor=0x101820dd:boxborderw=12"
+filter="${filter}[v]"
 
 ffmpeg -hide_banner -loglevel warning -y -i "$input" -filter_complex "$filter" \
   -map '[v]' -an -c:v libx264 -crf 23 -preset slow -profile:v high -level 4.0 \
