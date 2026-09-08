@@ -33,9 +33,9 @@ Recording tools and Android/KVM run on the GitHub Linux runner only. No emulator
 
 The project site includes a native `<video controls>` player with the poster and
 SRT track, plus a direct fallback download. It is live at
-[`othmaneblial.github.io/rustdroid`](https://othmaneblial.github.io/rustdroid/)
-from Pages commit `5e21b761`; HTTPS checks for `/`, `/docs.html`, the MP4, the
-SRT and `docs/demo.md` all returned 200 after propagation. The README carries
+[`othmaneblial.github.io/rustdroid`](https://othmaneblial.github.io/rustdroid/);
+HTTPS checks for `/`, `/docs.html`, the MP4, the SRT and `docs/demo.md` all
+returned 200 after propagation. The README carries
 the same source markup and fallback, but GitHub's rendered sanitizer removes
 relative repository `<video>` elements. A maintainer must upload the MP4 through
 GitHub's attachment UI and replace the source with its `user-attachments` URL
