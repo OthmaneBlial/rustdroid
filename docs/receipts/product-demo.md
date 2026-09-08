@@ -9,14 +9,14 @@ KVM was installed on the maintainer's Mac.
 | Item | Evidence |
 | --- | --- |
 | Android capture | [full capture run 34227525161](https://github.com/OthmaneBlial/rustdroid/actions/runs/34227525161) |
-| Accepted FFmpeg export | [green edit-only run 34228241401](https://github.com/OthmaneBlial/rustdroid/actions/runs/34228241401) |
+| Accepted FFmpeg export | [green edit-only run 34228671909](https://github.com/OthmaneBlial/rustdroid/actions/runs/34228671909) |
 | Product binary source | `2754c3ee6fc3bb7795f0b2f0a8e100febb4be900` (candidate archive from [34205275762](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205275762)) |
 | Recording workflow checkout | `a26a9f63f8e31a7911a0c6ecc343765fa427ed43` |
 | Android environment | API 30, `test_avd`, `emulator-5554`, Linux/KVM runner |
 | Raw capture | [`rustdroid-product-demo-uncut.mp4`](../../assets/rustdroid-product-demo-uncut.mp4), SHA-256 `503ba3cc1c69ea1bb8d6b401031c3e400db6b7791a13227c72d5b115e4ae482` |
 | Final video | [`rustdroid-product-demo.mp4`](../../assets/rustdroid-product-demo.mp4), SHA-256 `3869a1bac28911eab002d95dac2d32738f2aa56a80aaae939d464edd72ec89f1` |
 | Poster | [`rustdroid-product-demo-poster.png`](../../assets/rustdroid-product-demo-poster.png), SHA-256 `b0531884dcf52405f3bba7818e4c7a915cc0a688a5ee11269b7d04493c1f4956` |
-| Captions | [`rustdroid-product-demo.srt`](../../assets/rustdroid-product-demo.srt), SHA-256 `f98096ff8085c87b4d464467b3b5dd9c974af657e9adcdc9b488b3ee83bf2720` |
+| Captions | [`rustdroid-product-demo.srt`](../../assets/rustdroid-product-demo.srt), SHA-256 `a755abe65aabcbd9c294039c44273e2d1c03e948be7fe60f5c505f821bb1833c` |
 | Live project site | [Pages site](https://othmaneblial.github.io/rustdroid/), deployed in `OthmaneBlial/OthmaneBlial.github.io` commit `5e21b76197e8de9c93d5b52afbef7304c24a0682`; MP4, SRT and docs paths returned HTTP 200 after propagation |
 
 The raw capture is 118.28 seconds. The public export is 56.52 seconds,
