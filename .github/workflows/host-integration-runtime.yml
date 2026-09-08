@@ -2,11 +2,16 @@ name: host-integration-runtime
 
 on:
   workflow_dispatch:
+    inputs:
+      failure_matrix_only:
+        description: Run the full failure matrix without repeating smoke and performance suites
+        type: boolean
+        default: false
   schedule:
     - cron: "0 6 * * 1"
 
 concurrency:
-  group: host-integration-runtime-${{ github.workflow }}-${{ github.ref }}
+  group: host-integration-runtime-${{ github.workflow }}-${{ github.ref }}-${{ inputs.failure_matrix_only || false }}
   cancel-in-progress: true
 
 jobs:
@@ -30,6 +35,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - id: host_suite
+        if: ${{ !inputs.failure_matrix_only }}
         name: Run host runtime and smoke validation
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
@@ -81,7 +87,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload host artifacts on failure
-        if: ${{ always() && steps.host_suite.outcome != 'success' }}
+        if: ${{ always() && !inputs.failure_matrix_only && steps.host_suite.outcome != 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: host-integration-artifacts
@@ -89,6 +95,7 @@ jobs:
           if-no-files-found: error
 
       - id: performance
+        if: ${{ !inputs.failure_matrix_only }}
         name: Check performance baseline
         run: |
           export RUSTDROID_PERF_ARTIFACTS_DIR="$RUNNER_TEMP/rustdroid-performance"
@@ -126,7 +133,7 @@ jobs:
       - name: Enforce host validation result
         if: always()
         run: |
-          if [[ "${{ steps.host_suite.outcome }}" != "success" ]]; then
+          if [[ "${{ inputs.failure_matrix_only }}" != "true" && "${{ steps.host_suite.outcome }}" != "success" ]]; then
             echo "host runtime and smoke validation failed; inspect host-integration-artifacts" >&2
             exit 1
           fi
