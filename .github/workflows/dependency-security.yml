@@ -37,3 +37,6 @@ jobs:
       - name: Audit the Expo fixture dependency graph
         working-directory: examples/apps/expo-prebuild
         run: npm audit --omit=dev --audit-level=moderate
+      - name: Check Expo SDK dependency compatibility
+        working-directory: examples/apps/expo-prebuild
+        run: npx --no-install expo install --check
