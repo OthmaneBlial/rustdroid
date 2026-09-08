@@ -5,6 +5,8 @@ const groups = [
       ["First install", "first-install.md"],
       ["Linux quickstart", "quickstart-linux.md"],
       ["Demo receipt", "demo.md"],
+      ["Product demo provenance", "receipts/product-demo.md"],
+      ["Launch post draft", "launch-post-draft.md"],
       ["Troubleshooting", "troubleshooting.md"],
     ],
   },
@@ -64,6 +66,10 @@ function escapeHtml(value) {
 function localUrl(url) {
   const cleanUrl = url.replace(/^\.\//, "");
   if (cleanUrl.startsWith("../assets/")) return { url: `assets/${cleanUrl.slice("../assets/".length)}`, file: null };
+  const assetMarker = cleanUrl.lastIndexOf("assets/");
+  if (assetMarker > 0 && /^\.\.\/(?:\.\.\/)*assets\//.test(cleanUrl)) {
+    return { url: `assets/${cleanUrl.slice(assetMarker + "assets/".length)}`, file: null };
+  }
   if (localDocFiles.has(cleanUrl)) return { url: `#${encodeURIComponent(cleanUrl)}`, file: cleanUrl };
   if (cleanUrl.endsWith(".md")) return { url: `docs/${cleanUrl}`, file: null };
   return { url, file: null };

@@ -25,13 +25,17 @@ dist/demo-tools/bin/python scripts/record-cli-demo.py --output dist/new-cli-demo
 
 Requires FFmpeg, ffprobe, jq and a Menlo or DejaVu Sans Mono font. The script uses an isolated config, refuses to overwrite its output directory and checks expected command exit codes. It renders captured output, then uses the FFmpeg web profile: H.264, CRF 23, 30 fps, 1280×720, yuv420p, faststart, no audio. Inspect the chapter PNGs and decode the entire MP4 before sharing it.
 
-### Full emulator demo under visual validation
+### Full emulator demo
 
-ROADMAP.md M3 specifies a 45–60 second real Linux/KVM success/failure recording: command and Android screen, broken public fixture, generated HTML report, then the quickstart. GitHub Actions was re-enabled with owner approval. [Recording run 34207134598](https://github.com/OthmaneBlial/rustdroid/actions/runs/34207134598) produced a 97-second uncut desktop capture, real success/failure receipts, terminal logs and source metadata using the verified 0.3.2 candidate archive. Visual inspection rejected this take for final use: the terminal overlaps Android and the report window appears too late. A corrected capture is being validated; workflow success alone is not video acceptance.
+ROADMAP.md M3 specifies a 45–60 second real Linux/KVM success/failure recording: command and Android screen, broken public fixture, generated HTML report, then the quickstart. GitHub Actions was re-enabled with owner approval. The accepted [capture run 34209082936](https://github.com/OthmaneBlial/rustdroid/actions/runs/34209082936) produced the raw desktop recording, real success/failure receipts, terminal logs and source metadata using the verified 0.3.2 candidate archive. The [green FFmpeg export run 34210495967](https://github.com/OthmaneBlial/rustdroid/actions/runs/34210495967) re-edited that raw capture from its measured timeline. The checked-in [final MP4](../assets/rustdroid-product-demo.mp4) is 57.36 seconds, silent, captioned and 1280×720; the [poster](../assets/rustdroid-product-demo-poster.png), [captions](../assets/rustdroid-product-demo.srt), [uncut source](../assets/rustdroid-product-demo-uncut.mp4) and [provenance receipt](receipts/product-demo.md) travel with it.
 
-Recording tools and Android/KVM run on the GitHub Linux runner only. No emulator or KVM installation on macOS is needed. The reproducible capture entry point is `.github/workflows/product-demo.yml`, with `scripts/record-product-demo.sh` and `scripts/demo-session.sh`. Original takes remain in their workflow artifacts; retain the accepted source alongside the final edit and label warmed state, omitted setup, cuts and speed changes.
+Recording tools and Android/KVM run on the GitHub Linux runner only. No emulator or KVM installation on macOS is needed. The reproducible capture entry point is `.github/workflows/product-demo.yml`, with `scripts/record-product-demo.sh`, `scripts/demo-session.sh` and `scripts/edit-product-demo.sh`. The edit notes label the warmed state, omitted setup, cuts and speed changes. The raw source is checked in for durable inspection and also retained in the linked Actions artifact.
 
-The playable MP4 link above does not establish a native inline GitHub README player. Upload and verify that separately when the full product recording is ready. Release preparation is tracked in [the v0.3.2 draft](releases/v0.3.2.md); no new release has been published by this recording work.
+The repository README and project site include native `<video controls>` players
+with the poster and SRT track, plus a direct fallback download. GitHub's final
+rendering and media delivery are checked after the assets land on `main`.
+Release preparation is tracked in [the v0.3.2 draft](releases/v0.3.2.md); no new
+release has been published by this recording work.
 
 For raw evidence, inspect the checked-in [Gradle `run-summary.json`](receipts/reference-gradle.json) and its [provenance note](receipts/reference-gradle.md). That receipt came from the public September 1, 2026 workflow run that built the source fixture, launched it on Android 35, and uploaded the complete artifact bundle.
 

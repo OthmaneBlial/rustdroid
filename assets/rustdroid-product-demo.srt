@@ -1,0 +1,19 @@
+1
+00:00:00,000 --> 00:00:04,400
+RustDroid 0.3.2 | real Linux/KVM runner | setup excluded
+
+2
+00:00:04,400 --> 00:00:15,270
+REAL LAUNCH | public signed APK | setup wait accelerated 3x
+
+3
+00:00:15,270 --> 00:00:34,270
+LAUNCH VERIFIED | Android screen and observed receipt
+
+4
+00:00:34,270 --> 00:00:50,270
+EXPECTED FAILURE | missing launcher | exit code 1
+
+5
+00:00:50,270 --> 00:01:00,000
+HTML RECEIPT | stage app_launch | digest and artifacts

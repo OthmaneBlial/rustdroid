@@ -29,6 +29,22 @@ The GIF above is an illustrated walkthrough. [Watch the recorded CLI proof (MP4)
 
 **Real 0.3.2 candidate demo:** a Linux/KVM GitHub runner launches the signed fixture, catches the missing-launcher fixture as `app_launch`, and opens the generated HTML receipt. The video is silent and captioned; setup is excluded and accelerated waits are labelled. [Download the MP4](assets/rustdroid-product-demo.mp4) · [provenance and raw-artifact notes](docs/demo.md#full-emulator-demo).
 
+### The first Linux receipt in one decision
+
+On a prepared Linux host with KVM, an Android SDK emulator and ADB, download the
+versioned fixture, verify its digest, then run one command. The receipt is
+written to `artifacts/rustdroid-demo/run-report.html` (with JSON, JUnit,
+Markdown and logcat alongside it).
+
+```bash
+curl -fL https://raw.githubusercontent.com/OthmaneBlial/rustdroid/f03c933084246a112360139bdd1e6ae48de0708d/tests/fixtures/apks/launch-success.apk -o launch-success.apk
+echo '5006fcae4718a1998dbba7097283792807284c29a7eff79f1d3a7a072492cf60  launch-success.apk' | sha256sum -c -
+rustdroid --profile host-fast --host-avd-name test_avd run launch-success.apk --duration-secs 2 --keep-alive false --artifacts-dir artifacts/rustdroid-demo
+```
+
+This path intentionally omits SDK/AVD installation; use `rustdroid --json
+doctor` first and review its setup plan before changing a host.
+
 <p align="center">
   <a href="https://othmaneblial.github.io/rustdroid/">Project site</a> ·
   <a href="docs/receipts/reference-gradle.md">Inspect a real receipt</a> ·

@@ -13,6 +13,8 @@ fn contributor_and_guide_docs_exist() {
         "docs/changelog-policy.md",
         "docs/community.md",
         "docs/demo.md",
+        "docs/receipts/product-demo.md",
+        "docs/launch-post-draft.md",
         "docs/configuration.md",
         "docs/first-install.md",
         "docs/host-backend.md",
@@ -150,6 +152,7 @@ fn static_site_ships_local_docs_and_subpath_safe_assets() {
         "site/assets/rustdroid-demo.gif",
         "site/assets/rustdroid-product-demo.mp4",
         "site/assets/rustdroid-product-demo-poster.png",
+        "docs/receipts/product-demo.md",
     ] {
         assert!(
             std::path::Path::new(document).is_file(),
@@ -228,7 +231,7 @@ fn roadmap_distinguishes_delivery_from_external_evidence() {
     for snippet in [
         "## Current snapshot -- 2026-09-08",
         "v0.3.1",
-        "GitHub Actions are temporarily disabled",
+        "GitHub Actions re-enabled",
         "External adoption is not a build artifact.",
         "Do not promise a star count.",
         "## P0 -- Make every result trustworthy",
