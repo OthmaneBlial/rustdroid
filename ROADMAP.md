@@ -142,8 +142,8 @@ Local action regression: the receipt step now exports its directory and availabl
 
 Estimate: 2–4 days plus external response time.
 
-- [ ] Offer one complete consumer workflow: immutable tested action SHA, emulator provisioning, APK build, receipt and `if: always()` artifact upload.
-- [ ] Show a failing run: its report survives a nonzero exit and the overall job still fails.
+- [x] Offer one complete consumer workflow: immutable tested action SHA, emulator provisioning, APK build, receipt and `if: always()` artifact upload. See `examples/android-receipt-workflow.yml`; the action pin has a verified API 35 contract. Adopter-specific Gradle/Java/APK settings and external execution remain separate gates.
+- [x] Show a failing run: its report survives a nonzero exit and the overall job still fails. [Intentional failed job 34206059316](https://github.com/OthmaneBlial/rustdroid/actions/runs/34206059316) fails only the RustDroid receipt step, successfully uploads `action-contract-receipt`, and remains red. The downloaded API 35 receipt identifies `failed/app_launch/launch` for the missing-launcher fixture.
 - [ ] Validate the workflow in a repository without RustDroid source.
 - [ ] Publish to GitHub Marketplace after listing/account requirements are satisfied; explicitly scope prepared Linux/KVM runners.
 - [ ] Validate packaging and clean installation before crates.io publication; check name/account access immediately before publishing.

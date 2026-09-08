@@ -43,3 +43,7 @@ Use the configured literal artifact path with this historical pin: its failure p
 The local 0.3.2 candidate fixes output/summary finalization and preserves the original exit code; shell regression tests cover success and failures. That fix is not contained in the historical SHA above. Update the pin only after publishing and verifying the candidate on a supported runner.
 
 The action accepts APK, `.apks`, and `.xapk` inputs. The generated receipt has the [schema v1 contract](receipt-schema-v1.md); logs can contain app output, so keep artifact retention and visibility appropriate for the application.
+
+## Verified failure handoff
+
+The [intentional missing-launcher run](https://github.com/OthmaneBlial/rustdroid/actions/runs/34206059316) finishes with overall `failure`: the RustDroid action fails, but the artifact upload succeeds. Its downloaded API 35 receipt reports `failed/app_launch/launch`. This proves report retention does not require `continue-on-error` or a green job. It is an owner-run contract test, not an external adopter's workflow.
