@@ -13,7 +13,7 @@ The caller is responsible for:
 
 ## Pinned reference workflow
 
-A [complete Gradle consumer workflow](https://github.com/OthmaneBlial/rustdroid/blob/main/examples/android-receipt-workflow.yml) includes APK build, KVM, AVD provisioning, an immutable API-35-tested RustDroid action revision, unconditional artifact upload and emulator shutdown. Copy it into the consumer repository and adapt its Java/Gradle/APK settings. The pinned revision is the commit used to publish the v0.3.2 release. The whole consumer workflow still needs validation in the adopting repository; it is not evidence of independent adoption.
+A [complete Gradle consumer workflow](https://github.com/OthmaneBlial/rustdroid/blob/main/examples/android-receipt-workflow.yml) includes APK build, KVM, AVD provisioning, an immutable API-35-tested RustDroid action revision, unconditional artifact upload and emulator shutdown. Copy it into the consumer repository and adapt its Java/Gradle/APK settings. The pinned revision is the commit used to publish the v0.3.2 release. The [source-less consumer run](https://github.com/OthmaneBlial/rustdroid/actions/runs/34217340594) proves the published action can run without a RustDroid checkout in the caller workspace; an independently owned adopter repository is still needed for adoption evidence.
 
 The repository tests the exact action revision below against its public `launch-success.apk` fixture in [`action-contract.yml`](../.github/workflows/action-contract.yml). Copy the shape, then replace the APK path and AVD name for your project.
 

@@ -138,7 +138,7 @@ The consent, timing, anonymous evidence and decision protocol is prepared in [fi
 
 ### M5. Turn one CI integration into repeat usage
 
-Local action regression: the receipt step now exports its directory and available Markdown report on both success and failure, preserving the original command exit code. A shell execution test covers exit codes 0, 1 and 2 with paths containing spaces. This does not prove hosted GitHub runner behavior; the external workflow gate below remains open.
+Local action regression: the receipt step now exports its directory and available Markdown report on both success and failure, preserving the original command exit code. A shell execution test covers exit codes 0, 1 and 2 with paths containing spaces. The [source-less consumer run 34217340594](https://github.com/OthmaneBlial/rustdroid/actions/runs/34217340594) also exercised the published action on GitHub without checking out RustDroid source into the caller workspace. Independent adopter workflow and repeat-use evidence remain open.
 
 Estimate: 2–4 days plus external response time.
 
