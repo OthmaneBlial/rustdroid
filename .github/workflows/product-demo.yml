@@ -23,7 +23,11 @@ jobs:
           ffmpeg -version
       - name: Check preinstalled FFmpeg for edit-only run
         if: inputs.reuse_run_id != ''
-        run: ffmpeg -version
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          ffmpeg -version
       - name: Retrieve verified candidate archive
         if: inputs.reuse_run_id == ''
         env:
