@@ -3,6 +3,10 @@ name: host-integration-runtime
 on:
   workflow_dispatch:
     inputs:
+      source_ref:
+        description: Immutable candidate commit to validate (empty uses the workflow commit)
+        type: string
+        default: ""
       failure_matrix_only:
         description: Run the full failure matrix without repeating smoke and performance suites
         type: boolean
@@ -20,6 +24,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+
+      - name: Record tested source revision
+        run: git rev-parse HEAD
 
       - name: Enable KVM access
         run: |
