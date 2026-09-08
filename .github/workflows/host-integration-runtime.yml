@@ -65,8 +65,12 @@ jobs:
           script: >-
             sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}";
             export PATH="$sdk_root/emulator:$sdk_root/platform-tools:$PATH";
+            build_tools="$(find "$sdk_root/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)";
+            export PATH="$build_tools:$PATH";
             cargo build --locked &&
+            RUSTDROID_FIXTURE_OUTPUT_DIR=dist/runtime-fixtures bash scripts/generate-fixture-apks.sh &&
             python3 scripts/check-runtime-failures.py --serial emulator-5554 --avd test_avd
+            --fixture-dir dist/runtime-fixtures --include-anr
 
       - name: Upload failure-matrix receipts
         if: always()

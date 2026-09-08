@@ -101,6 +101,7 @@ write_activity_source() {
         normal) ;;
         exit) behavior_code='new android.os.Handler().postDelayed(() -> android.os.Process.killProcess(android.os.Process.myPid()), 8000);' ;;
         crash) behavior_code='new android.os.Handler().postDelayed(() -> { throw new IllegalStateException("RustDroid intentional fixture crash"); }, 8000);' ;;
+        anr) behavior_code='registerReceiver(new android.content.BroadcastReceiver() { @Override public void onReceive(android.content.Context context, android.content.Intent intent) { android.os.SystemClock.sleep(60000); } }, new android.content.IntentFilter("com.rustdroid.fixture.BLOCK"));' ;;
         *) echo "unknown fixture behavior: $behavior" >&2; exit 1 ;;
     esac
     local package_path="${package_name//./\/}"
@@ -318,6 +319,11 @@ build_single_apk_fixture \
     "launch-then-crash" "com.rustdroid.fixture.crash" \
     "RustDroid Crash Fixture" "MainActivity" \
     "This app crashes eight seconds after launch" "true" "" "crash"
+
+build_single_apk_fixture \
+    "launch-then-anr" "com.rustdroid.fixture.anr" \
+    "RustDroid ANR Fixture" "MainActivity" \
+    "A test broadcast deliberately blocks this app" "true" "" "anr"
 
 echo "generated fixture APKs:"
 find "$apk_dir" -maxdepth 1 -type f -name '*.apk' | sort
