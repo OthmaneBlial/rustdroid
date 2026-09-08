@@ -45,6 +45,13 @@ Preserve the September 1 [Gradle/Flutter/Expo proof](https://github.com/OthmaneB
 
 ### Implementation evidence
 
+GitHub verification, September 8 (after owner-authorized Actions reactivation):
+
+- Source `c6c3df9`: [action contract](https://github.com/OthmaneBlial/rustdroid/actions/runs/34202434356) passed with a downloaded schema-v1 receipt identifying RustDroid 0.3.2, host backend and API 35; [fresh runner](https://github.com/OthmaneBlial/rustdroid/actions/runs/34202437067) executed both opt-in Android runtime tests successfully.
+- Source `d1ad34c`: [locked source-package installation](https://github.com/OthmaneBlial/rustdroid/actions/runs/34202677019) passed on Linux. [CI](https://github.com/OthmaneBlial/rustdroid/actions/runs/34202677506) passed fast checks and built the Linux musl archive, verified its checksum and installed it in a clean container, reporting 0.3.2. The archive used the CI label, not a published release tag.
+- [Dependency security](https://github.com/OthmaneBlial/rustdroid/actions/runs/34202677442) and [CodeQL](https://github.com/OthmaneBlial/rustdroid/actions/runs/34202677495) passed for `d1ad34c`.
+- Full runtime failure-matrix validation is still pending. These successes do not establish every M1 failure case, a published release, external adoption or a final video. Earlier local-only notes below describe the implementation sequence, not the latest hosted validation status.
+
 Implementation is in progress; the audit snapshot above remains historical. The owner has authorized source commits directly to main. This does not authorize or establish a tagged release, hosted runtime validation or a final Android demonstration.
 
 - Reader tasks are now supervised; startup errors, unexpected EOF and panics cannot silently pass. Readiness precedes the observation timer.
@@ -191,9 +198,9 @@ Attention without successful trials means activation needs work. Trials without 
 
 ## Automation and release gates
 
-Actions was paused by the owner. Preparing files or running local tests does not reverse that setting. Once enabled, keep lightweight checks on changes and run emulator/release lanes deliberately with timeouts and failure artifacts.
+Actions was re-enabled with explicit owner authorization on September 8. Android/KVM execution is restricted to GitHub runners; no KVM or emulator is to be installed on the owner's Mac. Keep lightweight checks on changes and run emulator/release lanes deliberately with timeouts and failure artifacts.
 
-[Issue #19](https://github.com/OthmaneBlial/rustdroid/issues/19) has one historical [scheduled success on August 31](https://github.com/OthmaneBlial/rustdroid/actions/runs/33393692395), not four consecutive weekly proofs. No reliability badge while the schedule is paused.
+[Issue #19](https://github.com/OthmaneBlial/rustdroid/issues/19) has one historical [scheduled success on August 31](https://github.com/OthmaneBlial/rustdroid/actions/runs/33393692395), not four consecutive weekly proofs. Manual validation runs do not replace that scheduled evidence.
 
 Local gate:
 
