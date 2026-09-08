@@ -26,7 +26,28 @@ for scenario in success failure; do
     jq -e '.failure_stage == "app_launch"' demo-artifacts/failure/run-summary.json >/dev/null
   fi
   mark "$scenario-result"
-  sleep 6
+  if [[ "$scenario" == success ]]; then
+    # Put the successful receipt on screen before exercising the intentional
+    # missing-launcher case. This gives the product demo a readable green
+    # outcome instead of making the first visible report an error.
+    google-chrome --no-sandbox --disable-gpu --no-first-run \
+      --user-data-dir="$RUNNER_TEMP/demo-success-browser" --window-position=0,0 --window-size=1280,720 \
+      "file://$PWD/demo-artifacts/success/run-report.html" > demo-artifacts/success-browser.log 2>&1 &
+    success_browser_pid=$!
+    success_report_window=$(timeout 60 xdotool search --sync --onlyvisible --name 'RustDroid Run Receipt' | head -n 1)
+    [[ -n "$success_report_window" ]]
+    kill -0 "$success_browser_pid"
+    xdotool windowactivate --sync "$success_report_window"
+    mark success-report-start
+    sleep 8
+    mark success-report-end
+    xdotool key --clearmodifiers alt+F4 || true
+    kill "$success_browser_pid" 2>/dev/null || true
+    wait "$success_browser_pid" 2>/dev/null || true
+    sleep 2
+  else
+    sleep 6
+  fi
 done
 google-chrome --no-sandbox --disable-gpu --no-first-run \
   --user-data-dir="$RUNNER_TEMP/demo-browser" --window-position=0,0 --window-size=1280,720 \
