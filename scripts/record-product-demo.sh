@@ -17,7 +17,7 @@ ffmpeg -hide_banner -loglevel warning -f x11grab -framerate 25 -video_size 1280x
 recorder_pid=$!
 trap 'kill -INT "$recorder_pid" 2>/dev/null || true; wait "$recorder_pid" || true' EXIT
 printf 'recording-start,%s\n' "$(date +%s.%N)" > demo-artifacts/timeline.csv
-xterm -geometry 95x32+0+0 -fa 'DejaVu Sans Mono' -fs 13 -bg '#101820' -fg '#eef4ef' \
+xterm -geometry 83x36+0+0 -fa 'DejaVu Sans Mono' -fs 12 -bg '#101820' -fg '#eef4ef' \
   -e bash scripts/demo-session.sh &
 for attempt in $(seq 1 180); do
   [[ -f demo-artifacts/session-ended ]] && break

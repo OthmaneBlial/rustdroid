@@ -13,7 +13,7 @@ jobs:
       - name: Install recording tools on the GitHub runner only
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg xvfb xterm openbox scrcpy
+          sudo apt-get install -y ffmpeg xvfb xterm openbox scrcpy xdotool
           ffmpeg -version
       - name: Retrieve verified candidate archive
         env:
