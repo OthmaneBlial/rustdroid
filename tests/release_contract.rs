@@ -57,6 +57,7 @@ fn release_assets_exist_in_repo() {
         ".github/workflows/crates-io-readiness.yml",
         ".github/workflows/release.yml",
         ".github/workflows/published-release.yml",
+        ".github/workflows/source-less-consumer.yml",
         "docs/performance-baselines.json",
         "docs/package-distribution.md",
         "docs/performance-notes/v0.1.0.md",
@@ -187,6 +188,7 @@ fn official_actions_use_node24_ready_majors() {
         ".github/workflows/reference-stack-fixtures.yml",
         ".github/workflows/release.yml",
         ".github/workflows/published-release.yml",
+        ".github/workflows/source-less-consumer.yml",
         "examples/workflows/gradle-android-receipt.yml",
         "examples/workflows/flutter-receipt.yml",
         "examples/workflows/react-native-expo-receipt.yml",
@@ -232,6 +234,21 @@ fn action_contract_exercises_checked_in_source_and_requires_api_level() {
     assert!(workflow.contains("tests/fixtures/apks/launch-success.apk"));
     assert!(workflow.contains("push:"));
     assert!(workflow.contains("src/**"));
+}
+
+#[test]
+fn source_less_consumer_exercises_the_published_action_without_checkout() {
+    let workflow = std::fs::read_to_string(".github/workflows/source-less-consumer.yml")
+        .expect("read source-less consumer workflow");
+    let pinned_action =
+        "OthmaneBlial/rustdroid@ce727e89711958fc09daa57ac17d90bf8743e8c3";
+
+    assert!(workflow.contains("source-less consumer action"));
+    assert!(workflow.contains(pinned_action));
+    assert!(!workflow.contains("\n      - uses: actions/checkout@"));
+    assert!(workflow.contains("rustdroid-fixture-${RELEASE_VERSION}.apk"));
+    assert!(workflow.contains("api-level: 35"));
+    assert!(workflow.contains(".emulator.api_level == \"35\""));
 }
 
 #[test]

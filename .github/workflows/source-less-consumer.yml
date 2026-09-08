@@ -1,0 +1,117 @@
+name: source-less-consumer
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published RustDroid release used by the consumer fixture
+        required: true
+        default: v0.3.2
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  consumer:
+    name: source-less consumer action
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      # Deliberately no actions/checkout step: this models a caller repository
+      # that contains its own APK workflow but no RustDroid source tree.
+      - name: Download the published fixture
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          mkdir -p consumer-input
+          gh release download "$RELEASE_VERSION" \
+            --repo OthmaneBlial/rustdroid \
+            --pattern "rustdroid-fixture-${RELEASE_VERSION}.apk" \
+            --pattern "rustdroid-fixture-${RELEASE_VERSION}.apk.sha256" \
+            --dir consumer-input
+          cd consumer-input
+          sha256sum -c "rustdroid-fixture-${RELEASE_VERSION}.apk.sha256"
+
+      - name: Enable runner KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Provision the documented Android 35 AVD
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          avd-name: test_avd
+          profile: pixel_5
+          target: google_apis
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
+          script: "true"
+
+      - name: Start the provisioned Android 35 AVD
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          emulator="$sdk_root/emulator/emulator"
+          adb="$sdk_root/platform-tools/adb"
+          test -x "$emulator"
+          test -x "$adb"
+          echo "$sdk_root/emulator" >> "$GITHUB_PATH"
+          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
+          "$emulator" -avd test_avd -no-snapshot -no-window -gpu swiftshader_indirect \
+            -no-audio -no-boot-anim -read-only > "$RUNNER_TEMP/source-less-consumer-emulator.log" 2>&1 &
+          for attempt in $(seq 1 90); do
+            if "$adb" -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | grep -qx '1'; then
+              "$adb" -s emulator-5554 shell input keyevent 82
+              exit 0
+            fi
+            sleep 2
+          done
+          "$adb" devices || true
+          tail -n 120 "$RUNNER_TEMP/source-less-consumer-emulator.log" || true
+          exit 1
+
+      - name: Run the published action without RustDroid source
+        id: receipt
+        uses: OthmaneBlial/rustdroid@ce727e89711958fc09daa57ac17d90bf8743e8c3
+        with:
+          apk-path: consumer-input/rustdroid-fixture-${{ inputs.version }}.apk
+          profile: host-fast
+          runtime-backend: host
+          host-avd-name: test_avd
+          artifacts-dir: consumer-artifacts
+          duration-secs: "2"
+          keep-alive: "false"
+
+      - name: Assert the source-less receipt contract
+        run: |
+          set -euo pipefail
+          jq -e \
+            '.schema_version == 1
+             and .status == "passed"
+             and .runtime_backend == "host"
+             and .emulator.api_level == "35"
+             and .package_name == "com.rustdroid.fixture.launch"
+             and .launchable_activity == "com.rustdroid.fixture.launch.MainActivity"' \
+            consumer-artifacts/run-summary.json
+
+      - name: Upload source-less consumer receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: source-less-consumer-receipt-${{ inputs.version }}
+          path: consumer-artifacts
+          if-no-files-found: warn
+
+      - name: Stop the consumer emulator
+        if: always()
+        run: |
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          "$sdk_root/platform-tools/adb" -s emulator-5554 emu kill || true
