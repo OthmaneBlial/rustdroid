@@ -2,6 +2,51 @@ use std::process::Command;
 use std::{env, fs, path::Path};
 
 #[test]
+fn release_version_guard_rejects_mismatched_tags() {
+    let workflow = fs::read_to_string(".github/workflows/release.yml").unwrap();
+    let body = workflow
+        .split("name: Resolve and validate candidate version")
+        .nth(1)
+        .unwrap()
+        .split("run: |\n")
+        .nth(1)
+        .unwrap()
+        .split("\n      -")
+        .next()
+        .unwrap();
+    let script = body
+        .lines()
+        .map(|line| line.strip_prefix("          ").unwrap_or(line))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let version = format!("v{}", env!("CARGO_PKG_VERSION"));
+    for (kind, name, success) in [
+        ("branch", "main", true),
+        ("tag", version.as_str(), true),
+        ("tag", "v0.0.0", false),
+    ] {
+        let directory = tempfile::tempdir().unwrap();
+        let output = directory.path().join("output");
+        let result = Command::new("bash")
+            .args(["-c", &script])
+            .env("GITHUB_REF_TYPE", kind)
+            .env("GITHUB_REF_NAME", name)
+            .env("GITHUB_OUTPUT", &output)
+            .output()
+            .unwrap();
+        assert_eq!(result.status.success(), success);
+        if success {
+            assert_eq!(
+                fs::read_to_string(output).unwrap(),
+                format!("version={version}\n")
+            );
+        } else {
+            assert!(!output.exists());
+        }
+    }
+}
+
+#[test]
 fn release_assets_exist_in_repo() {
     for path in [
         ".github/workflows/ci.yml",
