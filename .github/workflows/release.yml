@@ -46,7 +46,7 @@ jobs:
         run: RUSTDROID_REQUIRE_CONTAINER=1 ./scripts/verify-release-install-container.sh "${{ matrix.target }}" "${{ github.ref_name }}"
 
       - name: Attest release archive provenance
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist/rustdroid-${{ matrix.target }}.tar.gz
