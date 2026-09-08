@@ -1333,7 +1333,11 @@ fn receipt_input(path: &Path) -> Result<ReceiptInput> {
             .and_then(|name| name.to_str())
             .unwrap_or("input.apk")
             .to_owned(),
-        sha256: format!("{:x}", hasher.finalize()),
+        sha256: hasher
+            .finalize()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect(),
         size_bytes: metadata.len(),
     })
 }
