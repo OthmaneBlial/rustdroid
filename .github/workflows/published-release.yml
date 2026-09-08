@@ -1,0 +1,131 @@
+name: published-release-verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published GitHub Release tag to verify
+        required: true
+        default: v0.3.2
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify-published-release:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Download and install the published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          mkdir -p "$GITHUB_WORKSPACE/release-dist"
+          gh release download "$RELEASE_VERSION" \
+            --repo OthmaneBlial/rustdroid \
+            --pattern 'rustdroid-x86_64-unknown-linux-musl.tar.gz' \
+            --pattern 'rustdroid-x86_64-unknown-linux-musl.tar.gz.sha256' \
+            --pattern 'rustdroid-fixture-*.apk' \
+            --pattern 'rustdroid-fixture-*.apk.sha256' \
+            --dir "$GITHUB_WORKSPACE/release-dist"
+          cd "$GITHUB_WORKSPACE/release-dist"
+          sha256sum -c rustdroid-x86_64-unknown-linux-musl.tar.gz.sha256
+          sha256sum -c rustdroid-fixture-*.apk.sha256
+          tar -xzf rustdroid-x86_64-unknown-linux-musl.tar.gz
+          release_root="$GITHUB_WORKSPACE/release-dist/rustdroid-x86_64-unknown-linux-musl"
+          install_dir="$GITHUB_WORKSPACE/release-dist/installed/bin"
+          mkdir -p "$install_dir"
+          RUSTDROID_BASH_COMPLETION_DIR="$GITHUB_WORKSPACE/release-dist/installed/completions/bash" \
+          RUSTDROID_ZSH_COMPLETION_DIR="$GITHUB_WORKSPACE/release-dist/installed/completions/zsh" \
+            "$release_root/install.sh" \
+            --archive "$GITHUB_WORKSPACE/release-dist/rustdroid-x86_64-unknown-linux-musl.tar.gz" \
+            --checksum "$GITHUB_WORKSPACE/release-dist/rustdroid-x86_64-unknown-linux-musl.tar.gz.sha256" \
+            --install-dir "$install_dir"
+          "$install_dir/rustdroid" version | tee "$GITHUB_WORKSPACE/release-dist/version.txt"
+          grep -Fx "rustdroid ${RELEASE_VERSION#v}" "$GITHUB_WORKSPACE/release-dist/version.txt"
+          set +e
+          "$install_dir/rustdroid" --runtime-backend host --json doctor > "$GITHUB_WORKSPACE/release-dist/doctor-before-emulator.json"
+          doctor_exit=$?
+          set -e
+          [[ "$doctor_exit" == 0 || "$doctor_exit" == 10 ]]
+          jq -e '.schema_version == 1 and (.checks | length > 0)' \
+            "$GITHUB_WORKSPACE/release-dist/doctor-before-emulator.json"
+
+      - name: Enable runner KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Provision the documented Android 35 AVD
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          avd-name: test_avd
+          profile: pixel_5
+          target: google_apis
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
+          script: "true"
+
+      - name: Start the provisioned AVD
+        run: |
+          set -euo pipefail
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          emulator="$sdk_root/emulator/emulator"
+          adb="$sdk_root/platform-tools/adb"
+          test -x "$emulator"
+          test -x "$adb"
+          echo "$sdk_root/emulator" >> "$GITHUB_PATH"
+          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
+          "$emulator" -avd test_avd -no-snapshot -no-window -gpu swiftshader_indirect \
+            -no-audio -no-boot-anim -read-only > "$RUNNER_TEMP/published-release-emulator.log" 2>&1 &
+          for attempt in $(seq 1 90); do
+            if "$adb" -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | grep -qx '1'; then
+              "$adb" -s emulator-5554 shell input keyevent 82
+              exit 0
+            fi
+            sleep 2
+          done
+          "$adb" devices || true
+          tail -n 120 "$RUNNER_TEMP/published-release-emulator.log" || true
+          exit 1
+
+      - name: Run the README quickstart from the published binary
+        id: receipt
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          install_dir="$GITHUB_WORKSPACE/release-dist/installed/bin"
+          fixture="$(find "$GITHUB_WORKSPACE/release-dist" -maxdepth 1 -type f -name 'rustdroid-fixture-*.apk' | head -n 1)"
+          test -s "$fixture"
+          "$install_dir/rustdroid" --runtime-backend host --json doctor > "$GITHUB_WORKSPACE/release-dist/doctor-after-emulator.json"
+          "$install_dir/rustdroid" self-test --backend host --json > "$GITHUB_WORKSPACE/release-dist/self-test.json"
+          "$install_dir/rustdroid" \
+            --profile host-fast \
+            --host-avd-name test_avd \
+            run "$fixture" \
+            --duration-secs 2 \
+            --keep-alive false \
+            --artifacts-dir "$GITHUB_WORKSPACE/release-dist/receipt"
+
+      - name: Upload published-release receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: published-release-receipt-${{ inputs.version }}
+          path: release-dist
+          if-no-files-found: error
+
+      - name: Stop the provisioned AVD
+        if: always()
+        run: |
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          "$sdk_root/platform-tools/adb" -s emulator-5554 emu kill || true
