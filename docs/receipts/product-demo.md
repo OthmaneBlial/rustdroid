@@ -17,6 +17,7 @@ KVM was installed on the maintainer's Mac.
 | Final video | [`rustdroid-product-demo.mp4`](../../assets/rustdroid-product-demo.mp4), SHA-256 `65824832e8e1f032a95d6cbd0d5731973d3f28ec17ef0bcf3ba6101f7281edef` |
 | Poster | [`rustdroid-product-demo-poster.png`](../../assets/rustdroid-product-demo-poster.png), SHA-256 `68c3a614891d13d9297ecce40127c48ccbc4fe003f303ba91b8fa506bf8d0842` |
 | Captions | [`rustdroid-product-demo.srt`](../../assets/rustdroid-product-demo.srt), SHA-256 `c39271c6be0c8c5a211ed598e1c02aa63cfe54c38b48d0ccec17235616c1a5f3` |
+| Live project site | [Pages site](https://othmaneblial.github.io/rustdroid/), deployed in `OthmaneBlial/OthmaneBlial.github.io` commit `5e21b76197e8de9c93d5b52afbef7304c24a0682`; MP4, SRT and docs paths returned HTTP 200 after propagation |
 
 The raw capture is 115.36 seconds. The public export is 57.36 seconds,
 1280×720, 25 fps, H.264 `yuv420p`, no audio, and 552 KiB. The export uses

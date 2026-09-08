@@ -14,7 +14,7 @@ Audit baseline: candidate archive `2754c3e`, checked against the live repository
 | Attention | 2 stars, 0 forks; all 13 dependency PRs processed | No independently verified adopter workflow |
 | Core | Host/Docker; APK, splits, APKS/XAPK; watch; diagnostics; five report formats | A large command surface makes the first decision harder |
 | Evidence | Public Gradle, Flutter and Expo runs; exact-candidate API 30 matrix and receipts | External adopter evidence is still absent |
-| Demo | Real 57-second H.264 MP4, poster, captions and checked-in uncut source | Native GitHub rendering and external viewers still need monitoring |
+| Demo | Real 57-second H.264 MP4, poster, captions, checked-in uncut source and a live project-site player | Native GitHub README rendering and external viewers still need monitoring |
 | Installation | Published `v0.3.1`; checksummed `v0.3.2` Linux x86_64 candidate archive and clean-container install | Candidate is not tagged or published; README's latest binary remains v0.3.1 |
 | Quality | Local Rust suite, Clippy, packaging, security audits and exact-candidate Linux/KVM host lane passed | Business flows and a broader device matrix are out of scope |
 | Automation | GitHub Actions re-enabled; action contract, host matrix, release archive and demo lanes have green runs | Scheduled weekly proof and external consumer repositories remain open |
@@ -115,7 +115,7 @@ Use FFmpeg, preserving raw output and the original recording. Keep the existing 
 - [x] Retain uncut source. Label edits, warmed emulator state and speed changes; measure SDK installation separately. The raw MP4 is checked in and retained in the Actions artifact.
 - [x] Export captioned 1280×720 H.264 MP4, `yuv420p`, `+faststart`, 57.36 seconds and 552 KiB; it stays below the 15 MB target.
 - [x] Make it understandable without audio. The silent export keeps readable commands and burned captions instead of relying on sound.
-- [x] Provide play/pause/seek controls on the project site, with an accessible SRT track and fallback download. The checked-in site assets are present and the player markup is covered by the static-site contract.
+- [x] Provide play/pause/seek controls on the project site, with an accessible SRT track and fallback download. The checked-in site assets are covered by the static-site contract and live at `https://othmaneblial.github.io/rustdroid/` after Pages commit `5e21b761` (MP4, SRT and docs paths verified over HTTPS).
 - [ ] Verify a native GitHub README video player. GitHub's rendered sanitizer removes a relative repository `<video>` element; the README retains the poster/source/fallback, but a maintainer must upload the MP4 once through GitHub's attachment UI to obtain a `github.com/user-attachments/assets/...` URL before this external rendering gate can be checked.
 - [x] Inspect beginning, launch, failure, report and final frames; decode the entire file and verify playback. The inspected frames and full `ffmpeg -f null -` decode are recorded in the delivery notes.
 

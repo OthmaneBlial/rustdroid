@@ -32,9 +32,12 @@ ROADMAP.md M3 specifies a 45–60 second real Linux/KVM success/failure recordin
 Recording tools and Android/KVM run on the GitHub Linux runner only. No emulator or KVM installation on macOS is needed. The reproducible capture entry point is `.github/workflows/product-demo.yml`, with `scripts/record-product-demo.sh`, `scripts/demo-session.sh` and `scripts/edit-product-demo.sh`. The edit notes label the warmed state, omitted setup, cuts and speed changes. The raw source is checked in for durable inspection and also retained in the linked Actions artifact.
 
 The project site includes a native `<video controls>` player with the poster and
-SRT track, plus a direct fallback download. The README carries the same source
-markup and fallback, but GitHub's rendered sanitizer removes relative
-repository `<video>` elements. A maintainer must upload the MP4 through
+SRT track, plus a direct fallback download. It is live at
+[`othmaneblial.github.io/rustdroid`](https://othmaneblial.github.io/rustdroid/)
+from Pages commit `5e21b761`; HTTPS checks for `/`, `/docs.html`, the MP4, the
+SRT and `docs/demo.md` all returned 200 after propagation. The README carries
+the same source markup and fallback, but GitHub's rendered sanitizer removes
+relative repository `<video>` elements. A maintainer must upload the MP4 through
 GitHub's attachment UI and replace the source with its `user-attachments` URL
 to complete that external README-player gate. Release preparation is tracked in
 [the v0.3.2 draft](releases/v0.3.2.md); no new release has been published by
