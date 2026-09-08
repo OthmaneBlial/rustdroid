@@ -110,6 +110,7 @@ jobs:
           "$install_dir/rustdroid" self-test --backend host --json > "$GITHUB_WORKSPACE/release-dist/self-test.json"
           "$install_dir/rustdroid" \
             --profile host-fast \
+            --headless true \
             --host-avd-name test_avd \
             run "$fixture" \
             --duration-secs 2 \
