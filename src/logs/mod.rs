@@ -691,6 +691,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn reader_readiness_timeout_cannot_become_a_pass() {
+        let mut tasks = JoinSet::new();
+        let (_ready_tx, ready) = mpsc::unbounded_channel();
+        let (_crash_tx, mut crash) = mpsc::unbounded_channel();
+        tasks.spawn(std::future::pending::<Result<()>>());
+        let error = timeout(
+            Duration::from_secs(12),
+            observe_tasks(&mut tasks, ready, &mut crash, Some(1), false),
+        )
+        .await
+        .expect("startup timeout must be bounded")
+        .unwrap_err();
+        assert!(error.to_string().contains("log reader startup timed out"));
+        tasks.abort_all();
+    }
+
+    #[tokio::test]
+    async fn closed_readiness_channel_cannot_become_a_pass() {
+        let mut tasks = JoinSet::new();
+        let (ready_tx, ready) = mpsc::unbounded_channel();
+        drop(ready_tx);
+        let (_crash_tx, mut crash) = mpsc::unbounded_channel();
+        tasks.spawn(std::future::pending::<Result<()>>());
+        let error = observe_tasks(&mut tasks, ready, &mut crash, Some(1), false)
+            .await
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("log readers did not become ready"));
+        tasks.abort_all();
+    }
+
+    #[tokio::test]
     async fn reader_start_failure_cannot_become_a_pass() {
         let mut tasks = JoinSet::new();
         let (_ready_tx, ready) = mpsc::unbounded_channel();
