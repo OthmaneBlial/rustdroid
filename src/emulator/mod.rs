@@ -177,6 +177,21 @@ struct RunFailure {
     error: anyhow::Error,
 }
 
+type ClassifiedFailure = (&'static str, &'static str, &'static str);
+
+fn retain_primary_failure(
+    primary: Option<ClassifiedFailure>,
+    cleanup_failed: bool,
+) -> Option<ClassifiedFailure> {
+    primary.or_else(|| {
+        cleanup_failed.then_some((
+            "cleanup",
+            "cleanup",
+            "runtime cleanup did not complete successfully",
+        ))
+    })
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 struct WatchToken {
     path: PathBuf,
@@ -483,17 +498,10 @@ impl EmulatorOrchestrator {
         } else {
             Ok(())
         };
-        if cleanup_result.is_err() {
-            if failure.is_none() {
-                failure = Some((
-                    "cleanup",
-                    "cleanup",
-                    "runtime cleanup did not complete successfully",
-                ));
-            } else {
-                eprintln!("warning: runtime cleanup also failed after an earlier run failure");
-            }
+        if cleanup_result.is_err() && failure.is_some() {
+            eprintln!("warning: runtime cleanup also failed after an earlier run failure");
         }
+        let failure = retain_primary_failure(failure, cleanup_result.is_err());
         let (status, failure_stage, failure_classification, error_summary) = failure.map_or_else(
             || ("passed", None, "none", None),
             |(stage, classification, summary)| {
@@ -2024,6 +2032,47 @@ mod tests {
         assert!(junit.contains("failures=\"1\""));
         assert!(junit.contains("<failure type=\"launch\""));
         assert!(junit.contains("the application could not be launched"));
+    }
+
+    #[test]
+    fn cleanup_failure_preserves_primary_classification_in_written_reports() {
+        for primary in [
+            None,
+            Some(("app_runtime", "crash", "primary crash")),
+            Some(("app_runtime", "anr", "primary ANR")),
+            Some(("log_capture", "capture", "primary reader failure")),
+            Some(("artifact_capture", "capture", "primary artifact failure")),
+        ] {
+            for cleanup_failed in [false, true] {
+                let selected = super::retain_primary_failure(primary, cleanup_failed);
+                if primary.is_some() {
+                    assert_eq!(selected, primary);
+                } else if !cleanup_failed {
+                    assert!(selected.is_none());
+                    continue;
+                }
+                let (stage, classification, message) = selected.unwrap();
+                let directory = tempdir().unwrap();
+                let mut summary = sample_summary();
+                summary.status = "failed".into();
+                summary.failure_stage = Some(stage.into());
+                summary.failure_classification = classification.into();
+                summary.error_summary = Some(message.into());
+                write_run_artifacts(directory.path(), &summary, &RunArtifacts::default()).unwrap();
+                let json: serde_json::Value = serde_json::from_str(
+                    &fs::read_to_string(directory.path().join("run-summary.json")).unwrap(),
+                )
+                .unwrap();
+                assert_eq!(json["failure_stage"], stage);
+                assert_eq!(json["failure_classification"], classification);
+                assert_eq!(json["error_summary"], message);
+                for file in ["run-report.html", "junit.xml", "run-summary.md"] {
+                    let report = fs::read_to_string(directory.path().join(file)).unwrap();
+                    assert!(report.contains(stage), "{file}");
+                    assert!(report.contains(message), "{file}");
+                }
+            }
+        }
     }
 
     #[test]
