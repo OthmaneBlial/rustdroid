@@ -8,7 +8,7 @@ KVM was installed on the maintainer's Mac.
 
 | Item | Evidence |
 | --- | --- |
-| Android capture | [full capture run 34227525161](https://github.com/OthmaneBlial/rustdroid/actions/runs/34227525161) |
+| Android capture | [raw capture from run 34227525161](https://github.com/OthmaneBlial/rustdroid/actions/runs/34227525161) (capture and receipts retained; its first export was correctly rejected above 60 s) |
 | Accepted FFmpeg export | [green edit-only run 34228671909](https://github.com/OthmaneBlial/rustdroid/actions/runs/34228671909) |
 | Product binary source | `2754c3ee6fc3bb7795f0b2f0a8e100febb4be900` (candidate archive from [34205275762](https://github.com/OthmaneBlial/rustdroid/actions/runs/34205275762)) |
 | Recording workflow checkout | `a26a9f63f8e31a7911a0c6ecc343765fa427ed43` |
