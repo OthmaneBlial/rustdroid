@@ -1,0 +1,46 @@
+name: product-demo
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  record:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install recording tools on the GitHub runner only
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg xvfb xterm openbox scrcpy
+          ffmpeg -version
+      - name: Retrieve verified candidate archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 34205275762 --repo OthmaneBlial/rustdroid --name rustdroid-x86_64-unknown-linux-musl --dir demo-binary
+          cd demo-binary
+          echo 'b8771783960ad4e14f36dc97daca3cd48b6b73d234d72e03e937d86f01ef98b2  rustdroid-x86_64-unknown-linux-musl.tar.gz' | sha256sum -c -
+          tar -xzf rustdroid-x86_64-unknown-linux-musl.tar.gz
+      - name: Enable runner KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          avd-name: test_avd
+          profile: Nexus 5
+          target: google_apis
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim -read-only
+          script: xvfb-run -a -s '-screen 0 1280x720x24' bash scripts/record-product-demo.sh
+      - name: Retain uncut capture and actual receipts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: product-demo-source
+          path: demo-artifacts
+          if-no-files-found: warn
