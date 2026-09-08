@@ -16,10 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install recording tools on the GitHub runner only
+        if: inputs.reuse_run_id == ''
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg xvfb xterm openbox scrcpy xdotool
           ffmpeg -version
+      - name: Check preinstalled FFmpeg for edit-only run
+        if: inputs.reuse_run_id != ''
+        run: ffmpeg -version
       - name: Retrieve verified candidate archive
         if: inputs.reuse_run_id == ''
         env:
