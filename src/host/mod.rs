@@ -202,6 +202,7 @@ impl HostRuntime {
         let program_path = resolve_host_tool(program)?;
         let output = Command::new(&program_path)
             .args(command.iter().skip(1))
+            .kill_on_drop(true)
             .output()
             .await
             .with_context(|| {
@@ -748,6 +749,38 @@ fn find_latest_sdk_tool(root: &Path, suffix: &str) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn cancelled_host_command_does_not_continue_after_timeout() {
+        let directory = tempfile::tempdir().unwrap();
+        let started = directory.path().join("started");
+        let escaped = directory.path().join("escaped");
+        let runtime = super::HostRuntime::connect().unwrap();
+        let config = crate::config::RuntimeConfig::default();
+        let result = tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            runtime.exec(
+                &config,
+                vec![
+                    "/bin/sh".into(),
+                    "-c".into(),
+                    "printf started > \"$1\"; sleep 1; printf escaped > \"$2\"".into(),
+                    "rustdroid-cancellation-test".into(),
+                    started.to_string_lossy().into_owned(),
+                    escaped.to_string_lossy().into_owned(),
+                ],
+            ),
+        )
+        .await;
+        assert!(result.is_err(), "the command must reach its timeout");
+        assert!(started.exists(), "the command must actually have started");
+        tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+        assert!(
+            !escaped.exists(),
+            "cancelled host command continued executing"
+        );
+    }
+
     use std::fs;
 
     use tempfile::tempdir;
